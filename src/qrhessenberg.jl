@@ -84,4 +84,3 @@ function qr!(H::Hessenberg)
 
     list
 end
-

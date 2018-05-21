@@ -54,6 +54,12 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
     H = copy(arnoldi.H)
 
     for m = max : -1 : min + 1
+        # H_small = view(H, 1 : m, 1 : m)
+        # substract λ from diagonal
+        # list_of_rotations = qr!(Hessenberg(H_small))
+        # mul!(UpperTriangular(H_small), list_of_rotations)
+        # add back λ to diagonal
+
         Qs, Rs = qr(view(H, 1 : m, 1 : m) - λs[m] * I)
         h *= Qs[m, m - 1]
         Q = view(Q, 1 : max, 1 : m) * Qs
