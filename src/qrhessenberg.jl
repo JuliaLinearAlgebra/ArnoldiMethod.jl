@@ -33,13 +33,6 @@ function mul!(A::AbstractMatrix, Q::ListOfRotations)
   A
 end
 
-function mul!(Q::ListOfRotations, H::MyHessenberg)
-  for i = 1 : length(Q.rotations)
-    mul!(Q[i],H)
-  end
-  H
-end
-
 function mul!(G::MyGivens, H::MyHessenberg)
     dim = size(H.H, 1)
     @inbounds for j in G.i:dim
@@ -66,10 +59,10 @@ function qr_hessenberg!(H::MyHessenberg)
     list = ListOfRotations(Vector{Tuple{Float64,Float64}}(dim-1))
     for i in 1:dim-1
         c, s = givensAlgorithm(H.H[i,i],H.H[i+1,i])
+        mul!(MyGivens(c, s, i), H)
         list.rotations[i] = (c,s)
     end
     mul!(Q.H, list)
-    mul!(list, H)
     (MyHessenberg(Q.H'),H,list)
 end
 
