@@ -1,5 +1,7 @@
 # Implicitly Restarted Arnoldi Method (IRAM) in Julia
 
+[![Build Status](https://travis-ci.org/haampie/IRAM.jl.svg?branch=master)](https://travis-ci.org/haampie/IRAM.jl)
+
 ## Goal
 Remove the ARPACK dependency of Julia and make `eigs` a native Julia function.
 

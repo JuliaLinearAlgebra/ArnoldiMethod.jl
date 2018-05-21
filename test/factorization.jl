@@ -45,7 +45,7 @@ end
 end
 
 @testset "Integration test" begin
-    my_matrix(n) = spdiagm((fill(-1.0 + 0im, n-1), fill(2.0 + 0im, n), fill(-1.2 + 0im, n-1)), (-1, 0, 1))
+    my_matrix(n) = spdiagm((fill(-1.0 + 0im, n-1), fill(2.0 + 0im, n), fill(-1.1 + 0im, n-1)), (-1, 0, 1))
 
     A = my_matrix(100)
 
