@@ -3,19 +3,19 @@ using Base.@propagate_inbounds
 
 import Base: getindex
 
-export Hessenberg, qr!, mul!
+export Hessenberg, qr!, mul!, ListOfRotations
 
-struct Givens{Tv,Ti}
-    c::Tv
-    s::Tv
+struct Givens{Tc,Ts,Ti}
+    c::Tc
+    s::Ts
     i::Ti
 end
 
-struct ListOfRotations{Tv}
-    rotations::Vector{Tuple{Tv,Tv}}
+struct ListOfRotations{Tc,Ts}
+    rotations::Vector{Tuple{Tc,Ts}}
 end
 
-ListOfRotations(T::Type, total::Int) = ListOfRotations{T}(Vector{Tuple{T,T}}(total))
+ListOfRotations(Tc::Type, Ts::Type, total::Int) = ListOfRotations{Tc,Ts}(Vector{Tuple{Tc,Ts}}(total))
 
 struct Hessenberg{T}
     H::T
@@ -27,7 +27,7 @@ end
 end
 
 function mul!(A::AbstractMatrix, Q::ListOfRotations)
-    for i = 1:length(Q.rotations)
+    for i = size(A, 2) - 1
         mul!(A, Q[i])
     end
     A
@@ -40,6 +40,9 @@ function mul!(Q::ListOfRotations, H::Hessenberg)
     H
 end
 
+"""
+Applies the Givens rotation to Hessenberg matrix H from the left (in-place).
+"""
 function mul!(G::Givens, H::Hessenberg)
     @inbounds for j in G.i:size(H.H, 2)
         h_min = G.c .* H.H[G.i,j] + G.s * H.H[G.i + 1,j]
@@ -49,8 +52,11 @@ function mul!(G::Givens, H::Hessenberg)
     end
 end
 
+"""
+Applies the transpose of the Givens rotation to A from the right (in-place).
+"""
 function mul!(A::AbstractMatrix, G::Givens)
-    dim = size(A, 1)
+    dim = size(A, 2)
     @inbounds for j in 1:dim
         a_min = G.c * A[j,G.i] + G.s * A[j,G.i + 1]
         a_max = -conj(G.s) * A[j,G.i] + G.c * A[j,G.i + 1]
@@ -60,17 +66,13 @@ function mul!(A::AbstractMatrix, G::Givens)
 end
 
 """
-    qr!(H::Hessenberg) -> ListOfRotations
-
 Apply Given's rotations to H so that it becomes upper triangular (in-place).
 
-Returns a list of Givens rotations.
+Stores the list of Givens rotations in L (in-place).
 """
-function qr!(H::Hessenberg)
+function qr!(H::Hessenberg, L::ListOfRotations)
     dim = size(H.H, 1)
     
-    list = ListOfRotations(eltype(H.H), dim - 1)
-
     for i in 1:dim - 1
         # Find new Givens coefficients
         c, s = givensAlgorithm(H.H[i,i], H.H[i + 1,i])
@@ -79,8 +81,7 @@ function qr!(H::Hessenberg)
         mul!(Givens(c, s, i), H)
 
         # Store the rotation
-        list.rotations[i] = (c, s)
+        L.rotations[i] = (c, s)
     end
 
-    list
 end
