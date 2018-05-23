@@ -50,20 +50,32 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
     h = arnoldi.H[max + 1, max]
 
     λs = sort!(eigvals(view(arnoldi.H, 1 : max, 1 : max)), by = abs, rev = true)
-    Q = eye(max)
+    Q = eye(Complex128, max)
     H = copy(arnoldi.H)
 
+    list = ListOfRotations(T, max)
+    # list = ListOfRotations(eltype(H),max)
     for m = max : -1 : min + 1
-        # H_small = view(H, 1 : m, 1 : m)
-        # substract λ from diagonal
-        # list_of_rotations = qr!(Hessenberg(H_small))
-        # mul!(UpperTriangular(H_small), list_of_rotations)
-        # add back λ to diagonal
+        H_new = view(H, 1 : m, 1 : m)
+        for i = 1:m # subtract λ from diagonal
+            H_new[i,i] -= λs[m]
+        end
+        qr!(Hessenberg(H_new),list)
+        H_new[m,m] = H[m+1,m]
+        H[m+1,m] = 0 # is this needed?
+        
+        mul!(view(Q, 1 : max, 1 : m), list)
+        
+        mul!(H_new, list)
+        for i = 1:m # add λ back to diagonal
+            H[i,i] = H_new[i,i] + λs[m]
+        end
+        H = view(H_new,1:m,1:m)
 
-        Qs, Rs = qr(view(H, 1 : m, 1 : m) - λs[m] * I)
-        h *= Qs[m, m - 1]
-        Q = view(Q, 1 : max, 1 : m) * Qs
-        H = Rs * Qs + λs[m] * I
+        # Qs, Rs = qr(view(H, 1 : m, 1 : m) - λs[m] * I)
+        # h *= Qs[m, m - 1]
+        # Q = view(Q, 1 : max, 1 : m) * Qs
+        # H = Rs * Qs + λs[m] * I
     end
 
     # Remove the last columns of H
