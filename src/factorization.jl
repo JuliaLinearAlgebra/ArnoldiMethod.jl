@@ -53,7 +53,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
     Q = eye(Complex128, max)
     H = copy(arnoldi.H)
 
-    list = ListOfRotations(Float64,Complex128,max)
+    list = ListOfRotations(T, max)
     # list = ListOfRotations(eltype(H),max)
     for m = max : -1 : min + 1
         H_new = view(H, 1 : m, 1 : m)

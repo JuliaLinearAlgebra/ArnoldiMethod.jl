@@ -15,7 +15,10 @@ struct ListOfRotations{Tc,Ts}
     rotations::Vector{Tuple{Tc,Ts}}
 end
 
-ListOfRotations(Tc::Type, Ts::Type, total::Int) = ListOfRotations{Tc,Ts}(Vector{Tuple{Tc,Ts}}(total))
+function ListOfRotations(Ts::Type, total::Int)
+    Tc = real(Ts)
+    ListOfRotations{Tc,Ts}(Vector{Tuple{Tc,Ts}}(total))
+end
 
 struct Hessenberg{T}
     H::T
@@ -27,7 +30,7 @@ end
 end
 
 function mul!(A::AbstractMatrix, Q::ListOfRotations)
-    for i = size(A, 2) - 1
+    for i = 1 : size(A, 2) - 1
         mul!(A, Q[i])
     end
     A
@@ -50,6 +53,7 @@ function mul!(G::Givens, H::Hessenberg)
         H.H[G.i,j] = h_min
         H.H[G.i + 1,j] = h_max
     end
+    H
 end
 
 """
@@ -58,11 +62,12 @@ Applies the transpose of the Givens rotation to A from the right (in-place).
 function mul!(A::AbstractMatrix, G::Givens)
     dim = size(A, 2)
     @inbounds for j in 1:dim
-        a_min = G.c * A[j,G.i] + G.s * A[j,G.i + 1]
-        a_max = -conj(G.s) * A[j,G.i] + G.c * A[j,G.i + 1]
+        a_min = G.c * A[j,G.i] + conj(G.s) * A[j,G.i + 1]
+        a_max = -G.s * A[j,G.i] + G.c * A[j,G.i + 1]
         A[j,G.i] = a_min
         A[j,G.i + 1] = a_max
     end
+    A
 end
 
 """
@@ -84,4 +89,5 @@ function qr!(H::Hessenberg, L::ListOfRotations)
         L.rotations[i] = (c, s)
     end
 
+    L
 end

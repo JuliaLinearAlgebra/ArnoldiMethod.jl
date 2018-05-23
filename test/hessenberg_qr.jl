@@ -1,14 +1,17 @@
 using Base.Test
-using IRAM: qr!, Hessenberg, mul!
+using IRAM: qr!, Hessenberg, mul!, ListOfRotations
 
 @testset "QR on Hessenberg matrix" begin
-    # Random Hessenberg matrix of size 11 x 10.
-    H = triu(rand(11, 10), -1)
-    R = copy(H)
+    for T in (Float64, Complex128)
+        # Random Hessenberg matrix of size 11 x 10.
+        H = triu(rand(T, 10, 10), -1)
+        R = copy(H)
 
-    rotations = qr!(Hessenberg(R))
-    Q = mul!(eye(11), rotations)
+        list = ListOfRotations(T, 9)
+        qr!(Hessenberg(R), list)
+        Q = mul!(eye(T, 10), list)
 
-    @test H ≈ Q * R
-    # @test istriu(H)
+        @test H ≈ Q * R
+        # @test istriu(H)
+    end
 end
