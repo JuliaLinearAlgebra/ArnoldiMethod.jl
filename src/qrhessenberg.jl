@@ -1,7 +1,7 @@
 using Base.LinAlg: givensAlgorithm
 using Base.@propagate_inbounds
 
-import Base: getindex
+import Base: getindex, setindex!, size
 
 export Hessenberg, qr!, mul!, ListOfRotations
 
@@ -20,9 +20,25 @@ function ListOfRotations(Ts::Type, total::Int)
     ListOfRotations{Tc,Ts}(Vector{Tuple{Tc,Ts}}(total))
 end
 
-struct Hessenberg{T}
-    H::T
+struct Hessenberg{T,V<:AbstractMatrix{T}} <: AbstractMatrix{T}
+    H::V
 end
+
+Hessenberg(H::AbstractMatrix) = Hessenberg{eltype(H),typeof(H)}(H)
+@propagate_inbounds getindex(H::Hessenberg, I...) = getindex(H.H, I...)
+@propagate_inbounds setindex!(H::Hessenberg, I...) = setindex!(H.H, I...)
+size(H::Hessenberg) = size(H.H)
+size(H::Hessenberg, d) = size(H.H, d)
+
+struct UpperTriangularMatrix{T,V<:AbstractMatrix{T}} <: AbstractMatrix{T}
+    R::V
+end
+
+UpperTriangularMatrix(R::AbstractMatrix) = UpperTriangularMatrix{eltype(R),typeof(R)}(R)
+@propagate_inbounds getindex(R::UpperTriangularMatrix, I...) = getindex(R.R, I...)
+@propagate_inbounds setindex!(R::UpperTriangularMatrix, I...) = setindex!(R.R, I...)
+size(R::UpperTriangularMatrix) = size(R.R)
+size(R::UpperTriangularMatrix, d) = size(R.R, d)
 
 @propagate_inbounds function getindex(Q::ListOfRotations, i) 
     c, s = Q.rotations[i]
@@ -30,14 +46,14 @@ end
 end
 
 function mul!(A::AbstractMatrix, Q::ListOfRotations)
-    for i = 1 : size(A, 2) - 1
+    @inbounds for i = 1 : size(A, 2) - 1
         mul!(A, Q[i])
     end
     A
 end
 
 function mul!(Q::ListOfRotations, H::Hessenberg)
-    for i = 1:length(Q.rotations)
+    @inbounds for i = 1:length(Q.rotations)
         mul!(Q[i], H)
     end
     H
@@ -47,11 +63,11 @@ end
 Applies the Givens rotation to Hessenberg matrix H from the left (in-place).
 """
 function mul!(G::Givens, H::Hessenberg)
-    @inbounds for j in G.i:size(H.H, 2)
-        h_min = G.c .* H.H[G.i,j] + G.s * H.H[G.i + 1,j]
-        h_max = -conj(G.s) * H.H[G.i,j] + G.c * H.H[G.i + 1,j]
-        H.H[G.i,j] = h_min
-        H.H[G.i + 1,j] = h_max
+    @inbounds for j in G.i:size(H, 2)
+        h_min = G.c .* H[G.i,j] + G.s * H[G.i + 1,j]
+        h_max = -conj(G.s) * H[G.i,j] + G.c * H[G.i + 1,j]
+        H[G.i,j] = h_min
+        H[G.i + 1,j] = h_max
     end
     H
 end
@@ -71,6 +87,19 @@ function mul!(A::AbstractMatrix, G::Givens)
 end
 
 """
+Applies the transpose of the Givens rotation to R from the right (in-place).
+"""
+function mul!(R::UpperTriangularMatrix, G::Givens)
+    @inbounds for j in 1:G.i + 1
+        a_min = G.c * R[j,G.i] + conj(G.s) * R[j,G.i + 1]
+        a_max = -G.s * R[j,G.i] + G.c * R[j,G.i + 1]
+        R[j,G.i] = a_min
+        R[j,G.i + 1] = a_max
+    end
+    R
+end
+
+"""
 Apply Given's rotations to H so that it becomes upper triangular (in-place).
 
 Stores the list of Givens rotations in L (in-place).
@@ -78,7 +107,7 @@ Stores the list of Givens rotations in L (in-place).
 function qr!(H::Hessenberg, L::ListOfRotations)
     dim = size(H.H, 1)
     
-    for i in 1:dim - 1
+    @inbounds for i in 1:dim - 1
         # Find new Givens coefficients
         c, s = givensAlgorithm(H.H[i,i], H.H[i + 1,i])
 
