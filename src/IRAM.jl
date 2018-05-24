@@ -1,7 +1,7 @@
 module IRAM
 
-include("factorization.jl")
 include("qrhessenberg.jl")
+include("factorization.jl")
 
 
 end

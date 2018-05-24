@@ -1,3 +1,5 @@
+# using IRAM: Hessenberg, qr!, mul!, ListOfRotations
+
 struct Arnoldi{T}
     V::StridedMatrix{T}
     H::StridedMatrix{T}
@@ -42,6 +44,25 @@ function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::Unit
     return arnoldi
 end
 
+function shifted_qr_step!(H::AbstractMatrix{T}, θ, rotations::ListOfRotations) where {T}
+    m = size(H,1) - 1
+
+    @inbounds for i = 1:m # subtract λ from diagonal
+        H[i,i] -= θ
+    end
+
+    qr!(Hessenberg(view(H, 1:m, 1:m)), rotations)
+
+    @inbounds H[m,m] = H[m+1,m]
+    @inbounds H[m+1,m] = zero(T)
+    
+    mul!(UpperTriangularMatrix(H), rotations) # RQ step
+    
+    @inbounds for i = 1:m # add λ back to diagonal
+        H[i,i] += θ
+    end
+end
+
 """
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
@@ -53,24 +74,12 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
     Q = eye(Complex128, max)
     H = copy(arnoldi.H)
 
-    list = ListOfRotations(T, max)
-    # list = ListOfRotations(eltype(H),max)
+    rotations = ListOfRotations(T, max)
+    # rotations = ListOfRotations(eltype(H),max)
     for m = max : -1 : min + 1
-        H_new = view(H, 1 : m, 1 : m)
-        for i = 1:m # subtract λ from diagonal
-            H_new[i,i] -= λs[m]
-        end
-        qr!(Hessenberg(H_new),list)
-        H_new[m,m] = H[m+1,m]
-        H[m+1,m] = 0 # is this needed?
-        
-        mul!(view(Q, 1 : max, 1 : m), list)
-        
-        mul!(H_new, list)
-        for i = 1:m # add λ back to diagonal
-            H[i,i] = H_new[i,i] + λs[m]
-        end
-        H = view(H_new,1:m,1:m)
+
+        shifted_qr_step!(view(H, 1 : m + 1, 1 : m), λs[m], rotations)
+        mul!(view(Q, 1 : max, 1 : m), rotations)
 
         # Qs, Rs = qr(view(H, 1 : m, 1 : m) - λs[m] * I)
         # h *= Qs[m, m - 1]
