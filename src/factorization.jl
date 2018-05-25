@@ -57,7 +57,7 @@ function shifted_qr_step!(H::AbstractMatrix{T}, θ, rotations::ListOfRotations) 
     @inbounds H[m+1,m] = zero(T)
     
     mul!(UpperTriangularMatrix(H), rotations) # RQ step
-    
+
     @inbounds for i = 1:m # add λ back to diagonal
         H[i,i] += θ
     end
@@ -75,20 +75,16 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
     H = copy(arnoldi.H)
 
     rotations = ListOfRotations(T, max)
-    # rotations = ListOfRotations(eltype(H),max)
+
     for m = max : -1 : min + 1
 
         shifted_qr_step!(view(H, 1 : m + 1, 1 : m), λs[m], rotations)
         mul!(view(Q, 1 : max, 1 : m), rotations)
 
-        # Qs, Rs = qr(view(H, 1 : m, 1 : m) - λs[m] * I)
-        # h *= Qs[m, m - 1]
-        # Q = view(Q, 1 : max, 1 : m) * Qs
-        # H = Rs * Qs + λs[m] * I
     end
 
-    # Remove the last columns of H
-    H = H[:, 1 : min]
+    # Remove the last columns and rows of H
+    H = H[1 : min+1, 1 : min]
 
     # Update the H[end, end] value
     H[min + 1, min] = h
@@ -120,4 +116,24 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, restarts = 4
     λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
 
     return λs, view(arnoldi.V, :, 1 : max) * xs
+end
+
+"""
+Run IRAM until the eigenpair is a good enough approximation
+"""
+function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion = 1e-5) where {T}
+    n = size(A, 1)
+
+    arnoldi = initialize(T, n, max)
+    iterate_arnoldi!(A, arnoldi, 1 : max)
+
+    λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
+
+    while abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) > criterion #doesn't seem to be working right, probably because eigenvectors are not sorted
+        implicit_restart!(arnoldi, min, max)
+        iterate_arnoldi!(A, arnoldi, min + 1 : max)
+        λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max)) #and this seems excessive
+    end
+
+    return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one random eigenpair of A
 end
