@@ -68,32 +68,32 @@ Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
 function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
-    h = arnoldi.H[max + 1, max]
+    # h = arnoldi.H[max + 1, max]
 
     λs = sort!(eigvals(view(arnoldi.H, 1 : max, 1 : max)), by = abs, rev = true)
     Q = eye(Complex128, max)
-    H = copy(arnoldi.H)
+    # H = copy(arnoldi.H)
 
     rotations = ListOfRotations(T, max)
 
     for m = max : -1 : min + 1
 
-        shifted_qr_step!(view(H, 1 : m + 1, 1 : m), λs[m], rotations)
+        shifted_qr_step!(view(arnoldi.H, 1 : m + 1, 1 : m), λs[m], rotations)
         mul!(view(Q, 1 : max, 1 : m), rotations)
 
     end
 
     # Remove the last columns and rows of H
-    H = H[1 : min+1, 1 : min]
+    # H = H[1 : min+1, 1 : min]
 
     # Update the H[end, end] value
-    H[min + 1, min] = h
+    # H[min + 1, min] = h
 
     # Update the Krylov basis
     V_new = [arnoldi.V[:, 1 : max] * Q[:, 1 : min] arnoldi.V[:, max + 1]]
 
     # Copy to the Arnoldi factorization
-    copy!(view(arnoldi.H, 1 : min + 1, 1 : min), H)
+    # copy!(view(arnoldi.H, 1 : min + 1, 1 : min), H)
     copy!(view(arnoldi.V, :, 1 : min + 1), V_new)
 
     return arnoldi
@@ -128,12 +128,23 @@ function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion 
     iterate_arnoldi!(A, arnoldi, 1 : max)
 
     λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
-
-    while abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) > criterion #doesn't seem to be working right, probably because eigenvectors are not sorted
+    perm = sortperm(λs, by = abs)
+    λs = λs[perm] 
+    xs = view(xs, :, perm)
+    i = 1
+    while abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) > criterion
         implicit_restart!(arnoldi, min, max)
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
-        λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max)) #and this seems excessive
+        # λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max)) #and this seems excessive
+        # perm = sortperm(λs, by = abs)
+        # λs = λs[perm]
+        # xs = view(xs, :, perm)
+        if i > 30 
+            break
+        end
+        i +=1
+
     end
 
-    return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one random eigenpair of A
+    return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one eigenpair of A
 end
