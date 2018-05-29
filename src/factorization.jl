@@ -68,26 +68,15 @@ Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
 function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
-    # h = arnoldi.H[max + 1, max]
-
     λs = sort!(eigvals(view(arnoldi.H, 1 : max, 1 : max)), by = abs, rev = true)
-    Q = eye(Complex128, max)
-    # H = copy(arnoldi.H)
+    Q = eye(T, max)
 
     rotations = ListOfRotations(T, max)
 
     for m = max : -1 : min + 1
-
         shifted_qr_step!(view(arnoldi.H, 1 : m + 1, 1 : m), λs[m], rotations)
         mul!(view(Q, 1 : max, 1 : m), rotations)
-
     end
-
-    # Remove the last columns and rows of H
-    # H = H[1 : min+1, 1 : min]
-
-    # Update the H[end, end] value
-    # H[min + 1, min] = h
 
     # Update the Krylov basis
     V_new = [arnoldi.V[:, 1 : max] * Q[:, 1 : min] arnoldi.V[:, max + 1]]
@@ -128,11 +117,20 @@ function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion 
     iterate_arnoldi!(A, arnoldi, 1 : max)
 
     λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
-    perm = sortperm(λs, by = abs)
+    perm = sortperm(λs, by = abs, rev = true)
     λs = λs[perm] 
     xs = view(xs, :, perm)
     i = 1
+
+    # for restarts = 1 : max_restarts
+        # iterate arnoldi till max
+        # compute eigenvalues of hessenberg matrix
+        # if converged: return
+        # implicit restart where you pass the eigenvalues you dont want
+    #end
+
     while abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) > criterion
+
         implicit_restart!(arnoldi, min, max)
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
         # λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max)) #and this seems excessive
@@ -143,7 +141,6 @@ function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion 
             break
         end
         i +=1
-
     end
 
     return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one eigenpair of A

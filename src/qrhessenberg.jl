@@ -76,7 +76,7 @@ end
 Applies the transpose of the Givens rotation to A from the right (in-place).
 """
 function mul!(A::AbstractMatrix, G::Givens)
-    dim = size(A, 2)
+    dim = size(A, 1)
     @inbounds for j in 1:dim
         a_min = G.c * A[j,G.i] + conj(G.s) * A[j,G.i + 1]
         a_max = -G.s * A[j,G.i] + G.c * A[j,G.i + 1]
@@ -105,11 +105,11 @@ Apply Given's rotations to H so that it becomes upper triangular (in-place).
 Stores the list of Givens rotations in L (in-place).
 """
 function qr!(H::Hessenberg, L::ListOfRotations)
-    dim = size(H.H, 1)
+    dim = size(H, 1)
     
     @inbounds for i in 1:dim - 1
         # Find new Givens coefficients
-        c, s = givensAlgorithm(H.H[i,i], H.H[i + 1,i])
+        c, s = givensAlgorithm(H[i,i], H[i + 1,i])
 
         # Apply the rotation
         mul!(Givens(c, s, i), H)
