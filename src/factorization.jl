@@ -108,40 +108,30 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, restarts = 4
 end
 
 """
-Run IRAM until the eigenpair is a good enough approximation
+Run IRAM until the eigenpair is a good enough approximation or until max_restarts has been reached
 """
-function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion = 1e-5) where {T}
+function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion = 1e-5, max_restarts = 100) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
-    iterate_arnoldi!(A, arnoldi, 1 : max)
+    iterate_arnoldi!(A, arnoldi, 1 : min)
 
-    λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
-    perm = sortperm(λs, by = abs, rev = true)
-    λs = λs[perm] 
-    xs = view(xs, :, perm)
-    i = 1
-
-    # for restarts = 1 : max_restarts
-        # iterate arnoldi till max
-        # compute eigenvalues of hessenberg matrix
-        # if converged: return
-        # implicit restart where you pass the eigenvalues you dont want
-    #end
-
-    while abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) > criterion
-
-        implicit_restart!(arnoldi, min, max)
+    for restarts = 1 : max_restarts
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
-        # λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max)) #and this seems excessive
-        # perm = sortperm(λs, by = abs)
+        
+        λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
+        perm = sortperm(λs, by = abs, rev = true)
         # λs = λs[perm]
-        # xs = view(xs, :, perm)
-        if i > 30 
-            break
+        xs = view(xs, :, perm)
+
+        if  abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) < criterion
+            return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1]
         end
-        i +=1
+
+        implicit_restart!(arnoldi, min, max) #eigenvalues computed inside the function based on min and max (these are needed for Q in any case)
+        # implicit_restart!(arnoldi, λs[min:max]) #implicit restart where you pass the eigenvalues you dont want
     end
+
 
     return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one eigenpair of A
 end

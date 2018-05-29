@@ -3,10 +3,10 @@ using BenchmarkTools
 using IRAM: mul!, Givens, Hessenberg, shifted_qr_step!, ListOfRotations, qr!, restarted_arnoldi_2
 
 function bencharnoldi()
-    n = 5
+    # n = 5
 
-    H = triu(rand(Complex128, n+1,n), -1)
-    H_new = copy(H)
+    # H = triu(rand(Complex128, n+1,n), -1)
+    # H_new = copy(H)
 
     # rotations = ListOfRotations(eltype(H),n-1)
 
