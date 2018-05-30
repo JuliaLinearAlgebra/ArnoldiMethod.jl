@@ -57,7 +57,7 @@ function shifted_qr_step!(H::AbstractMatrix{T}, θ, rotations::ListOfRotations) 
     @inbounds H[m+1,m] = zero(T)
     
     mul!(UpperTriangularMatrix(H), rotations) # RQ step
-    
+
     @inbounds for i = 1:m # add λ back to diagonal
         H[i,i] += θ
     end
@@ -68,36 +68,21 @@ Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
 function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
-    h = arnoldi.H[max + 1, max]
-
     λs = sort!(eigvals(view(arnoldi.H, 1 : max, 1 : max)), by = abs, rev = true)
-    Q = eye(Complex128, max)
-    H = copy(arnoldi.H)
+    Q = eye(T, max)
 
     rotations = ListOfRotations(T, max)
-    # rotations = ListOfRotations(eltype(H),max)
+
     for m = max : -1 : min + 1
-
-        shifted_qr_step!(view(H, 1 : m + 1, 1 : m), λs[m], rotations)
+        shifted_qr_step!(view(arnoldi.H, 1 : m + 1, 1 : m), λs[m], rotations)
         mul!(view(Q, 1 : max, 1 : m), rotations)
-
-        # Qs, Rs = qr(view(H, 1 : m, 1 : m) - λs[m] * I)
-        # h *= Qs[m, m - 1]
-        # Q = view(Q, 1 : max, 1 : m) * Qs
-        # H = Rs * Qs + λs[m] * I
     end
-
-    # Remove the last columns of H
-    H = H[:, 1 : min]
-
-    # Update the H[end, end] value
-    H[min + 1, min] = h
 
     # Update the Krylov basis
     V_new = [arnoldi.V[:, 1 : max] * Q[:, 1 : min] arnoldi.V[:, max + 1]]
 
     # Copy to the Arnoldi factorization
-    copy!(view(arnoldi.H, 1 : min + 1, 1 : min), H)
+    # copy!(view(arnoldi.H, 1 : min + 1, 1 : min), H)
     copy!(view(arnoldi.V, :, 1 : min + 1), V_new)
 
     return arnoldi
@@ -120,4 +105,33 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, restarts = 4
     λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
 
     return λs, view(arnoldi.V, :, 1 : max) * xs
+end
+
+"""
+Run IRAM until the eigenpair is a good enough approximation or until max_restarts has been reached
+"""
+function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion = 1e-5, max_restarts = 100) where {T}
+    n = size(A, 1)
+
+    arnoldi = initialize(T, n, max)
+    iterate_arnoldi!(A, arnoldi, 1 : min)
+
+    for restarts = 1 : max_restarts
+        iterate_arnoldi!(A, arnoldi, min + 1 : max)
+        
+        λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
+        perm = sortperm(λs, by = abs, rev = true)
+        # λs = λs[perm]
+        xs = view(xs, :, perm)
+
+        if  abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) < criterion
+            return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1]
+        end
+
+        implicit_restart!(arnoldi, min, max) #eigenvalues computed inside the function based on min and max (these are needed for Q in any case)
+        # implicit_restart!(arnoldi, λs[min:max]) #implicit restart where you pass the eigenvalues you dont want
+    end
+
+
+    return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one eigenpair of A
 end
