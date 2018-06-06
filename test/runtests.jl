@@ -4,4 +4,4 @@ using Base.Test
 include("hessenberg_qr.jl")
 include("givens_rotation.jl")
 include("shifted_qr.jl")
-include("restarted_arnoldi_2.jl")
+include("restarted_arnoldi.jl")
