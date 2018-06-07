@@ -2,62 +2,59 @@ using Base.Test
 
 using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, initialize, iterate_arnoldi!, restarted_arnoldi
 
-@testset "Locked restart" begin
-
-    min = 25
-    max = 50
-
-    A = triu(rand(Complex128, 100, 100))
+function matrix_with_three_clusters(n = 100)
+    A = triu(rand(Complex128, n, n))
     for i = 1 : 3
         A[i,i] = 100 + i
     end
     for i = 4 : 20
         A[i,i] = 29 + 0.05*i
     end
-    for i = 21 : 100
+    for i = 21 : n
         A[i,i] = 1 + 0.05*i
     end
+    A
+end
 
-    n = size(A, 1)
+@testset "Locked restart" begin
 
-    arnoldi = restarted_arnoldi(A, min, max, 1e-6, 100)
+    min, max = 25, 35
+    A = matrix_with_three_clusters(100)
+    ε = 1e-6
 
-    return arnoldi
+    # Get the Arnoldi relation after seven restarts.
+    arnoldi = restarted_arnoldi(A, min, max, ε, 7)
 
-    arnoldi = initialize(Complex128, n, max)
-    iterate_arnoldi!(A, arnoldi, 1 : max)
+    H, V = arnoldi.H, arnoldi.V
 
-    arnoldi, dim, i = implicit_restart!(arnoldi, min, max)
+    @show vecnorm(A * V[:, 1 : min] - V[:, 1 : min + 1] * H[1 : min + 1, 1 : min])
 
-    λs, xs = eig(view(arnoldi.H, 1 : dim, 1 : dim))
-    perm = sortperm(λs, by = abs, rev = true)
-    λs = λs[perm]
-    xs = view(xs, :, perm)
+    @test abs(H[4, 3]) ≤ ε
+    @test abs(H[21, 20]) ≤ ε
 
-    V = arnoldi.V
-    H = arnoldi.H
+    V₁ = view(arnoldi.V, :, 1 : 3)
+    V₂ = view(arnoldi.V, :, 4 : 20)
 
-    v = view(arnoldi.V, :, 1 : dim) * xs[:,1]
+    # Compute the first 3 approx eigenvalues and eigenvectors.
+    Λ₁, Y₁ = eig(H[1:3, 1:3])
+    X₁ = V₁ * Y₁
 
-    @show i,dim
-    for n = 1:dim
-        @show norm(A * view(arnoldi.V, :, 1 : dim) * xs[:,n] - λs[n] * view(arnoldi.V, :, 1 : dim) * xs[:,n])
+    # Look at the residuals.
+    for i = 1 : length(Λ₁)
+        r = norm(A * X₁[:, i] - Λ₁[i] * X₁[:, i])
+        @test r ≤ ε
     end
-    # @test norm(A * v - λs[1] * v) < 1e-10
 
-    # @test vecnorm(V[:, 1 : min-1]' * V[:, 1 : min-1] - eye(min-1)) < 1e-13
-    # @test vecnorm(V[:, 1 : min-1]' * A * V[:, 1 : min-1] - H[1 : min-1, 1 : min-1]) < 1e-13
-    # @test vecnorm(A * V[:, 1 : min-1] - V[:, 1 : min] * H[1 : min, 1 : min-1]) < 1e-13
+    # The eigenvalues 4 .. 20 are the dominant eigenvalues of the matrix (I-V1V1')A(I-V1V1')
+    Λ₂, Y₂ = eig(H[4:20, 4:20])
+    X₂ = V₂ * Y₂
 
-
-    # criterion = 1e-10
-    # max_restarts = 50
-
-    # A = full(sprand(Complex128,10000, 10000, 5 / 10000))
-
-    # λ, x = restarted_arnoldi_2(A, 10, 50, criterion, 4750)
-
-    # # @show norm(A * x - λ * x) < criterion
-    # @test norm(A * x - λ * x) < criterion
-
+    # Look at the residuals (I - V₁V₁')A. Note that we repeat the orthogonalization to avoid
+    # numerical errors! In exact arithmetic (I - V₁V₁')² = (I - V₁V₁')
+    for i = 1 : length(Λ₂)
+        r = A * X₂[:, i] - Λ₂[i] * X₂[:, i]
+        r .-= V₁ * (V₁' * r)
+        r .-= V₁ * (V₁' * r)
+        @test norm(r) ≤ ε
+    end
 end
