@@ -57,4 +57,21 @@ end
         r .-= V₁ * (V₁' * r)
         @test norm(r) ≤ ε
     end
+
+    # Test the orthonormality of Q
+    @test vecnorm(V[:,1:min]'*V[:,1:min] - I) < 1e-4
+    
+    # Test that H is upper triangular
+    @test vecnorm(triu(H)-H) < 1e-4
+
+    # for i = 1:min
+    #     for j = 1:min
+    #         if abs(H[i,j]) > 1e-9
+    #             @show (i,j)
+    #         end
+    #     end
+    # end
+
+    # Test the partial Schur decomposition relation AQ = QR
+    @test vecnorm(A*V[:,1:min] - V[:,1:min]*H[1:min,1:min]) < 1e-4
 end

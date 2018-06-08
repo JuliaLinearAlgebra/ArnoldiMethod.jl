@@ -144,8 +144,41 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, tolerance = 
     for restarts = 1 : max_restarts
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
         implicit_restart!(arnoldi, min, max, active)
-        active = detect_convergence!(view(arnoldi.H, 1:min+1, 1:min), tolerance)
+
+        new_active = detect_convergence!(view(arnoldi.H, 1:min+1, 1:min), tolerance)
+
+        # Bring the new locked part oF H into upper triangular form
+        if new_active > active 
+            schur_form = schur(view(arnoldi.H, active : new_active - 1, active : new_active - 1))
+            arnoldi.H[active : new_active - 1, active : new_active - 1] = schur_form[1]
+
+            V_locked = view(arnoldi.V, :, active : new_active - 1)
+            H_right = view(arnoldi.H, active : new_active - 1, new_active : min)
+
+            A_mul_B!(V_locked, copy(V_locked), schur_form[2])
+            Ac_mul_B!(H_right, schur_form[2], copy(H_right))
+            
+            if active > 1 
+                H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
+                A_mul_B!(H_above, copy(H_above), schur_form[2])
+            end
+            
+            active = new_active
+        end
         @show active
+    end
+
+    # At the end, bring the rest of H into upper triangular form as well
+    schur_form = schur(view(arnoldi.H, active : min, active : min))
+    arnoldi.H[active : min, active : min] = schur_form[1]
+
+    V_locked = view(arnoldi.V, :, active : min)
+
+    A_mul_B!(V_locked, copy(V_locked), schur_form[2])
+            
+    if active > 1 
+        H_above = view(arnoldi.H, 1 : active - 1, active : min)
+        A_mul_B!(H_above, copy(H_above), schur_form[2])
     end
 
     return arnoldi
