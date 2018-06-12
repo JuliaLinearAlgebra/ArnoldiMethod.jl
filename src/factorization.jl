@@ -83,11 +83,10 @@ end
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1) where {T}
+function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T}
     V, H = arnoldi.V, arnoldi.H
     λs = sort!(eigvals(view(H, active:max, active:max)), by = abs)
     Q = eye(T, max)
-    W = eye(T, max)
     rotations = ListOfRotations(T, max)
 
     idx = 1
@@ -110,10 +109,13 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1) w
     end
 
     # Update the Krylov basis
-    V_new = view(V, :, active:max) * view(Q, active:max, active:min)
+    A_mul_B!(view(V_new,:,1:min-active+1), view(V, :, active:max), view(Q, active:max, active:min))
+    
+    # Update the Krylov basis
+    # V_new = view(V, :, active:max) * view(Q, active:max, active:min)
 
     # Copy to the Arnoldi factorization
-    copy!(view(V, :, active:min), V_new)
+    copy!(view(V, :, active:min), view(V_new,:,1:min-active+1))
     copy!(view(V, :, min + 1), view(V, :, max + 1))
 
     return arnoldi
@@ -147,10 +149,11 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
     iterate_arnoldi!(A, arnoldi, 1 : min)
 
     active = 1
+    V_new = Matrix{T}(n,min)
 
     for restarts = 1 : max_restarts
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
-        implicit_restart!(arnoldi, min, max, active)
+        implicit_restart!(arnoldi, min, max, active, V_new)
 
         new_active = detect_convergence!(view(arnoldi.H, 1:min+1, 1:min), tolerance)
 
