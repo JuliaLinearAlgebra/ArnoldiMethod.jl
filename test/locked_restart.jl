@@ -23,20 +23,21 @@ end
     ε = 1e-6
 
     # Get the Arnoldi relation after seven restarts.
-    arnoldi = restarted_arnoldi(A, min, max, ε, 7)
+    partial_schur = restarted_arnoldi(A, min, max, min, ε, 7)
 
-    H, V = arnoldi.H, arnoldi.V
+    R, Q, k = partial_schur.R, partial_schur.Q, partial_schur.k
 
-    @show vecnorm(A * V[:, 1 : min] - V[:, 1 : min + 1] * H[1 : min + 1, 1 : min])
+    # Testing the Arnoldi relation AV = VH
+    @test vecnorm(A * Q[:, 1 : min] - Q[:, 1 : min + 1] * R[1 : min + 1, 1 : min]) < ε
 
-    @test abs(H[4, 3]) ≤ ε
-    @test abs(H[21, 20]) ≤ ε
+    @test abs(R[4, 3]) ≤ ε
+    @test abs(R[21, 20]) ≤ ε
 
-    V₁ = view(arnoldi.V, :, 1 : 3)
-    V₂ = view(arnoldi.V, :, 4 : 20)
+    V₁ = view(partial_schur.Q, :, 1 : 3)
+    V₂ = view(partial_schur.Q, :, 4 : 20)
 
     # Compute the first 3 approx eigenvalues and eigenvectors.
-    Λ₁, Y₁ = eig(H[1:3, 1:3])
+    Λ₁, Y₁ = eig(R[1:3, 1:3])
     X₁ = V₁ * Y₁
 
     # Look at the residuals.
@@ -46,7 +47,7 @@ end
     end
 
     # The eigenvalues 4 .. 20 are the dominant eigenvalues of the matrix (I-V1V1')A(I-V1V1')
-    Λ₂, Y₂ = eig(H[4:20, 4:20])
+    Λ₂, Y₂ = eig(R[4:20, 4:20])
     X₂ = V₂ * Y₂
 
     # Look at the residuals (I - V₁V₁')A. Note that we repeat the orthogonalization to avoid
@@ -58,20 +59,32 @@ end
         @test norm(r) ≤ ε
     end
 
+    # Test the orthonormality of V
+    @test vecnorm(Q[:,1:min]'*Q[:,1:min] - I) < 1e-4
+    # S =  Q[:,1:min]'*Q[:,1:min] - I
+    # for i = 1:min
+    #     for j = 1:min
+    #         if abs(S[i,j]) > 1e-9
+    #             @show (i,j)
+    #             @show S[i,j]
+    #         end
+    #     end
+    # end
+
     # Test the orthonormality of Q
-    @test vecnorm(V[:,1:min]'*V[:,1:min] - I) < 1e-4
+    @test vecnorm(Q[:,1:k]'*Q[:,1:k] - I) < 1e-6
     
-    # Test that H is upper triangular
-    @test vecnorm(triu(H)-H) < 1e-4
+    # Test that R is upper triangular
+    @test vecnorm(triu(R[1:k,1:k])-R[1:k,1:k]) < 1e-4
 
     # for i = 1:min
     #     for j = 1:min
-    #         if abs(H[i,j]) > 1e-9
+    #         if abs(R[i,j]) > 1e-9
     #             @show (i,j)
     #         end
     #     end
     # end
 
     # Test the partial Schur decomposition relation AQ = QR
-    @test vecnorm(A*V[:,1:min] - V[:,1:min]*H[1:min,1:min]) < 1e-4
+    @test vecnorm(A*Q[:,1:k] - Q[:,1:k]*R[1:k,1:k]) < 1e-6
 end
