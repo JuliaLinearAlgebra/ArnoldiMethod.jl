@@ -5,6 +5,12 @@ struct Arnoldi{T}
     H::StridedMatrix{T}
 end
 
+struct PartialSchur{TQ,TR} 
+    Q::TQ
+    R::TR
+    k::Int
+end
+
 """
 Allocate some space for an Arnoldi factorization of A where the Krylov subspace has
 dimension `max` at most.
@@ -81,6 +87,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1) w
     V, H = arnoldi.V, arnoldi.H
     λs = sort!(eigvals(view(H, active:max, active:max)), by = abs)
     Q = eye(T, max)
+    W = eye(T, max)
     rotations = ListOfRotations(T, max)
 
     idx = 1
@@ -133,7 +140,7 @@ end
 """
 Run IRAM until the eigenpair is a good enough approximation or until max_restarts has been reached
 """
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, tolerance = 1e-5, max_restarts = 10) where {T}
+function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = min, tolerance = 1e-5, max_restarts = 10) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
@@ -144,9 +151,34 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, tolerance = 
     for restarts = 1 : max_restarts
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
         implicit_restart!(arnoldi, min, max, active)
-        active = detect_convergence!(view(arnoldi.H, 1:min+1, 1:min), tolerance)
+
+        new_active = detect_convergence!(view(arnoldi.H, 1:min+1, 1:min), tolerance)
+
+        # Bring the new locked part oF H into upper triangular form
+        if new_active > active + 1
+            schur_form = schur(view(arnoldi.H, active : new_active - 1, active : new_active - 1))
+            arnoldi.H[active : new_active - 1, active : new_active - 1] = schur_form[1]
+
+            V_locked = view(arnoldi.V, :, active : new_active - 1)
+            H_right = view(arnoldi.H, active : new_active - 1, new_active : min)
+
+            A_mul_B!(V_locked, copy(V_locked), schur_form[2])
+            Ac_mul_B!(H_right, schur_form[2], copy(H_right))
+            
+            if active > 1 
+                H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
+                A_mul_B!(H_above, copy(H_above), schur_form[2])
+            end
+        end
+
+        active = new_active
+
         @show active
+
+        if active >= converged
+            break 
+        end
     end
 
-    return arnoldi
+    return PartialSchur(arnoldi.V, arnoldi.H, active - 1)
 end
