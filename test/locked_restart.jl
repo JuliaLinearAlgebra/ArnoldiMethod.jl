@@ -60,7 +60,7 @@ end
     end
 
     # Test the orthonormality of V
-    @test vecnorm(Q[:,1:min]'*Q[:,1:min] - I) < 1e-4
+    @test vecnorm(Q[:,1:min]'*Q[:,1:min] - I) < 1e-3
     # S =  Q[:,1:min]'*Q[:,1:min] - I
     # for i = 1:min
     #     for j = 1:min

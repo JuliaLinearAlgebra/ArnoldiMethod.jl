@@ -87,6 +87,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1) w
     V, H = arnoldi.V, arnoldi.H
     λs = sort!(eigvals(view(H, active:max, active:max)), by = abs)
     Q = eye(T, max)
+    W = eye(T, max)
     rotations = ListOfRotations(T, max)
 
     idx = 1
@@ -178,18 +179,6 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
             break 
         end
     end
-
-    # At the end, bring the rest of H into upper triangular form as well
-    # schur_form = schur(view(arnoldi.H, active : min, active : min))
-    # arnoldi.H[active : min, active : min] = schur_form[1]
-
-    # V_locked = view(arnoldi.V, :, active : min)
-    # A_mul_B!(V_locked, copy(V_locked), schur_form[2])
-            
-    # if active > 1 
-    #     H_above = view(arnoldi.H, 1 : active - 1, active : min)
-    #     A_mul_B!(H_above, copy(H_above), schur_form[2])
-    # end
 
     return PartialSchur(arnoldi.V, arnoldi.H, active - 1)
 end
