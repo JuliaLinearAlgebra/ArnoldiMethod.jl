@@ -1,6 +1,6 @@
 using Base.Test
 
-using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, initialize, iterate_arnoldi!, Arnoldi
+using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, initialize, iterate_arnoldi!, Arnoldi, shifted_qr_step!
 
 @testset "Shifted QR" begin
     n = 5
