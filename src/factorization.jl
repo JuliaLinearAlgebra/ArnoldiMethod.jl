@@ -5,6 +5,12 @@ struct Arnoldi{T}
     H::StridedMatrix{T}
 end
 
+struct PartialSchur{TQ,TR} 
+    Q::TQ
+    R::TR
+    k::Int
+end
+
 """
 Allocate some space for an Arnoldi factorization of A where the Krylov subspace has
 dimension `max` at most.
@@ -25,41 +31,51 @@ end
 Perform Arnoldi iterations.
 """
 function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
-    for j = range
-        v_next = view(arnoldi.V, :, j + 1)
-        v_curr = view(arnoldi.V, :, j)
-        A_mul_B!(v_next, A, v_curr)
+    V, H = arnoldi.V, arnoldi.H
 
-        # For now just use modified Gram-Schmidt, but switch to repeated classical soon
+    @inbounds @views for j = range
+        v = V[:, j + 1]
+        A_mul_B!(v, A, V[:, j])
+
+        # Orthogonalize
         for i = 1 : j
-            v_prev = view(arnoldi.V, :, i)
-            arnoldi.H[i, j] = dot(v_prev, v_next)
-            v_next .-= arnoldi.H[i, j] .* v_prev
+            H[i, j] = dot(V[:, i], v)
+            v .-= H[i, j] .* V[:, i]
         end
 
-        arnoldi.H[j + 1, j] = norm(v_next)
-        v_next ./= arnoldi.H[j + 1, j]
+        # Normalize
+        H[j + 1, j] = norm(v)
+        v ./= H[j + 1, j]
     end
 
     return arnoldi
 end
 
-function shifted_qr_step!(H::AbstractMatrix{T}, θ, rotations::ListOfRotations) where {T}
-    m = size(H,1) - 1
+"""
+Assume H is an (m + 1) x m unreduced Hessenberg matrix, the active part in the Arnoli
+decomposition.
+"""
+function shifted_qr_step!(H::AbstractMatrix{T}, μ, rotations::ListOfRotations) where {T}
+    m = size(H, 1) - 1
 
-    @inbounds for i = 1:m # subtract λ from diagonal
-        H[i,i] -= θ
+    # Apply the shift
+    @inbounds for i = 1:m
+        H[i,i] -= μ
     end
 
+    # QR step; compute & apply Given's rotations from the left
     qr!(Hessenberg(view(H, 1:m, 1:m)), rotations)
 
+    # Do the last Given's rotation by hand
     @inbounds H[m,m] = H[m+1,m]
     @inbounds H[m+1,m] = zero(T)
     
-    mul!(UpperTriangularMatrix(H), rotations) # RQ step
+    # RQ step; apply Given's rotations from the right
+    mul!(UpperTriangularMatrix(H), rotations)
 
-    @inbounds for i = 1:m # add λ back to diagonal
-        H[i,i] += θ
+    # Undo the shift
+    @inbounds for i = 1:m
+        H[i,i] += μ
     end
 end
 
@@ -67,71 +83,102 @@ end
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30) where {T}
-    λs = sort!(eigvals(view(arnoldi.H, 1 : max, 1 : max)), by = abs, rev = true)
+function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1) where {T}
+    V, H = arnoldi.V, arnoldi.H
+    λs = sort!(eigvals(view(H, active:max, active:max)), by = abs)
     Q = eye(T, max)
-
+    W = eye(T, max)
     rotations = ListOfRotations(T, max)
 
-    for m = max : -1 : min + 1
-        shifted_qr_step!(view(arnoldi.H, 1 : m + 1, 1 : m), λs[m], rotations)
-        mul!(view(Q, 1 : max, 1 : m), rotations)
+    idx = 1
+
+    @views for m = max : -1 : min + 1
+
+        # Pick a shift
+        μ = λs[idx]
+
+        # Apply a shifted QR step to the H[active:m, active:m]
+        shifted_qr_step!(H[active:m+1, active:m], μ, rotations)
+
+        # Apply the rotations to the G block
+        mul!(H[1:active-1, active:m], rotations)
+        
+        # Apply the rotations to Q
+        mul!(Q[1:max, active:m], rotations)
+
+        idx += 1
     end
 
     # Update the Krylov basis
-    V_new = [arnoldi.V[:, 1 : max] * Q[:, 1 : min] arnoldi.V[:, max + 1]]
+    V_new = view(V, :, active:max) * view(Q, active:max, active:min)
 
     # Copy to the Arnoldi factorization
-    # copy!(view(arnoldi.H, 1 : min + 1, 1 : min), H)
-    copy!(view(arnoldi.V, :, 1 : min + 1), V_new)
+    copy!(view(V, :, active:min), V_new)
+    copy!(view(V, :, min + 1), view(V, :, max + 1))
 
     return arnoldi
 end
 
-"""
-Run IRAM for a couple restarts
-"""
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, restarts = 4) where {T}
-    n = size(A, 1)
 
-    arnoldi = initialize(T, n, max)
-    iterate_arnoldi!(A, arnoldi, 1 : max)
-
-    for i = 1 : restarts
-        implicit_restart!(arnoldi, min, max)
-        iterate_arnoldi!(A, arnoldi, min + 1 : max)
+"""
+Find the largest index `i` such that `H[i, i-1] ≈ 0`. This means that `i:max` constitutes the
+active part in the Arnoldi decomp, while `V[:, 1:i-1]` forms a basis for an invariant 
+subspace of A. Sets H[i, i-1] := 0.
+"""
+function detect_convergence!(H::AbstractMatrix{T}, tolerance) where {T}
+    @inbounds for i = size(H, 2) : -1 : 2
+        if abs(H[i, i-1]) ≤ tolerance
+            H[i, i-1] = zero(T)
+            return i
+        end
     end
 
-    λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
-
-    return λs, view(arnoldi.V, :, 1 : max) * xs
+    # No convergence :(
+    return 1
 end
 
 """
 Run IRAM until the eigenpair is a good enough approximation or until max_restarts has been reached
 """
-function restarted_arnoldi_2(A::AbstractMatrix{T}, min = 5, max = 30, criterion = 1e-5, max_restarts = 100) where {T}
+function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = min, tolerance = 1e-5, max_restarts = 10) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
     iterate_arnoldi!(A, arnoldi, 1 : min)
 
+    active = 1
+
     for restarts = 1 : max_restarts
         iterate_arnoldi!(A, arnoldi, min + 1 : max)
-        
-        λs, xs = eig(view(arnoldi.H, 1 : max, 1 : max))
-        perm = sortperm(λs, by = abs, rev = true)
-        # λs = λs[perm]
-        xs = view(xs, :, perm)
+        implicit_restart!(arnoldi, min, max, active)
 
-        if  abs(arnoldi.H[max+1,max]) * abs(xs[max,1]) < criterion
-            return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1]
+        new_active = detect_convergence!(view(arnoldi.H, 1:min+1, 1:min), tolerance)
+
+        # Bring the new locked part oF H into upper triangular form
+        if new_active > active + 1
+            schur_form = schur(view(arnoldi.H, active : new_active - 1, active : new_active - 1))
+            arnoldi.H[active : new_active - 1, active : new_active - 1] = schur_form[1]
+
+            V_locked = view(arnoldi.V, :, active : new_active - 1)
+            H_right = view(arnoldi.H, active : new_active - 1, new_active : min)
+
+            A_mul_B!(V_locked, copy(V_locked), schur_form[2])
+            Ac_mul_B!(H_right, schur_form[2], copy(H_right))
+            
+            if active > 1 
+                H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
+                A_mul_B!(H_above, copy(H_above), schur_form[2])
+            end
         end
 
-        implicit_restart!(arnoldi, min, max) #eigenvalues computed inside the function based on min and max (these are needed for Q in any case)
-        # implicit_restart!(arnoldi, λs[min:max]) #implicit restart where you pass the eigenvalues you dont want
+        active = new_active
+
+        @show active
+
+        if active >= converged
+            break 
+        end
     end
 
-
-    return λs[1], view(arnoldi.V, :, 1 : max) * xs[:,1] #returns one eigenpair of A
+    return PartialSchur(arnoldi.V, arnoldi.H, active - 1)
 end
