@@ -1,4 +1,5 @@
-# using IRAM: Hessenberg, qr!, mul!, ListOfRotations
+using IRAM: Hessenberg, qr!, mul!, ListOfRotations
+using Base.LinAlg: givensAlgorithm
 
 struct Arnoldi{T}
     V::StridedMatrix{T}
@@ -184,4 +185,81 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
     end
 
     return PartialSchur(arnoldi.V, arnoldi.H, active - 1)
+end
+
+function single_shift!(H::AbstractMatrix, μ, L::ListOfRotations, callback = (x...) -> nothing)
+
+    n = size(H,2)
+
+    indices = collect("₁₂₃₄₅₆₇₈₉")
+
+    println("Initial H")
+    # H = view(H.H, :, :)
+    display("text/plain", H)
+    println()
+
+    println("Compute Givens rotation that maps the first column of H - μI to r₁₁q₁: G₁ * H")
+    c, s = givensAlgorithm(H[1,1] - μ, H[2,1])
+    givens = Givens(c,s,1)
+
+    mul!(givens,Hessenberg(H))
+
+    display("text/plain", H)
+    println()
+
+    println("Apply the Givens rotation from the rhs: G₁ * H * G₁'")
+
+    # Apply the rotation from the right.
+    mul!(H, givens)
+
+    display("text/plain", H)
+
+    str = "G₁ * H * G₁'"
+
+    # Restore to Hessenberg form
+    for i = 2 : n - 1
+        println("\n\n------\n\n")
+        str = "G$(indices[i]) * " * str
+        
+        c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
+        givens = Givens(c,s,i-1)
+        
+        println("Restore Hessenberg form: $str")
+        mul!(givens,Hessenberg(view(H,2:n+1,:))) # Assumes that H is (n+1)*n
+        display("text/plain", H)
+        println()
+
+        str = str * " * G$(indices[i])'"
+        println("Apply from the rhs: $str")
+        
+        mul!(view(H,:,2:n),givens)
+        display("text/plain", H)
+        println()
+    end
+    
+    # Callback, if double shift then callback twice
+    callback()
+    
+    return H
+
+end
+
+function qr_callback(active, m, givens)
+    # Apply the rotations to the G block
+    mul!(view(H,1:active-1, active:m), givens)
+
+    # Apply the rotations to Q
+    mul!(view(Q,1:max, active:m), givens)
+
+end
+
+function implicit_qr_step!(H::Hessenberg, active, max, L::ListOfRotations, tolerance)
+    
+    λs = sort!(eigvals(view(H.H, active:max, active:max)), by = abs) #Determine if single or double shift
+    # λs[1] 
+    single_shift!(H.H, λs[1], L, qr_callback) 
+    active = detect_convergence!(view(H.H, 1:min+1, 1:min), tolerance) # Check for deflation
+    
+    return (active, max)
+
 end
