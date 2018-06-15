@@ -238,13 +238,150 @@ function single_shift!(H::AbstractMatrix, μ, L::ListOfRotations, callback = (x.
     end
     
     # Callback, if double shift then callback twice
-    callback()
+    # callback()
     
     return H
 
 end
 
+function double_shift!(H_original, μ₁, μ₂, debug = true, callback = (x...) -> nothing)
+    @assert size(H_original, 2) == size(H_original, 1)
+
+    n = size(H_original, 1)
+    indices = collect("₁₂₃₄₅₆₇₈₉")
+    H = copy(complex(H_original))
+    Q = eye(Complex128, n)
+
+    if debug
+        println("Initial H")
+        display("text/plain", H)
+        println()
+    end
+
+    # α, β = H[n-1, n-1], H[n-1, n]
+    # γ, δ = H[n, n-1],   H[n, n]
+    # tr = α + δ
+    # det = α * δ - γ * β
+    # D = tr^2 - 4det
+
+    # if D < 0
+    #     return
+    # end
+
+    # μ₁ = tr + √D
+
+    # μ₁ = 1.10
+    # μ₂ = 1.4
+
+    # Compute the entries of (H - μ₂)(H - μ₁)e₁.
+    # Please don't do it like this :p, we should not store the household reflection as a
+    # vector -- if we would wanna store it as a vector, then we should use SVector from 
+    # StaticArrays.jl; but yeah, 2 givens rotations work OK as well
+    fst = H[1:3, 1] # H * e₁
+    fst[1] -= μ₁ # - μ₁ * e₁
+    fst .= H[1:3, 1:2] * fst[1:2] - μ₂ * fst # well...
+
+    # Sanity check
+    # @assert fst ≈ ((H - μ₂ * I) * ((H - μ₁ * I)[:, 1]))[1:3]
+
+    # G = eye(n)
+    # G[1:3,1:3] .= convert(Matrix, householder(fst))
+    # H = G * H
+
+    c1, s1, el = givensAlgorithm(fst[2], fst[3])
+    c2, s2 = givensAlgorithm(fst[1], el)
+    givens_first = Givens(c1,s1,1)
+    givens_second = Givens(c2,s2,1)
+
+    mul!(givens_first, Hessenberg(view(H,2:n,:)))
+    mul!(givens_second, Hessenberg(view(H,1:n,:)))
+    
+    if debug
+        println("Compute Householder reflection that maps G₁ * (H - μ₂)(H - μ₁)e₁ = r₁₁e₁")
+        display("text/plain", H)
+        println()
+    end
+
+    # H *= G' # and apply the rotation from the right.
+    # Q *= G' # callback, somehow
+    mul!(view(H,:,2:n), givens_first)
+    mul!(view(H,:,1:n), givens_second)
+    # Q *= G'  # callback, somehow
+    mul!(Q, givens_first)
+    mul!(Q, givens_second)
+
+    if debug
+        println("Apply the Housholder reflection from the rhs: G₁ * H * G₁'")
+        display("text/plain", H)
+        str = "G₁ * H * G₁'"
+    end
+
+    # Restore to Hessenberg form
+    # Bulge is initially in H[1:3,1:3]
+    for i = 2 : n - 2
+
+        # Restore...
+        # range = i : min(i + 2, n) # when i = n - 1, this is just a given's rotation
+        # G = eye(n)
+        # G[range,range] .= convert(Matrix, householder(H[range, i - 1]))
+        # H = G * H
+
+        c1, s1, el = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
+        c2, s2 = givensAlgorithm(H[i,i-1], el)
+        givens_first = Givens(c1,s1,i-1)
+        givens_second = Givens(c2,s2,i-1)
+
+        mul!(givens_first, Hessenberg(view(H,3:n,:)))
+        mul!(givens_second, Hessenberg(view(H,2:n,:)))
+
+        if debug
+            println("\n------\n\n")
+            str = "G$(indices[i]) * " * str
+            println("Restore Hessenberg form: $str")
+            display("text/plain", H)
+            println()
+        end
+
+        # Destroy
+        # H *= G'
+        mul!(view(H,:,3:n), givens_first)
+        mul!(view(H,:,2:n), givens_second)
+        # Q *= G'  # callback, somehow
+        # mul!(Q, givens_first)
+        # mul!(Q, givens_second)
+
+        if debug
+            str = str * " * G$(indices[i])'"
+            println("Apply from the rhs: $str")
+            display("text/plain", H)
+            println()
+        end
+    end
+
+    #Not entirely sure about the indexing here # EDIT: Seems about right
+    # c1, s1 = givensAlgorithm(H[n-1,n-2], H[n,n-2])
+    # givens_first = Givens(c1,s1,n-2)
+    # mul!(givens_first, Hessenberg(view(H,3:n,:)))
+    # if debug
+    #     println("\n------\n\n")
+    #     str = "G$(indices[n-1]) * " * str
+    #     println("Restore Hessenberg form: $str")
+    #     display("text/plain", H)
+    #     println()
+    # end
+    # mul!(view(H,:,3:n), givens_first)
+    # if debug
+    #     str = str * " * G$(indices[n-1])'"
+    #     println("Apply from the rhs: $str")
+    #     display("text/plain", H)
+    #     println()
+    # end
+
+    return H_original, H, Q
+end
+
 function qr_callback(active, m, givens)
+    
     # Apply the rotations to the G block
     mul!(view(H,1:active-1, active:m), givens)
 
@@ -258,7 +395,7 @@ function implicit_qr_step!(H::Hessenberg, active, max, L::ListOfRotations, toler
     λs = sort!(eigvals(view(H.H, active:max, active:max)), by = abs) #Determine if single or double shift
     # λs[1] 
     single_shift!(H.H, λs[1], L, qr_callback) 
-    active = detect_convergence!(view(H.H, 1:min+1, 1:min), tolerance) # Check for deflation
+    # active = detect_convergence!(view(H.H, 1:min+1, 1:min), tolerance) # Check for deflation
     
     return (active, max)
 
