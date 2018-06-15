@@ -4,21 +4,23 @@ using IRAM: mul!, Givens, Hessenberg, shifted_qr_step!, ListOfRotations, qr!, im
 
 @testset "Implicit restart" begin
 
-    min = 5
-    max = 8
+    for T in (Float64, Complex128)
 
-    A = rand(Complex128, 32, 32)
+        min = 5
+        max = 8
 
-    n = size(A, 1)
+        A = rand(T, 32, 32)
 
-    arnoldi = initialize(Complex128, n, max)
-    iterate_arnoldi!(A, arnoldi, 1 : max)
+        n = size(A, 1)
 
-    implicit_restart!(arnoldi, min, max)
-    V = arnoldi.V
-    H = arnoldi.H
-    @test vecnorm(V[:, 1 : min-1]' * V[:, 1 : min-1] - eye(min-1)) < 1e-13 #min-1?
-    @test vecnorm(V[:, 1 : min-1]' * A * V[:, 1 : min-1] - H[1 : min-1, 1 : min-1]) < 1e-13
-    @test vecnorm(A * V[:, 1 : min-1] - V[:, 1 : min] * H[1 : min, 1 : min-1]) < 1e-13
+        arnoldi = initialize(T, n, max)
+        iterate_arnoldi!(A, arnoldi, 1 : max)
 
+        _, min = implicit_restart!(arnoldi, min, max)
+        V = arnoldi.V
+        H = arnoldi.H
+        @test vecnorm(V[:, 1 : min]' * V[:, 1 : min] - eye(min)) < 1e-13 #min-1?
+        @test vecnorm(V[:, 1 : min]' * A * V[:, 1 : min] - H[1 : min, 1 : min]) < 1e-13
+        @test vecnorm(A * V[:, 1 : min] - V[:, 1 : min + 1] * H[1 : min + 1, 1 : min]) < 1e-13
+    end
 end

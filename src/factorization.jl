@@ -84,42 +84,91 @@ end
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T}
+function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T<:Real}
     V, H = arnoldi.V, arnoldi.H
     λs = sort!(eigvals(view(H, active:max, active:max)), by = abs)
     Q = eye(T, max)
-    rotations = ListOfRotations(T, max)
+
+    callback = function(givens)
+        # Apply the rotations to the G block
+        mul!(H[1:active-1, active:max], givens)
+        
+        # Apply the rotations to Q
+        mul!(Q[:, active:max], givens)
+    end
 
     idx = 1
+    m = max
 
-    @views for m = max : -1 : min + 1
+    while m > min
 
         # Pick a shift
         μ = λs[idx]
 
-        # Apply a shifted QR step to the H[active:m, active:m]
-        shifted_qr_step!(H[active:m+1, active:m], μ, rotations)
+        H_active = view(H, active : m, active : m)
 
-        # Apply the rotations to the G block
-        mul!(H[1:active-1, active:m], rotations)
-        
-        # Apply the rotations to Q
-        mul!(Q[1:max, active:m], rotations)
-
-        idx += 1
+        if imag(μ) == 0
+            # Single
+            single_shift!(H_active, real(μ), callback)
+            idx += 1
+            m -= 1
+        else
+            # Double
+            double_shift!(H_active, μ, callback)
+            idx += 2
+            m -= 2
+        end
     end
 
     # Update the Krylov basis
-    A_mul_B!(view(V_new,:,1:min-active+1), view(V, :, active:max), view(Q, active:max, active:min))
-    
-    # Update the Krylov basis
-    # V_new = view(V, :, active:max) * view(Q, active:max, active:min)
+    A_mul_B!(view(V_new,:,1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
 
     # Copy to the Arnoldi factorization
-    copy!(view(V, :, active:min), view(V_new,:,1:min-active+1))
-    copy!(view(V, :, min + 1), view(V, :, max + 1))
+    copy!(view(V, :, active:m), view(V_new,:,1:m-active+1))
+    copy!(view(V, :, m + 1), view(V, :, max + 1))
 
-    return arnoldi
+    return arnoldi, m
+end
+
+function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T}
+    V, H = arnoldi.V, arnoldi.H
+    λs = sort!(eigvals(view(H, active:max, active:max)), by = abs)
+    Q = eye(T, max)
+
+    callback = function(givens)
+        # Apply the rotations to the G block
+        mul!(H[1:active-1, active:max], givens)
+        
+        # Apply the rotations to Q
+        mul!(Q[:, active:max], givens)
+    end
+
+    idx = 1
+    m = max
+
+    while m > idx
+
+        # Pick a shift
+        μ = λs[idx]
+
+        H_active = view(H, active : m, active : m)
+
+        # Single
+        single_shift!(H_active, real(μ), callback)
+
+        H[m + 1, m]
+        idx += 1
+        m -= 1
+    end
+
+    # Update the Krylov basis
+    A_mul_B!(view(V_new,:,1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
+    
+    # Copy to the Arnoldi factorization
+    copy!(view(V, :, active:m), view(V_new,:,1:m-active+1))
+    copy!(view(V, :, m + 1), view(V, :, max + 1))
+
+    return arnoldi, m
 end
 
 
@@ -161,7 +210,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
         # Bring the new locked part oF H into upper triangular form
         if new_active > active + 1
             schur_form = schur(view(arnoldi.H, active : new_active - 1, active : new_active - 1))
-            arnoldi.H[active : new_active - 1, active : new_active - 1] = schur_form[1]
+            arnoldi.H[active : new_active - 1, active : new_active - 1] .= schur_form[1]
 
             V_locked = view(arnoldi.V, :, active : new_active - 1)
             H_right = view(arnoldi.H, active : new_active - 1, new_active : min)
@@ -183,118 +232,82 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
             break 
         end
     end
-
-    return PartialSchur(arnoldi.V, arnoldi.H, active - 1)
 end
 
-function single_shift!(H::AbstractMatrix, μ, L::ListOfRotations, callback = (x...) -> nothing)
+function single_shift!(H::AbstractMatrix, μ, callback = (x...) -> nothing, debug = false)
 
     n = size(H,2)
 
-    indices = collect("₁₂₃₄₅₆₇₈₉")
+    if debug
+        println("Initial H")
+        display("text/plain", H)
+        println()
+        println("Compute Givens rotation that maps the first column of H - μI to r₁₁q₁: G₁ * H")
+    end
 
-    println("Initial H")
-    # H = view(H.H, :, :)
-    display("text/plain", H)
-    println()
-
-    println("Compute Givens rotation that maps the first column of H - μI to r₁₁q₁: G₁ * H")
     c, s = givensAlgorithm(H[1,1] - μ, H[2,1])
     givens = Givens(c,s,1)
 
-    mul!(givens,Hessenberg(H))
+    mul!(givens, Hessenberg(H))
+    callback(givens)
 
     display("text/plain", H)
     println()
 
-    println("Apply the Givens rotation from the rhs: G₁ * H * G₁'")
+    println("Apply the Givens rotation from the rhs")
 
     # Apply the rotation from the right.
     mul!(H, givens)
 
     display("text/plain", H)
 
-    str = "G₁ * H * G₁'"
-
     # Restore to Hessenberg form
     for i = 2 : n - 1
-        println("\n\n------\n\n")
-        str = "G$(indices[i]) * " * str
-        
         c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
-        givens = Givens(c,s,i-1)
+        givens = Givens(c, s, i)
         
-        println("Restore Hessenberg form: $str")
-        mul!(givens,Hessenberg(view(H,2:n+1,:))) # Assumes that H is (n+1)*n
-        display("text/plain", H)
-        println()
+        mul!(givens, view(H, 1 : i + 1, i-1:n)) # Assumes that H is (n+1)*n
+        
+        if debug
+            println("Restore Hessenberg form")
+            display("text/plain", H)
+            println()
+        end
+        
+        last_row = min(i + 2, n)
+        mul!(view(H, 1 : last_row, :), givens)
 
-        str = str * " * G$(indices[i])'"
-        println("Apply from the rhs: $str")
-        
-        mul!(view(H,:,2:n),givens)
-        display("text/plain", H)
-        println()
+        callback(givens)
+
+        if debug
+            println("Apply from the rhs")
+            display("text/plain", H)
+            println()
+        end
     end
-    
-    # Callback, if double shift then callback twice
-    # callback()
-    
-    return H
-
 end
 
-function double_shift!(H_original, μ₁, μ₂, debug = true, callback = (x...) -> nothing)
-    @assert size(H_original, 2) == size(H_original, 1)
+function double_shift!(H, μ::Complex, callback = (x...) -> nothing, debug = true)
+    @show size(H, 2) size(H, 1)
+    @assert size(H, 2) == size(H, 1)
 
-    n = size(H_original, 1)
-    indices = collect("₁₂₃₄₅₆₇₈₉")
-    H = copy(complex(H_original))
-    Q = eye(Complex128, n)
-
-    if debug
-        println("Initial H")
-        display("text/plain", H)
-        println()
-    end
-
-    # α, β = H[n-1, n-1], H[n-1, n]
-    # γ, δ = H[n, n-1],   H[n, n]
-    # tr = α + δ
-    # det = α * δ - γ * β
-    # D = tr^2 - 4det
-
-    # if D < 0
-    #     return
-    # end
-
-    # μ₁ = tr + √D
-
-    # μ₁ = 1.10
-    # μ₂ = 1.4
+    n = size(H, 1)
 
     # Compute the entries of (H - μ₂)(H - μ₁)e₁.
-    # Please don't do it like this :p, we should not store the household reflection as a
-    # vector -- if we would wanna store it as a vector, then we should use SVector from 
-    # StaticArrays.jl; but yeah, 2 givens rotations work OK as well
-    fst = H[1:3, 1] # H * e₁
-    fst[1] -= μ₁ # - μ₁ * e₁
-    fst .= H[1:3, 1:2] * fst[1:2] - μ₂ * fst # well...
+    poly11 = abs2(μ) - 2 * real(μ) * H[1,1] + H[1,1] * H[1,1] + H[1,2] * H[2,1]
+    poly12 = - 2.0 * real(μ) * H[2,1] + H[2,1] * H[1,1] + H[2,2] * H[2,1]
+    poly13 = H[3,2] * H[2,1]
 
     # Sanity check
-    # @assert fst ≈ ((H - μ₂ * I) * ((H - μ₁ * I)[:, 1]))[1:3]
+    # @assert fst ≈ ((H - μ * I) * ((H - conj(μ) * I)[:, 1]))[1:3]
 
-    # G = eye(n)
-    # G[1:3,1:3] .= convert(Matrix, householder(fst))
-    # H = G * H
+    c1, s1, el = givensAlgorithm(poly12, poly13)
+    c2, s2 = givensAlgorithm(poly11, el)
+    givens_first = Givens(c1, s1, 2)
+    givens_second = Givens(c2, s2, 1)
 
-    c1, s1, el = givensAlgorithm(fst[2], fst[3])
-    c2, s2 = givensAlgorithm(fst[1], el)
-    givens_first = Givens(c1,s1,1)
-    givens_second = Givens(c2,s2,1)
-
-    mul!(givens_first, Hessenberg(view(H,2:n,:)))
-    mul!(givens_second, Hessenberg(view(H,1:n,:)))
+    mul!(givens_first, H)
+    mul!(givens_second, H)
     
     if debug
         println("Compute Householder reflection that maps G₁ * (H - μ₂)(H - μ₁)e₁ = r₁₁e₁")
@@ -303,12 +316,11 @@ function double_shift!(H_original, μ₁, μ₂, debug = true, callback = (x...)
     end
 
     # H *= G' # and apply the rotation from the right.
-    # Q *= G' # callback, somehow
-    mul!(view(H,:,2:n), givens_first)
-    mul!(view(H,:,1:n), givens_second)
-    # Q *= G'  # callback, somehow
-    mul!(Q, givens_first)
-    mul!(Q, givens_second)
+    mul!(H, givens_first)
+    mul!(H, givens_second)
+
+    callback(givens_first)
+    callback(givens_second)
 
     if debug
         println("Apply the Housholder reflection from the rhs: G₁ * H * G₁'")
@@ -319,65 +331,37 @@ function double_shift!(H_original, μ₁, μ₂, debug = true, callback = (x...)
     # Restore to Hessenberg form
     # Bulge is initially in H[1:3,1:3]
     for i = 2 : n - 2
-
-        # Restore...
-        # range = i : min(i + 2, n) # when i = n - 1, this is just a given's rotation
-        # G = eye(n)
-        # G[range,range] .= convert(Matrix, householder(H[range, i - 1]))
-        # H = G * H
-
         c1, s1, el = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
         c2, s2 = givensAlgorithm(H[i,i-1], el)
-        givens_first = Givens(c1,s1,i-1)
-        givens_second = Givens(c2,s2,i-1)
+        givens_first = Givens(c1, s1, i + 1)
+        givens_second = Givens(c2, s2, i)
 
-        mul!(givens_first, Hessenberg(view(H,3:n,:)))
-        mul!(givens_second, Hessenberg(view(H,2:n,:)))
+        H_bulge_block = view(H, 1 : i + 2, i - 1 : n)
+        mul!(givens_first, H_bulge_block)
+        mul!(givens_second, H_bulge_block)
 
         if debug
             println("\n------\n\n")
-            str = "G$(indices[i]) * " * str
             println("Restore Hessenberg form: $str")
             display("text/plain", H)
             println()
         end
 
         # Destroy
-        # H *= G'
-        mul!(view(H,:,3:n), givens_first)
-        mul!(view(H,:,2:n), givens_second)
-        # Q *= G'  # callback, somehow
-        # mul!(Q, givens_first)
-        # mul!(Q, givens_second)
+        last_row = min(i + 3, n)
+        H_other_bulge_block = view(H, 1 : last_row, 1 : i + 2)
+        mul!(H_other_bulge_block, givens_first)
+        mul!(H_other_bulge_block, givens_second)
 
         if debug
-            str = str * " * G$(indices[i])'"
             println("Apply from the rhs: $str")
             display("text/plain", H)
             println()
         end
+
+        callback(givens_first)
+        callback(givens_second)
     end
-
-    #Not entirely sure about the indexing here # EDIT: Seems about right
-    # c1, s1 = givensAlgorithm(H[n-1,n-2], H[n,n-2])
-    # givens_first = Givens(c1,s1,n-2)
-    # mul!(givens_first, Hessenberg(view(H,3:n,:)))
-    # if debug
-    #     println("\n------\n\n")
-    #     str = "G$(indices[n-1]) * " * str
-    #     println("Restore Hessenberg form: $str")
-    #     display("text/plain", H)
-    #     println()
-    # end
-    # mul!(view(H,:,3:n), givens_first)
-    # if debug
-    #     str = str * " * G$(indices[n-1])'"
-    #     println("Apply from the rhs: $str")
-    #     display("text/plain", H)
-    #     println()
-    # end
-
-    return H_original, H, Q
 end
 
 function qr_callback(active, m, givens)
