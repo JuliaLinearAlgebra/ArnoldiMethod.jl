@@ -6,7 +6,8 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
-    iterate_arnoldi!(A, arnoldi, 1 : min)
+    h = Vector{T}(max)
+    iterate_arnoldi!(A, arnoldi, 1 : min, h)
 
     # min′ is the effective starting point -- may be min - 1 when the last two removed guys
     # are a complex conjugate
@@ -14,9 +15,8 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
 
     active = 1
     V_new = Matrix{T}(n, min)
-
     for restarts = 1 : max_restarts
-        iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
+        iterate_arnoldi!(A, arnoldi, min′ + 1 : max, h)
         min′ = implicit_restart!(arnoldi, min, max, active, V_new)
 
         new_active = detect_convergence!(view(arnoldi.H, 1:min′+1, 1:min′), ε)
