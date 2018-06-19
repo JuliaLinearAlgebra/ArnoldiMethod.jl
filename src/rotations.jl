@@ -72,6 +72,16 @@ function mul!(G::Givens, H::Hessenberg)
     H
 end
 
+function mul!(G::Givens, H::AbstractMatrix)
+    @inbounds for j in 1:size(H, 2)
+        h_min = G.c .* H[G.i,j] + G.s * H[G.i + 1,j]
+        h_max = -conj(G.s) * H[G.i,j] + G.c * H[G.i + 1,j]
+        H[G.i,j] = h_min
+        H[G.i + 1,j] = h_max
+    end
+    H
+end
+
 """
 Applies the transpose of the Givens rotation to A from the right (in-place).
 """
