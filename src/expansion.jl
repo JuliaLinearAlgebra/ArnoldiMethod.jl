@@ -49,18 +49,12 @@ function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::Unit
         A_mul_B!(v, A, V[:, j])
 
         # Orthogonalize
-        # for i = 1 : j
-        #     H[i, j] = dot(V[:, i], v)
-        #     v .-= H[i, j] .* V[:, i]
-        # end
-        
-        # @show size(V[:,1:j]), size(v), size(H[1:j,j])
         Ac_mul_B!(H[1:j,j], V[:,1:j], v)
         LinAlg.BLAS.gemv!('N', -one(T), V[:,1:j], H[1:j,j], one(T), v)
         
         Ac_mul_B!(Δh[1:j], V[:,1:j], v)
         LinAlg.BLAS.gemv!('N', -one(T), V[:,1:j], Δh[1:j], one(T), v)
-        H[1:j,j] += Δh[1:j]
+        H[1:j,j] .+= Δh[1:j]
 
         # Normalize
         H[j + 1, j] = norm(v)
