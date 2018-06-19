@@ -18,13 +18,17 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
     for restarts = 1 : max_restarts
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max, h)
         min′ = implicit_restart!(arnoldi, min, max, active, V_new)
-
+        # @assert vecnorm(arnoldi.V[:, min]' * A * arnoldi.V[:, min] - arnoldi.H[1:min, 1:min] ) < 1e-8
         new_active = detect_convergence!(view(arnoldi.H, 1:min′+1, 1:min′), ε)
-
+        
         # Bring the new locked part oF H into upper triangular form
         if new_active > active + 1
-            schur_form = schur(view(arnoldi.H, active : new_active - 1, active : new_active - 1))
-            arnoldi.H[active : new_active - 1, active : new_active - 1] .= schur_form[1]
+
+            H22 = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
+            @show vecnorm(arnoldi.V[:, active:new_active - 1]' * A * arnoldi.V[:, active:new_active - 1] - H22  ) 
+            @assert vecnorm(arnoldi.V[:, active:new_active - 1]' * A * arnoldi.V[:, active:new_active - 1] - H22  ) < 1e-8 
+            schur_form = schur(H22)
+            H22 .= schur_form[1]
 
             V_locked = view(arnoldi.V, :, active : new_active - 1)
             H_right = view(arnoldi.H, active : new_active - 1, new_active : min′)
@@ -36,6 +40,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
                 H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
                 A_mul_B!(H_above, copy(H_above), schur_form[2])
             end
+            # @assert vecnorm(V_locked' * A * V_locked - H22 ) < 1e-8
         end
 
         active = new_active
