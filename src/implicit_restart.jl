@@ -57,7 +57,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V
 
     while m > min
         μ = λs[m - active + 1]
-        single_shift!(view(H, active : m + 1, active : m), μ, callback)
+        single_shift!(H, active, m, μ, callback)
         m -= 1
     end
 
@@ -69,11 +69,12 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V
     return m
 end
 
-"""
-Assume a Hessenberg matrix of size (n + 1) × n.
-"""
-function single_shift!(H::AbstractMatrix, μ, callback = (x...) -> nothing; debug = false)
-    @assert size(H, 1) == size(H, 2) + 1
+# """
+# Assume a Hessenberg matrix of size (n + 1) × n.
+# """
+function single_shift!(H_whole::AbstractMatrix, active, max, μ, callback = (x...) -> nothing; debug = false)
+    H = view(H_whole, active : max + 1, active : max)
+    # @assert size(H, 1) == size(H, 2) + 1
     
     n = size(H, 2)
 
@@ -85,13 +86,14 @@ function single_shift!(H::AbstractMatrix, μ, callback = (x...) -> nothing; debu
     mul!(view(H, 1 : 3, :), givens)
     callback(givens)
 
+    offset = active - 1
     # Chase the bulge!
     for i = 2 : n - 1
         c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
         givens = Givens(c, s, i)
-        mul!(givens, view(H, 1 : i + 1, i-1:n))
-        mul!(view(H, 1 : i + 2, :), givens)
-        callback(givens)
+        mul!(givens, view(H_whole, 1 + offset : i + 1 + offset, i-1+offset:n+offset))
+        mul!(view(H_whole, 1 + offset : i + 2 + offset, :), givens)
+        # callback(givens) 
     end
 
     # Do the last Given's rotation by hand (assuming exact shifts!)
