@@ -96,6 +96,7 @@ function single_shift!(H::AbstractMatrix, μ, callback = (x...) -> nothing; debu
 
     # Do the last Given's rotation by hand (assuming exact shifts!)
     H[n, n - 1] = H[n + 1, n - 1]
+    H[n + 1, n - 1] = zero(eltype(H))
 
     return H
 end
@@ -141,6 +142,7 @@ function double_shift!(H::AbstractMatrix{Tv}, μ::Complex, callback = (x...) -> 
 
     # Do the last Given's rotation by hand.
     H[n - 1, n - 2] = H[n + 1, n - 2]
+    H[n + 1, n - 2] = zero(Tv) # Not sure about this
 
     H
 end
