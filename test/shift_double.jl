@@ -24,7 +24,8 @@ end
     # Test on a couple random matrices
     for i = 1 : 50
         H, λs, μ = generate_real_H_with_imaginary_eigs(n, Float64)
-        H′ = double_shift!(H, μ)
+        Q = eye(n)
+        H′ = double_shift!(H, 1, n, μ, Q)
         @test λs ≈ sort!(eigvals(view(H′, 1:n-2, 1:n-2)), by = abs)
     end
 end
