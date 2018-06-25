@@ -22,7 +22,7 @@ end
     ε = 1e-6
 
     # Get the Arnoldi relation after seven restarts.
-    partial_schur = restarted_arnoldi(A, min, max, min, ε, 4)
+    partial_schur = restarted_arnoldi(A, min, max, min, eps(Float64), 4)
 
     R, Q, k = partial_schur.R, partial_schur.Q, partial_schur.k
 
@@ -61,7 +61,7 @@ end
     # end
 
     # Test the orthonormality of V
-    # @test vecnorm(Q[:,1:min]'*Q[:,1:min] - I) < 1e-3
+    # @test vecnorm(Q[:,1:min]'*Q[:,1:min] - I) < 1e-6
     # S =  Q[:,1:min]'*Q[:,1:min] - I
     # for i = 1:min
     #     for j = 1:min

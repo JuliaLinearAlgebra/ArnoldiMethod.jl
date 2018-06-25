@@ -2,7 +2,7 @@
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
 `max_restarts` has been reached.
 """
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = min, ε = 1e-5, max_restarts = 10) where {T}
+function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = min, ε = eps(Float64), max_restarts = 10) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
@@ -24,21 +24,34 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
         # Bring the new locked part oF H into upper triangular form
         if new_active > active + 1
 
-            H22 = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
-            schur_form = schur(H22)
-            H22 .= schur_form[1]
+            # H = Q R Q'
+
+            # A V = V H
+            # A V = V Q R Q'
+            # A (V Q) = (V Q) R
+            
+            # V <- V Q
+            # H_right <- Q' H_right
+            # H_lock <- Q' H_lock Q
+            # H_above <- H_above Q
+
+            H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
+            schur_form = schur(H_locked)
+            # H_locked .= schur_form[1]
 
             V_locked = view(V_prealloc, :, active : new_active - 1)
             V_locked = view(arnoldi.V, :, active : new_active - 1)
-            H_right = view(arnoldi.H, active : new_active - 1, new_active : min′)
+            # H_right = view(arnoldi.H, active : new_active - 1, new_active : min′)
+            H_right = view(arnoldi.H, active : new_active - 1, active : min′)
 
             A_mul_B!(V_locked, copy(V_locked), schur_form[2])
             Ac_mul_B!(H_right, schur_form[2], copy(H_right))
             
-            if active > 1
-                H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
+            # if active > 1
+                # H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
+                H_above = view(arnoldi.H, 1 : new_active - 1, active : new_active - 1)
                 A_mul_B!(H_above, copy(H_above), schur_form[2])
-            end
+            # end
         end
 
         active = new_active
