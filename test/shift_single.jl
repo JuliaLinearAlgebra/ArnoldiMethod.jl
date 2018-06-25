@@ -15,9 +15,10 @@ using IRAM: single_shift!
         λs = sort!(eigvals(H_square), by = abs, rev = true)
         
         for m = max : -1 : min + 1
+            Q = eye(T, m)
             μ = λs[m]
             H_small = view(H, 1:m+1, 1:m)
-            single_shift!(H_small, μ, debug = false)
+            single_shift!(H_small, 1, m, μ, Q, debug = false)
             H_square_small = view(H, 1:m-1, 1:m-1)
             θs = eigvals(H_square_small)
             @test λs[1:m-1] ≈ sort!(θs, by = abs, rev = true)
