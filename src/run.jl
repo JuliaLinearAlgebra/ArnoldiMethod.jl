@@ -25,19 +25,19 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
         if new_active > active + 1
 
             H22 = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
-            schur_form = schur(H22)
-            H22 .= schur_form[1]
+            schur_form = schurfact(H22)
+            H22 .= schur_form.T
 
             V_locked = view(V_prealloc, :, active : new_active - 1)
             V_locked = view(arnoldi.V, :, active : new_active - 1)
             H_right = view(arnoldi.H, active : new_active - 1, new_active : min′)
 
-            A_mul_B!(V_locked, copy(V_locked), schur_form[2])
-            Ac_mul_B!(H_right, schur_form[2], copy(H_right))
+            A_mul_B!(V_locked, copy(V_locked), schur_form.Z)
+            Ac_mul_B!(H_right, schur_form.Z, copy(H_right))
             
             if active > 1
                 H_above = view(arnoldi.H, 1 : active - 1, active : new_active - 1)
-                A_mul_B!(H_above, copy(H_above), schur_form[2])
+                A_mul_B!(H_above, copy(H_above), schur_form.Z)
             end
         end
 
