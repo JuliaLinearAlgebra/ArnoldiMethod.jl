@@ -36,7 +36,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
 
         @show active
 
-        if active > converged
+        if active >= converged
             break 
         end
     end

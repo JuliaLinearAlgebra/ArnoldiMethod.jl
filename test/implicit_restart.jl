@@ -14,8 +14,9 @@ using IRAM: implicit_restart!, initialize, iterate_arnoldi!
         arnoldi = initialize(T, n, max)
         V, H = arnoldi.V, arnoldi.H
         iterate_arnoldi!(A, arnoldi, 1 : max, h)
+        λs = sort!(eigvals(view(H, 1:max, 1:max)), by = abs, rev = true)
 
-        m = implicit_restart!(arnoldi, min, max)
+        m = implicit_restart!(arnoldi, λs, min, max)
 
         @test vecnorm(V[:, 1 : m]' * V[:, 1 : m] - eye(m)) < 1e-13
         @test vecnorm(V[:, 1 : m]' * A * V[:, 1 : m] - H[1 : m, 1 : m]) < 1e-13
