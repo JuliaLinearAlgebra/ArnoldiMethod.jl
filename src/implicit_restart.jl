@@ -95,6 +95,7 @@ function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::Abstrac
         c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
         givens = Givens(c, s, min + i - 1)
         mul!(givens, H_whole)
+        H_whole[i+1,i-1] = zero(Tv)
         mul!(view(H_whole, 1 : min + i + 1, :), givens)
         
         # Update Q
@@ -109,9 +110,7 @@ function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::Abstrac
 end
 
 function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix; debug = false) where {Tv<:Real}
-    # println("Double:")
     H = view(H_whole, min : max + 1, min : max)
-    # @assert size(H, 1) == size(H, 2) + 1
     n = size(H, 2)
 
     # Compute the entries of (H - μ₂)(H - μ₁)e₁.
@@ -133,9 +132,6 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     mul!(Q, G₁)
     mul!(Q, G₂)
 
-    # callback(G₁)
-    # callback(G₂)
-
     # Bulge chasing!
     for i = 2 : n - 2
         c₁, s₁, nrm = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
@@ -146,24 +142,27 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         # Restore to Hessenberg
         mul!(G₁, view(H_whole, :, min+i-2:max))
         mul!(G₂, view(H_whole, :, min+i-2:max))
+        
+        # Zero out off-diagonal values
+        H_whole[min+i, i-1] = zero(Tv)
+        H_whole[min+i+1, i-1] = zero(Tv)
+
+        # Create a new bulge
         mul!(view(H_whole, 1:min+i+2, :), G₁)
         mul!(view(H_whole, 1:min+i+2, :), G₂)
 
         # Update Q
         mul!(Q, G₁)
         mul!(Q, G₂)
-    
-        # callback(G₁)
-        # callback(G₂)
     end
 
     # Do the last Given's rotation by hand.
     H[n - 1, n - 2] = H[n + 1, n - 2]
 
-    H[n + 1, n - 2] = zero(Tv) # Not sure about these
-    #H[n + 1, n - 1] = zero(Tv)
-
-    #display(H_whole[1:4,1:4]); println()
+    # Zero out the off-diagonal guys
+    H[n    , n - 2] = zero(Tv)
+    H[n + 1, n - 2] = zero(Tv)
+    H[n + 1, n - 1] = zero(Tv)
 
     H
 end
