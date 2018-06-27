@@ -73,7 +73,7 @@ end
 # """
 # Assume a Hessenberg matrix of size (n + 1) × n.
 # """
-function single_shift!(H_whole::AbstractMatrix, min, max, μ, Q::AbstractMatrix; debug = false)
+function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::AbstractMatrix; debug = false) where {Tv}
     # println("Single:")
     H = view(H_whole, min : max + 1, min : max)
     # @assert size(H, 1) == size(H, 2) + 1
