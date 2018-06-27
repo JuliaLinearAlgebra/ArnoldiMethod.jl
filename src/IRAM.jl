@@ -1,8 +1,8 @@
 module IRAM
 
-struct Arnoldi{T}
-    V::StridedMatrix{T}
-    H::StridedMatrix{T}
+struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
+    V::TV
+    H::TH
 end
 
 struct PartialSchur{TQ,TR} 

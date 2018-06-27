@@ -3,7 +3,7 @@
 Allocate some space for an Arnoldi factorization of A where the Krylov subspace has
 dimension `max` at most.
 """
-function initialize(::Type{T}, n::Int, max = 30) where {T}
+function initialize(::Type{T}, n::Int, max::Int = 30) where {T}
     V = Matrix{T}(n, max + 1)
     H = zeros(T, max + 1, max)
 
@@ -11,7 +11,7 @@ function initialize(::Type{T}, n::Int, max = 30) where {T}
     rand!(v1)
     v1 ./= norm(v1)
 
-    Arnoldi(V, H)
+    Arnoldi{T,typeof(V),typeof(H)}(V, H)
 end
 
 """
