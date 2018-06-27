@@ -2,26 +2,63 @@ using Base.Test
 
 using IRAM: single_shift!
 
-@testset "Single Shifted QR" begin
-    max = 20
-    min = 10
+# Generates a real Hessenberg matrix with one real eigenvalue
+# which can be used for testing the single shift in real arithmetic
+function generate_real_H_with_real_eigs(n, T::Type = Float64)
+    while true
+        H = triu(rand(T, n + 1, n), -1)
+        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
 
-    # Test whether the eigenvalues of the H[1:m,1:m] block are equal to the original
-    # eigenvalues of H with some selected eignvalues removed.
-    for T in (Complex128,)
-        # Generate a Hessenberg matrix
-        H = triu(rand(T, max + 1, max), -1)
-        H_square = view(H, 1 : max, 1 : max)
-        λs = sort!(eigvals(H_square), by = abs, rev = true)
-        
-        for m = max : -1 : min + 1
-            Q = eye(T, m)
-            μ = λs[m]
-            H_small = view(H, 1:m+1, 1:m)
-            single_shift!(H_small, 1, m, μ, Q, debug = false)
-            H_square_small = view(H, 1:m-1, 1:m-1)
-            θs = eigvals(H_square_small)
-            @test λs[1:m-1] ≈ sort!(θs, by = abs, rev = true)
+        for i = 1 : n
+            μ = λs[i]
+            if imag(μ) == 0
+                deleteat!(λs, i)
+                return H, λs, real(μ)
+            end
         end
+    end
+end
+
+# Similarly generates a complex Hessenberg matrix, with any eigenvalue
+# that can be used to test a single shift in complex arithmetic
+function generate_complex_H(n, T::Type = Complex128)
+    H = triu(rand(T, n + 1, n), -1)
+    λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
+    μ = λs[1]
+    deleteat!(λs, 1)
+    return H, λs, μ
+end
+
+@testset "Single Shifted QR" begin
+    n = 20
+
+    is_hessenberg(H) = vecnorm(tril(H, -2)) == 0
+
+    # Real arithmetic
+    for i = 1 : 50
+        H, λs, μ = generate_real_H_with_real_eigs(n, Float64)
+        Q = eye(n)
+
+        single_shift!(H, 1, n, μ, Q)
+
+        # Test whether exact shifts retain the remaining eigenvalues after the QR step
+        @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = abs)
+
+        # Test whether the full matrix remains Hessenberg.
+        @test is_hessenberg(H)
+    end
+
+    # Complex arithmethic
+    for i = 1 : 50
+        H, λs, μ = generate_complex_H(n, Complex128)
+        Q = eye(Complex128, n)
+
+        single_shift!(H, 1, n, μ, Q)
+
+        # Test whether exact shifts retain the remaining eigenvalues after the QR step
+        @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = abs)
+
+        # Test whether the full matrix remains Hessenberg.
+        @test is_hessenberg(H)
     end
 end

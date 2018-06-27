@@ -21,11 +21,18 @@ end
 @testset "Double Shifted QR" begin
     n = 20
 
+    is_hessenberg(H) = vecnorm(tril(H, -2)) == 0
+
     # Test on a couple random matrices
     for i = 1 : 50
         H, λs, μ = generate_real_H_with_imaginary_eigs(n, Float64)
         Q = eye(n)
-        H′ = double_shift!(H, 1, n, μ, Q)
-        @test λs ≈ sort!(eigvals(view(H′, 1:n-2, 1:n-2)), by = abs)
+        double_shift!(H, 1, n, μ, Q)
+
+        # Test whether exact shifts retain the remaining eigenvalues after the QR step
+        @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by = abs)
+
+        # Test whether the full matrix remains Hessenberg.
+        @test is_hessenberg(H)
     end
 end
