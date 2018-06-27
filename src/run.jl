@@ -27,7 +27,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
         if new_active > active + 1
             # Bring the new locked part oF H into upper triangular form
             transform_converged(arnoldi, active, new_active, min′, V_prealloc)
-            
+
         end
 
         active = new_active
@@ -36,7 +36,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
 
         @show active
 
-        if active >= converged
+        if active > converged
             break 
         end
     end
