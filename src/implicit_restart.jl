@@ -4,10 +4,9 @@ using Base.LinAlg: givensAlgorithm
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T<:Real}
+function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T<:Real}
     # Real arithmetic
     V, H = arnoldi.V, arnoldi.H
-    λs = sort!(eigvals(view(H, active:max, active:max)), by = abs, rev = true)
     Q = eye(T, max)
 
     # callback = function(givens)
@@ -26,8 +25,11 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V
             single_shift!(H, active, m, real(μ), Q)
             m -= 1
         else
+            # Dont double shift past min
+            # m == min + 1 && break
+
             double_shift!(H, active, m, μ, Q)
-            m -= 2
+            m -= 2 # incorrect
         end
     end
 
@@ -39,10 +41,9 @@ function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V
     return m
 end
 
-function implicit_restart!(arnoldi::Arnoldi{T}, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T}
+function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T}
     # Complex arithmetic
     V, H = arnoldi.V, arnoldi.H
-    λs = sort!(eigvals(view(H, active:max, active:max)), by = abs, rev = true)
     Q = eye(T, max)
 
     # callback = function(givens)
@@ -73,6 +74,7 @@ end
 # Assume a Hessenberg matrix of size (n + 1) × n.
 # """
 function single_shift!(H_whole::AbstractMatrix, min, max, μ, Q::AbstractMatrix; debug = false)
+    # println("Single:")
     H = view(H_whole, min : max + 1, min : max)
     # @assert size(H, 1) == size(H, 2) + 1
     
@@ -107,6 +109,7 @@ function single_shift!(H_whole::AbstractMatrix, min, max, μ, Q::AbstractMatrix;
 end
 
 function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix; debug = false) where {Tv<:Real}
+    # println("Double:")
     H = view(H_whole, min : max + 1, min : max)
     # @assert size(H, 1) == size(H, 2) + 1
     n = size(H, 2)
@@ -156,7 +159,11 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
 
     # Do the last Given's rotation by hand.
     H[n - 1, n - 2] = H[n + 1, n - 2]
-    H[n + 1, n - 2] = zero(Tv) # Not sure about this
+
+    H[n + 1, n - 2] = zero(Tv) # Not sure about these
+    #H[n + 1, n - 1] = zero(Tv)
+
+    #display(H_whole[1:4,1:4]); println()
 
     H
 end
