@@ -156,13 +156,16 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         mul!(Q, G₂)
     end
 
-    # Do the last Given's rotation by hand.
-    H[n - 1, n - 2] = H[n + 1, n - 2]
+    if n > 2
+        # Do the last Given's rotation by hand.
+        H[n - 1, n - 2] = H[n + 1, n - 2]
 
-    # Zero out the off-diagonal guys
-    H[n    , n - 2] = zero(Tv)
-    H[n + 1, n - 2] = zero(Tv)
+        # Zero out the off-diagonal guys
+        H[n    , n - 2] = zero(Tv)
+        H[n + 1, n - 2] = zero(Tv)
+    end
+    
     H[n + 1, n - 1] = zero(Tv)
-
+    
     H
 end
