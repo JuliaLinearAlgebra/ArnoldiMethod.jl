@@ -23,7 +23,7 @@ end
         ε = 1e-6
 
         # Get the Arnoldi relation after seven restarts.
-        partial_schur = restarted_arnoldi(A, min, max, min, eps(eps(real(T))), 4)
+        partial_schur = restarted_arnoldi(A, min, max, min, eps(real(T)), 4)
 
         R, Q, k = partial_schur.R, partial_schur.Q, partial_schur.k
 
