@@ -29,6 +29,9 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
         # @show vecnorm(A * arnoldi.V[:, 1:min′] - arnoldi.V[:, 1:min′+1] * arnoldi.H[1:min′+1, 1:min′] )
         if new_active > active + 1
             # Bring the new locked part oF H into upper triangular form
+            # display(view(arnoldi.H, 1 : new_active - 1, 1 : new_active - 1))
+            # @show sort!(eigvalues(view(arnoldi.H, 1 : new_active - 1, 1 : new_active - 1)), by = abs, rev = true)
+            # @show sort!(eigvals(view(arnoldi.H, 1 : new_active - 1, 1 : new_active - 1)), by = abs, rev = true)
             transform_converged(arnoldi, active, new_active, min′, V_prealloc)
         end
 
@@ -62,16 +65,25 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
     H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
     schur_form = schurfact(H_locked)
+    # display(schur_form.Z)
+    # display(H_locked)
+
+
+    schurfact!(arnoldi.H, active, new_active - 1, shiftmethod = :Rayleigh)
+    display(H_locked)
+    @show sort!(eigvalues(H_locked), by = abs, rev = true)
+    @show sort!(eigvals(H_locked), by = abs, rev = true)
+
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
-    H_right = view(arnoldi.H, active : new_active - 1, active : min′)
+    # H_right = view(arnoldi.H, active : new_active - 1, active : min′)
 
     A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, schur_form.Z)
     V_locked .= view(V_prealloc, :, active : new_active - 1)
 
-    Ac_mul_B!(H_right, schur_form.Z, copy(H_right))
+    # Ac_mul_B!(H_right, schur_form.Z, copy(H_right))
     
-    H_above = view(arnoldi.H, 1 : new_active - 1, active : new_active - 1)
-    A_mul_B!(H_above, copy(H_above), schur_form.Z)
+    # H_above = view(arnoldi.H, 1 : new_active - 1, active : new_active - 1)
+    # A_mul_B!(H_above, copy(H_above), schur_form.Z)
 
 end
