@@ -45,9 +45,11 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
     function schurfact!{T<:Real}(H::AbstractMatrix{T}, active, max; tol = eps(T), debug = false, shiftmethod = :Wilkinson, maxiter = 100*size(H, 1))
         n = size(H, 1)
         istart = 1
-        iend = max - active
+        iend = max - active + 1
         HH = view(H, active:max, active:max)
-        τ = Rotation(Base.LinAlg.Givens{T}[])
+        HH_copy = copy(HH)
+        # τ = Rotation(Base.LinAlg.Givens{T}[])
+        Q = eye(T, max)
 
         # iteration count
         i = 0
@@ -94,12 +96,16 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
                     debug && @printf("Double shift with Wilkinson shift! Subdiagonal is: %10.3e, last subdiagonal is: %10.3e\n", HH[iend, iend - 1], HH[iend - 1, iend - 2])
 
                     # Run a bulge chase
-                    doubleShiftQR!(H, τ, t, d, active - 1 + istart, active - 1 + iend)
+                    doubleShiftQR!(H, Q, t, d, active - 1 + istart, active - 1 + iend)
                 elseif shiftmethod == :Rayleigh
                     debug && @printf("Single shift with Rayleigh shift! Subdiagonal is: %10.3e\n", HH[iend, iend - 1])
 
                     # Run a bulge chase
-                    singleShiftQR!(H, τ, Hmm, active - 1 + istart, active - 1 + iend)
+                    singleShiftQR!(H, Q, Hmm, active - 1 + istart, active - 1 + iend)
+                    # single_shift!(H, active - 1 + istart, active - 1 + iend, Hmm, Q)
+                    @show vecnorm(view(Q, active:max, active:max)' * HH_copy * view(Q, active:max, active:max) - HH)
+                    display(Q)
+                    # display(HH)
                 else
                     throw(ArgumentError("only support supported shift methods are :Wilkinson (default) and :Rayleigh. You supplied $shiftmethod"))
                 end
@@ -107,10 +113,10 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
             if iend <= 2 break end
         end
 
-        return HH # Schur{T,typeof(HH)}(HH, τ)
+        return HH, Q
     end
 
-    function singleShiftQR!(HH::StridedMatrix, τ::Rotation, shift::Number, istart::Integer, iend::Integer)
+    function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, istart::Integer, iend::Integer)
         m = size(HH, 1)
         H11 = HH[istart, istart]
         H21 = HH[istart + 1, istart]
@@ -122,7 +128,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
         G = Givens(c, s, istart)
         mul!(G, HH)
         mul!(HH, G)
-        # A_mul_B!(G, τ)
+        mul!(G, Q)
         for i = istart:iend - 2
             c, s = givensAlgorithm(HH[i + 1, i], HH[i + 2, i])
             G = Givens(c, s, i + 1)

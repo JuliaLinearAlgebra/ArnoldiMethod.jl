@@ -2,7 +2,7 @@
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
 `max_restarts` has been reached.
 """
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = min, ε = eps(T), max_restarts = 10) where {T}
+function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, ε = eps(T), max_restarts = 10) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
@@ -39,7 +39,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, converged = 
 
         @show active
 
-        if active > converged
+        if active > nev
             break 
         end
     end
@@ -64,23 +64,33 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     # H_above <- H_above Q
 
     H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
-    schur_form = schurfact(H_locked)
+    H_copy = copy(H_locked)
+    # schur_form = schurfact(H_locked)
     # display(schur_form.Z)
     # display(H_locked)
+    H_copy_full = copy(arnoldi.H)
 
-
-    schurfact!(arnoldi.H, active, new_active - 1, shiftmethod = :Rayleigh)
+    _ , Q_large = schurfact!(arnoldi.H, active, new_active - 1, shiftmethod = :Rayleigh)
+    Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
     display(H_locked)
+    display(H_copy)
     @show sort!(eigvalues(H_locked), by = abs, rev = true)
+    display(H_locked)
     @show sort!(eigvals(H_locked), by = abs, rev = true)
 
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
     # H_right = view(arnoldi.H, active : new_active - 1, active : min′)
 
-    A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, schur_form.Z)
+    A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
     V_locked .= view(V_prealloc, :, active : new_active - 1)
-
+    # @show vecnorm(schur_form.Z' * H_copy * schur_form.Z - schur_form[:Schur])
+    @show vecnorm(Q_large' * H_copy_full[1:new_active-1, 1:new_active-1] * Q_large - arnoldi.H[1:new_active-1, 1:new_active-1])
+    @show vecnorm(Q_small' * H_copy * Q_small - H_locked)
+    @show vecnorm(Q_small * H_copy * Q_small' - H_locked)
+    # @show vecnorm(Q_small * H_locked * Q_small' - H_copy)
+    @show vecnorm(Q_small' * Q_small - I)
+    # display(Q_small)
     # Ac_mul_B!(H_right, schur_form.Z, copy(H_right))
     
     # H_above = view(arnoldi.H, 1 : new_active - 1, active : new_active - 1)
