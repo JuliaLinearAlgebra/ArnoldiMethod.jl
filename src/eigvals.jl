@@ -128,7 +128,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
         G = Givens(c, s, istart)
         mul!(G, HH)
         mul!(HH, G)
-        mul!(G, Q)
+        mul!(Q, G)
         for i = istart:iend - 2
             c, s = givensAlgorithm(HH[i + 1, i], HH[i + 2, i])
             G = Givens(c, s, i + 1)
@@ -139,7 +139,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
                 HH[i + 3, i + 1] = 0
             end
             mul!(HH, G)
-            # A_mul_B!(G, τ)
+            mul!(Q, G)
         end
         return HH
     end
