@@ -44,9 +44,14 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
 
     function schurfact!(H::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, shiftmethod = :Wilkinson, maxiter = 100*size(H, 1)) where {T}
         n = size(H, 1)
-        istart = 1
-        iend = max - active + 1
-        HH = view(H, active:max, active:max)
+
+        istart = active
+        iend = max
+        # HH = view(H, active:max, active:max)
+
+        # istart = 1
+        # iend = max - active + 1
+        # HH = view(H, active:max, active:max)
         # HH_copy = copy(HH)
         Q = eye(T, max)
 
@@ -61,12 +66,12 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
 
             # Determine if the matrix splits. Find lowest positioned subdiagonal "zero"
             for istart = iend - 1:-1:1
-                if abs(HH[istart + 1, istart]) < tol*(abs(HH[istart, istart]) + abs(HH[istart + 1, istart + 1]))
+                if abs(H[istart + 1, istart]) < tol*(abs(H[istart, istart]) + abs(H[istart + 1, istart + 1]))
                     istart += 1
-                    debug && @printf("Split! Subdiagonal element is: %10.3e and istart now %6d\n", HH[istart, istart - 1], istart)
+                    debug && @printf("Split! Subdiagonal element is: %10.3e and istart now %6d\n", H[istart, istart - 1], istart)
                     break
-                elseif istart > 1 && abs(HH[istart, istart - 1]) < tol*(abs(HH[istart - 1, istart - 1]) + abs(HH[istart, istart]))
-                    debug && @printf("Split! Next subdiagonal element is: %10.3e and istart now %6d\n", HH[istart, istart - 1], istart)
+                elseif istart > 1 && abs(H[istart, istart - 1]) < tol*(abs(H[istart - 1, istart - 1]) + abs(H[istart, istart]))
+                    debug && @printf("Split! Next subdiagonal element is: %10.3e and istart now %6d\n", H[istart, istart - 1], istart)
                     break
                 end
             end
@@ -84,25 +89,25 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
             # run a QR iteration
             # shift method is specified with shiftmethod kw argument
             else
-                Hmm = HH[iend, iend]
-                Hm1m1 = HH[iend - 1, iend - 1]
-                d = Hm1m1*Hmm - HH[iend, iend - 1]*HH[iend - 1, iend]
+                Hmm = H[iend, iend]
+                Hm1m1 = H[iend - 1, iend - 1]
+                d = Hm1m1*Hmm - H[iend, iend - 1]*H[iend - 1, iend]
                 t = Hm1m1 + Hmm
                 t = iszero(t) ? eps(one(t)) : t # introduce a small pertubation for zero shifts
                 debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", istart, iend, d, t)
 
                 if shiftmethod == :Wilkinson
-                    debug && @printf("Double shift with Wilkinson shift! Subdiagonal is: %10.3e, last subdiagonal is: %10.3e\n", HH[iend, iend - 1], HH[iend - 1, iend - 2])
+                    debug && @printf("Double shift with Wilkinson shift! Subdiagonal is: %10.3e, last subdiagonal is: %10.3e\n", H[iend, iend - 1], H[iend - 1, iend - 2])
 
                     # Run a bulge chase
-                    doubleShiftQR!(H, Q, t, d, active - 1 + istart, active - 1 + iend)
+                    doubleShiftQR!(H, Q, t, d, istart, iend)
                 elseif shiftmethod == :Rayleigh
-                    debug && @printf("Single shift with Rayleigh shift! Subdiagonal is: %10.3e\n", HH[iend, iend - 1])
+                    debug && @printf("Single shift with Rayleigh shift! Subdiagonal is: %10.3e\n", H[iend, iend - 1])
 
                     # Run a bulge chase
-                    singleShiftQR!(H, Q, Hmm, active - 1 + istart, active - 1 + iend)
-                    # single_shift!(H, active - 1 + istart, active - 1 + iend, Hmm, Q)
-                    # @show vecnorm(view(Q, active:max, active:max)' * HH_copy * view(Q, active:max, active:max) - HH[1:max-active+1, 1:max-active+1])
+                    singleShiftQR!(H, Q, Hmm, istart, iend)
+                    # single_shift!(H, istart, iend, Hmm, Q)
+                    # @show vecnorm(view(Q, active:max, active:max)' * HH_copy * view(Q, active:max, active:max) - H[1:max-active+1, 1:max-active+1])
                 else
                     throw(ArgumentError("only support supported shift methods are :Wilkinson (default) and :Rayleigh. You supplied $shiftmethod"))
                 end
@@ -110,7 +115,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
             if iend <= 2 break end
         end
 
-        return HH, Q
+        return H, Q
     end
 
     function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, istart::Integer, iend::Integer)
