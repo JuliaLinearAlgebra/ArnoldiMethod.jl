@@ -42,13 +42,12 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
     #     return ifelse(abs(Hmm - λ1) < abs(Hmm - λ2), λ1, λ2)
     # end
 
-    function schurfact!{T<:Real}(H::AbstractMatrix{T}, active, max; tol = eps(T), debug = false, shiftmethod = :Wilkinson, maxiter = 100*size(H, 1))
+    function schurfact!(H::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, shiftmethod = :Wilkinson, maxiter = 100*size(H, 1)) where {T}
         n = size(H, 1)
         istart = 1
         iend = max - active + 1
         HH = view(H, active:max, active:max)
-        HH_copy = copy(HH)
-        # τ = Rotation(Base.LinAlg.Givens{T}[])
+        # HH_copy = copy(HH)
         Q = eye(T, max)
 
         # iteration count
@@ -103,9 +102,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
                     # Run a bulge chase
                     singleShiftQR!(H, Q, Hmm, active - 1 + istart, active - 1 + iend)
                     # single_shift!(H, active - 1 + istart, active - 1 + iend, Hmm, Q)
-                    @show vecnorm(view(Q, active:max, active:max)' * HH_copy * view(Q, active:max, active:max) - HH)
-                    display(Q)
-                    # display(HH)
+                    # @show vecnorm(view(Q, active:max, active:max)' * HH_copy * view(Q, active:max, active:max) - HH[1:max-active+1, 1:max-active+1])
                 else
                     throw(ArgumentError("only support supported shift methods are :Wilkinson (default) and :Rayleigh. You supplied $shiftmethod"))
                 end
