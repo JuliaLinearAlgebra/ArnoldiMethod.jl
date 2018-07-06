@@ -32,9 +32,9 @@ end
 
 @propagate_inbounds is_offdiagonal_small(H, i, tol) = abs(H[i+1,i]) < tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
 
-function schurfact!(H::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T<:Real}
+function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T<:Real}
     to = stop
-    Q = eye(T, size(H, 1))
+    # Q = eye(T, size(H, 1))
 
     # iteration count
     iter = 0
@@ -94,7 +94,7 @@ function schurfact!(H::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug
             debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", from, to, d, t)
 
             # Quadratic eqn determinant
-            determinant = t * t - 4d
+            determinant = t * t - 4d #Discriminant?
 
             if determinant > zero(T)
                 # Real eigenvalues.
@@ -117,7 +117,8 @@ function schurfact!(H::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug
                     debug && @printf("Bottom deflation! Block size is two. New to is %6d\n", to)
                 else
                     # Otherwise we do a double shift!
-                    throw("Double shift not yet implemented")
+                    doubleShiftQR!(H, Q, t, d, from, to)
+                    println("Double shift")
                 end
             end
         end
@@ -131,7 +132,7 @@ function schurfact!(H::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug
     return true
 end
 
-function schurfact!(H::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
+function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
     n = size(H, 1)
 
     istart = active
@@ -142,7 +143,7 @@ function schurfact!(H::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug
     # iend = max - active + 1
     # HH = view(H, active:max, active:max)
     # HH_copy = copy(HH)
-    Q = eye(T, max)
+    # Q = eye(T, max)
 
     # iteration count
     i = 0
@@ -229,7 +230,7 @@ function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, ist
 end
 
 function doubleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shiftTrace::Number, shiftDeterminant::Number, istart::Integer, iend::Integer)
-    m = size(HH, 1)
+    m = size(HH, 2)
     H11 = HH[istart, istart]
     H21 = HH[istart + 1, istart]
     Htmp11 = HH[istart + 2, istart]
@@ -243,9 +244,9 @@ function doubleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shiftTrace::Number
         # values doen't matter in this case but variables should be initialized
         Htmp21 = Htmp22 = Htmp11
     end
-    c, s, nrm = givensAlgorithm(H21*(H11 + HH[istart + 1, istart + 1] - shiftTrace, H21*HH[istart + 2, istart + 1]))
+    c1, s1, nrm = givensAlgorithm(H21*(H11 + HH[istart + 1, istart + 1] - shiftTrace), H21*HH[istart + 2, istart + 1])
     G1 = Givens(c1, s1, istart + 1)
-    c, s, _ = givensAlgorithm(H11*H11 + HH[istart, istart + 1]*H21 - shiftTrace*H11 + shiftDeterminant, nrm)
+    c2, s2, _ = givensAlgorithm(H11*H11 + HH[istart, istart + 1]*H21 - shiftTrace*H11 + shiftDeterminant, nrm)
     G2 = Givens(c2, s2, istart)
 
     vHH = view(HH, :, istart:m)
@@ -257,25 +258,30 @@ function doubleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shiftTrace::Number
     mul!(Q, G1)
     mul!(Q, G2)
 
-    #Not sure what to do with the rest
     for i = istart:iend - 2
-        for j = 1:2
-            if i + j + 1 > iend break end
+        for j = 2:1
+            if i + j + 1 > iend continue end
             # G, _ = givens(H.H,i+1,i+j+1,i)
-            G, _ = givens(HH[i + 1, i], HH[i + j + 1, i], i + 1, i + j + 1)
+            c, s, _ = givensAlgorithm(HH[i + j, i], HH[i + j + 1, i])
+            G = Givens(c, s, i + j)
             mul!(G, view(HH, :, i:m))
-            HH[i + j + 1, i] = Htmp11
-            Htmp11 = Htmp21
+
+            # Not sure what this was for
+            # HH[i + j + 1, i] = Htmp11
+            # Htmp11 = Htmp21
+            
+            # Commented out from the start 
             # if i + j + 2 <= iend
                 # Htmp21 = HH[i + j + 2, i + 1]
                 # HH[i + j + 2, i + 1] = 0
             # end
+            
             if i + 4 <= iend
                 Htmp22 = HH[i + 4, i + j]
                 HH[i + 4, i + j] = 0
             end
             mul!(view(HH, 1:min(i + j + 2, iend), :), G)
-            # A_mul_B!(G, τ)
+            mul!(Q, G)
         end
     end
     return HH

@@ -63,6 +63,8 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     # H_lock <- Q' H_lock Q
     # H_above <- H_above Q
 
+    Q_large = eye(eltype(arnoldi.H), new_active - 1)
+
     H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
     H_copy = copy(H_locked)
     # schur_form = schurfact(H_locked)
@@ -70,7 +72,7 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     # display(H_locked)
     H_copy_full = copy(arnoldi.H)
 
-    _ , Q_large = schurfact!(arnoldi.H, active, new_active - 1)
+    schurfact!(arnoldi.H, Q_large, active, new_active - 1)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
     display(H_locked)
     @show sort!(eigvalues(H_locked), by = abs, rev = true)
