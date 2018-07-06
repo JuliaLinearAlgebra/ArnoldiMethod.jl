@@ -19,4 +19,9 @@ using IRAM
     let H = [2.0 0.5; 0.2 3.0], H_copy = copy(H)
         @test IRAM.schurfact!(H, 1, 2, maxiter = 2)
     end
+
+    # Zero trace, should be done right away as well...
+    let H = [0.0 0.5; 0.0 0.0], H_copy = copy(H)
+        @test IRAM.schurfact!(H, 1, 2, maxiter = 2)
+    end
 end

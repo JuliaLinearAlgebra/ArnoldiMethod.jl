@@ -91,9 +91,6 @@ function schurfact!(H::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug
             d = H₁₁ * H₂₂ - H₂₁ * H₁₂
             t = H₁₁ + H₂₂
 
-            # Test this! Introduce a small pertubation for zero shifts
-            t = iszero(t) ? eps(T) : t
-
             debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", from, to, d, t)
 
             # Quadratic eqn determinant
