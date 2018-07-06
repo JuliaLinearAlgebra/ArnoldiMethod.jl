@@ -289,3 +289,96 @@ function doubleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shiftTrace::Number
     end
     return HH
 end
+
+function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix) where {Tv<:Real}
+    # Compute the three nonzero entries of (H - μ₂)(H - μ₁)e₁.
+    p₁ = abs2(μ) - 2 * real(μ) * H[1,1] + H[1,1] * H[1,1] + H[1,2] * H[2,1]
+    p₂ = -2.0 * real(μ) * H[2,1] + H[2,1] * H[1,1] + H[2,2] * H[2,1]
+    p₃ = H[3,2] * H[2,1]
+
+    # Map that column to a mulitiple of e₁ via three Given's rotations
+    c₁, s₁, nrm = givensAlgorithm(p₂, p₃)
+    c₂, s₂,     = givensAlgorithm(p₁, nrm)
+    G₁ = Givens(c₁, s₁, min+1)
+    G₂ = Givens(c₂, s₂, min)
+
+    # Apply the Given's rotations
+    mul!(G₁, H)
+    mul!(G₂, H)
+    mul!(H, G₁)
+    mul!(H, G₂)
+
+    # Update Q
+    mul!(Q, G₁)
+    mul!(Q, G₂)
+
+    # Bulge chasing. First step of the for-loop below looks like:
+    #   min           max
+    #     ↓           ↓
+    #     x x x x x x x     x x x x x x x     x + + + x x x
+    # i → x x x x x x x     + + + + + + +     x + + + x x x 
+    #     x x x x x x x     o + + + + + +       + + + x x x
+    #     x x x x x x x  ⇒  o + + + + + +  ⇒    + + + x x x
+    #       |   x x x x           x x x x       + + + x x x
+    #       |     x x x             x x x             x x x
+    #       |       x x               x x               x x
+    #       ↑
+    #       i
+    #
+    # Last iterations looks like:
+    #   min           max
+    #     ↓           ↓
+    #     x x x x x x x     x x x x x x x     x x x x + + +
+    #     x x x x x x x     x x x x x x x     x x x x + + +
+    #       x x x x x x       x x x x x x       x x x + + +
+    #         x x x x x  ⇒    x x x x x x  ⇒      x x + + +
+    # i → ----- x x x x           + + + +           x + + +
+    #           x x x x           o + + +             + + +
+    #           x x x x           o + + +             + + +
+    #             ↑
+    #             i
+
+    for i = min + 1 : max - 2
+        c₁, s₁, nrm = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
+        c₂, s₂,     = givensAlgorithm(H[i,i-1], nrm)
+        G₁ = Givens(c₁, s₁, i+1)
+        G₂ = Givens(c₂, s₂, i)
+
+        # Restore to Hessenberg
+        mul!(G₁, H)
+        mul!(G₂, H)
+
+        # Introduce zeros below Hessenberg part
+        H[i+1,i-1] = zero(Tv)
+        H[i+2,i-1] = zero(Tv)
+
+        # Create a new bulge
+        mul!(H, G₁)
+        mul!(H, G₂)
+
+        # Update Q
+        mul!(Q, G₁)
+        mul!(Q, G₂)
+    end
+
+    # Last bulge is just one Given's rotation
+    #     min           max
+    #       ↓           ↓
+    # min → x x x x x x x    x x x x x x x    x x x x x + +  
+    #       x x x x x x x    x x x x x x x    x x x x x + +  
+    #         x x x x x x      x x x x x x      x x x x + +  
+    #           x x x x x  ⇒     x x x x x  ⇒     x x x + +  
+    #             x x x x          x x x x          x x + +  
+    #               x x x            + + +            x + +  
+    # max → ------- x x x            o + +              + +
+
+
+    c, s, = givensAlgorithm(H[max-1,max-2], H[max,max-2])
+    G = Givens(c, s, max-1)
+    mul!(G, H)
+    H[max,max-2] = zero(Tv)
+    mul!(H, G)
+    mul!(Q, G)
+
+    H
+end
