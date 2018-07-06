@@ -70,7 +70,7 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     # display(H_locked)
     H_copy_full = copy(arnoldi.H)
 
-    _ , Q_large = schurfact!(arnoldi.H, active, new_active - 1, shiftmethod = :Rayleigh)
+    _ , Q_large = schurfact!(arnoldi.H, active, new_active - 1)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
     display(H_locked)
     @show sort!(eigvalues(H_locked), by = abs, rev = true)
