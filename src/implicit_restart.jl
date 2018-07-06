@@ -169,7 +169,7 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
 end
 
 function double_shift_schur!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix; debug = false) where {Tv<:Real}
-    H = view(H_whole, min : max + 1, min : max)
+    H = view(H_whole, min : max, min : max)
     n = size(H, 2)
 
     # Compute the entries of (H - μ₂)(H - μ₁)e₁.
