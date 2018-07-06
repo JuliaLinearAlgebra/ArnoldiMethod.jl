@@ -117,7 +117,10 @@ function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol
                     debug && @printf("Bottom deflation! Block size is two. New to is %6d\n", to)
                 else
                     # Otherwise we do a double shift!
-                    doubleShiftQR!(H, Q, t, d, from, to)
+                    # doubleShiftQR!(H, Q, t, d, from, to)
+                    sqr = sqrt(complex(determinant))
+                    λ = (t + sqr) / 2
+                    double_shift_schur!(H, from, to, λ, Q)
                     println("Double shift")
                 end
             end
@@ -260,7 +263,7 @@ function doubleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shiftTrace::Number
 
     for i = istart:iend - 2
         for j = 2:1
-            if i + j + 1 > iend continue end
+            if i + j + 1 > iend break end
             # G, _ = givens(H.H,i+1,i+j+1,i)
             c, s, _ = givensAlgorithm(HH[i + j, i], HH[i + j + 1, i])
             G = Givens(c, s, i + j)
