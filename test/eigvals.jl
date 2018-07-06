@@ -24,4 +24,9 @@ using IRAM
     let H = [0.0 0.5; 0.0 0.0], H_copy = copy(H)
         @test IRAM.schurfact!(H, 1, 2, maxiter = 2)
     end
+
+    # All-zeros
+    let H = [0.0 0.0; 0.0 0.0], H_copy = copy(H)
+        @test IRAM.schurfact!(H, 1, 2, maxiter = 2)
+    end
 end
