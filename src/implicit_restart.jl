@@ -167,6 +167,7 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     
     H
 end
+<<<<<<< HEAD
 
 function double_shift_schur!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix; debug = false) where {Tv<:Real}
     H = view(H_whole, min : max, min : max)
@@ -223,3 +224,5 @@ function double_shift_schur!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex,
 
     H
 end
+=======
+>>>>>>> 272491d4d1ba130444dabee06d07e6cb11d9045c
