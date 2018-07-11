@@ -100,10 +100,8 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
         display(H_copy)
 
         # Test that the elements below the subdiagonal are 0
-        for j = 1:10
-            for i = j+2:10
-                @test H[i,j] < 1e-8
-            end
+        for j = 1:10, i = j+2:10
+            @test H[i,j] < 1e-8
         end
 
         # Test that the partial Schur decomposition relation holds
