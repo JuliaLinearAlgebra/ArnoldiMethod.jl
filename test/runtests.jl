@@ -8,3 +8,5 @@ include("shift_double.jl")
 
 include("implicit_restart.jl")
 include("locked_restart.jl")
+
+include("schurfact.jl")
