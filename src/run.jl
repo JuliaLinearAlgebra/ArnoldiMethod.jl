@@ -67,29 +67,17 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
     H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
     H_copy = copy(H_locked)
-    # schur_form = schurfact(H_locked)
-    # display(schur_form.Z)
-    # display(H_locked)
+
     H_copy_full = copy(arnoldi.H)
 
     schurfact!(arnoldi.H, Q_large, active, new_active - 1)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
     display(H_locked)
-    @show sort!(eigvalues(H_locked), by = abs, rev = true)
-    @show sort!(eigvals(H_locked), by = abs, rev = true)
-
+    # @show sort!(eigvalues(H_locked), by = abs, rev = true)
+    # @show sort!(eigvals(H_locked), by = abs, rev = true)
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
-    # H_right = view(arnoldi.H, active : new_active - 1, active : min′)
-
     A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
     V_locked .= view(V_prealloc, :, active : new_active - 1)
-    # @show vecnorm(schur_form.Z' * H_copy * schur_form.Z - schur_form[:Schur])
-    @show vecnorm(Q_small' * H_copy * Q_small - H_locked)
-    # display(Q_small)
-    # Ac_mul_B!(H_right, schur_form.Z, copy(H_right))
-    
-    # H_above = view(arnoldi.H, 1 : new_active - 1, active : new_active - 1)
-    # A_mul_B!(H_above, copy(H_above), schur_form.Z)
 
 end

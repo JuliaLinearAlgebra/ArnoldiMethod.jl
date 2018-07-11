@@ -108,8 +108,7 @@ function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
                 # Run a bulge chase
                 singleShiftQR!(H, Q, λ, from, to)
-                print("Single shift")
-                # print(from,to)
+                # print("Single shift")
             else
                 # Conjugate pair
                 if from + 1 == to
@@ -118,7 +117,6 @@ function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol
                     debug && @printf("Bottom deflation! Block size is two. New to is %6d\n", to)
                 else
                     # Otherwise we do a double shift!
-                    # doubleShiftQR!(H, Q, t, d, from, to)
                     sqr = sqrt(complex(determinant))
                     λ = (t + sqr) / 2
                     double_shift_schur!(H, from, to, λ, Q)
@@ -220,7 +218,6 @@ function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, ist
     mul!(Q, G)
     for i = istart:iend - 2
         c, s = givensAlgorithm(HH[i + 1, i], HH[i + 2, i])
-        print(i+1)
         G = Givens(c, s, i + 1)
         mul!(G, HH)
         HH[i + 2, i] = Htmp
