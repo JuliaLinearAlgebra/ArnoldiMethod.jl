@@ -38,6 +38,7 @@ end
     for i = 1 : 50
         H, λs, μ = generate_real_H_with_real_eigs(n, Float64)
         Q = eye(n)
+        # H_copy = copy(H)
 
         single_shift!(H, 1, n, μ, Q)
 
@@ -46,6 +47,8 @@ end
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)
+
+        # @show(vecnorm(Q[1:n,1:n-1]'*H_copy[1:n,1:n]*Q[1:n,1:n-1] - H[1:n-1,1:n-1]))
     end
 
     # Complex arithmethic

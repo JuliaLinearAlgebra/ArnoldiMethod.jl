@@ -76,8 +76,6 @@ end
 function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::AbstractMatrix; debug = false) where {Tv}
     # println("Single:")
     H = view(H_whole, min : max + 1, min : max)
-    # @assert size(H, 1) == size(H, 2) + 1
-    
     n = size(H, 2)
 
     # Construct the first givens rotation that maps (H - μI)e₁ to a multiple of e₁
@@ -164,7 +162,7 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         H[n    , n - 2] = zero(Tv)
         H[n + 1, n - 2] = zero(Tv)
     end
-    
+
     H[n + 1, n - 1] = zero(Tv)
     
     H
