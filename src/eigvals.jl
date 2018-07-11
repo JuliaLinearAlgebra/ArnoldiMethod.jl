@@ -34,7 +34,6 @@ end
 
 function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T<:Real}
     to = stop
-    # Q = eye(T, size(H, 1))
 
     # iteration count
     iter = 0
@@ -109,6 +108,8 @@ function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
                 # Run a bulge chase
                 singleShiftQR!(H, Q, λ, from, to)
+                print("Single shift")
+                # print(from,to)
             else
                 # Conjugate pair
                 if from + 1 == to
@@ -121,7 +122,7 @@ function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol
                     sqr = sqrt(complex(determinant))
                     λ = (t + sqr) / 2
                     double_shift_schur!(H, from, to, λ, Q)
-                    println("Double shift")
+                    print("Double shift")
                 end
             end
         end
@@ -219,6 +220,7 @@ function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, ist
     mul!(Q, G)
     for i = istart:iend - 2
         c, s = givensAlgorithm(HH[i + 1, i], HH[i + 2, i])
+        print(i+1)
         G = Givens(c, s, i + 1)
         mul!(G, HH)
         HH[i + 2, i] = Htmp
@@ -292,9 +294,9 @@ end
 
 function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix) where {Tv<:Real}
     # Compute the three nonzero entries of (H - μ₂)(H - μ₁)e₁.
-    p₁ = abs2(μ) - 2 * real(μ) * H[1,1] + H[1,1] * H[1,1] + H[1,2] * H[2,1]
-    p₂ = -2.0 * real(μ) * H[2,1] + H[2,1] * H[1,1] + H[2,2] * H[2,1]
-    p₃ = H[3,2] * H[2,1]
+    p₁ = abs2(μ) - 2 * real(μ) * H[min,min] + H[min,min] * H[min,min] + H[min,min+1] * H[min+1,min]
+    p₂ = -2.0 * real(μ) * H[min+1,min] + H[min+1,min] * H[min,min] + H[min+1,min+1] * H[min+1,min]
+    p₃ = H[min+2,min+1] * H[min+1,min]
 
     # Map that column to a mulitiple of e₁ via three Given's rotations
     c₁, s₁, nrm = givensAlgorithm(p₂, p₃)
@@ -318,7 +320,7 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     #     x x x x x x x     x x x x x x x     x + + + x x x
     # i → x x x x x x x     + + + + + + +     x + + + x x x 
     #     x x x x x x x     o + + + + + +       + + + x x x
-    #     x x x x x x x  ⇒  o + + + + + +  ⇒    + + + x x x
+    #     x x x x x x x  ⇒  o + + + + + +  ⇒   + + + x x x
     #       |   x x x x           x x x x       + + + x x x
     #       |     x x x             x x x             x x x
     #       |       x x               x x               x x
@@ -331,7 +333,7 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     #     x x x x x x x     x x x x x x x     x x x x + + +
     #     x x x x x x x     x x x x x x x     x x x x + + +
     #       x x x x x x       x x x x x x       x x x + + +
-    #         x x x x x  ⇒    x x x x x x  ⇒      x x + + +
+    #         x x x x x  ⇒    x x x x x x  ⇒     x x + + +
     # i → ----- x x x x           + + + +           x + + +
     #           x x x x           o + + +             + + +
     #           x x x x           o + + +             + + +
@@ -367,7 +369,7 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     # min → x x x x x x x    x x x x x x x    x x x x x + +  
     #       x x x x x x x    x x x x x x x    x x x x x + +  
     #         x x x x x x      x x x x x x      x x x x + +  
-    #           x x x x x  ⇒     x x x x x  ⇒     x x x + +  
+    #           x x x x x  ⇒     x x x x x  ⇒    x x x + +  
     #             x x x x          x x x x          x x + +  
     #               x x x            + + +            x + +  
     # max → ------- x x x            o + +              + +
