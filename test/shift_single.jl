@@ -1,4 +1,4 @@
-using Base.Test
+using Test
 
 using IRAM: single_shift!
 
@@ -21,7 +21,7 @@ end
 
 # Similarly generates a complex Hessenberg matrix, with any eigenvalue
 # that can be used to test a single shift in complex arithmetic
-function generate_complex_H(n, T::Type = Complex128)
+function generate_complex_H(n, T::Type = ComplexF64)
     H = triu(rand(T, n + 1, n), -1)
     λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
     μ = λs[1]

@@ -1,4 +1,4 @@
-using Base.Test
+using Test
 
 using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, initialize, iterate_arnoldi!, restarted_arnoldi, eigvalues, local_schurfact!
 

@@ -1,4 +1,4 @@
-using Base.Test
+using Test
 
 using IRAM: implicit_restart!, initialize, iterate_arnoldi!
 
