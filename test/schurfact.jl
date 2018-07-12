@@ -1,6 +1,6 @@
 using Base.Test
 
-using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, initialize, iterate_arnoldi!, restarted_arnoldi, eigvalues, schurfact!
+using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, initialize, iterate_arnoldi!, restarted_arnoldi, eigvalues, local_schurfact!
 
 @testset "Schur factorization" begin
 
@@ -8,7 +8,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
     H = [1.0 2.0; 3.0 4.0]
     H_copy = copy(H)
     Q = eye(Float64, 2)
-    schurfact!(H, Q, 1, 2)
+    local_schurfact!(H, Q, 1, 2)
 
     @test vecnorm(Q' * H_copy * Q - H) < 1e-8
     @test sort!(eigvalues(H), by = abs, rev = true) ≈ sort!(eigvals(H), by = abs, rev = true)
@@ -20,7 +20,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
     H = [1.0 2.0; 0.0 4.0]
     H_copy = copy(H)
     Q = eye(Float64, 2)
-    schurfact!(H, Q, 1, 2)
+    local_schurfact!(H, Q, 1, 2)
 
     @test vecnorm(Q' * H_copy * Q - H) < 1e-8
     @test sort!(eigvalues(H), by = abs, rev = true) ≈ sort!(eigvals(H), by = abs, rev = true)
@@ -32,7 +32,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
     H = [1.0 4.0; -5.0 3.0]
     H_copy = copy(H)
     Q = eye(Float64, 2)
-    schurfact!(H, Q, 1, 2)
+    local_schurfact!(H, Q, 1, 2)
 
     @test vecnorm(Q' * H_copy * Q - H) < 1e-8
     @test sort!(eigvalues(H), by = abs, rev = true) ≈ sort!(eigvals(H), by = abs, rev = true)
@@ -46,7 +46,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
     #     λs = sort!(eigvals(H), by=abs, rev=true)
     #     H_copy = copy(H)
     #     Q = eye(10)
-    #     schurfact!(H, Q, i, i+4)
+    #     local_schurfact!(H, Q, i, i+4)
     #     λs_transformed = eigvals(H[i:i+4,i:i+4])
 
     #     for j = 0 : 3
@@ -83,7 +83,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
         Q = eye(10)
 
         # Test that the procedure has converged
-        @test schurfact!(H, Q, 1+i, 10-i)
+        @test local_schurfact!(H, Q, 1+i, 10-i)
 
         for j = 1 : 9 - 2*i
             t = H[i+j,i+j] + H[i+j+1,i+j+1]
@@ -134,7 +134,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
         Q = eye(Complex128, 10)
 
         # Test that the procedure has converged
-        schurfact!(H, Q, 1+i, 10-i)
+        local_schurfact!(H, Q, 1+i, 10-i)
 
         for j = 1 : 9 - 2*i  
             # Test if subdiagonal is small. 

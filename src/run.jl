@@ -18,20 +18,18 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
     for restarts = 1 : max_restarts
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max, h)
-
-        # λs = sort!(eigvals(view(arnoldi.H, active:max, active:max)), by = abs, rev = true)
-        schur = schurfact(view(arnoldi.H, active:max, active:max))
-        λs = sort!(eigvalues(schur[:T]), by = abs, rev = true)
+        
+        # Compute the eigenvalues of the active part
+        Q = eye(T, max)
+        H_copy = copy(view(arnoldi.H, active:max, active:max))
+        local_schurfact!(H_copy, Q)
+        λs = sort!(eigvalues(H_copy), by = abs, rev = true)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
         new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
         new_active += active - 1 
-        # @show vecnorm(A * arnoldi.V[:, 1:min′] - arnoldi.V[:, 1:min′+1] * arnoldi.H[1:min′+1, 1:min′] )
         if new_active > active + 1
             # Bring the new locked part oF H into upper triangular form
-            # display(view(arnoldi.H, 1 : new_active - 1, 1 : new_active - 1))
-            # @show sort!(eigvalues(view(arnoldi.H, 1 : new_active - 1, 1 : new_active - 1)), by = abs, rev = true)
-            # @show sort!(eigvals(view(arnoldi.H, 1 : new_active - 1, 1 : new_active - 1)), by = abs, rev = true)
             transform_converged(arnoldi, active, new_active, min′, V_prealloc)
         end
 
@@ -70,11 +68,11 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
     H_copy_full = copy(arnoldi.H)
 
-    schurfact!(arnoldi.H, Q_large, active, new_active - 1)
+    local_schurfact!(arnoldi.H, Q_large, active, new_active - 1)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
     display(H_locked)
-    # @show sort!(eigvalues(H_locked), by = abs, rev = true)
-    # @show sort!(eigvals(H_locked), by = abs, rev = true)
+    @show sort!(eigvalues(H_locked), by = abs, rev = true)
+    @show sort!(eigvals(H_locked), by = abs, rev = true)
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
     A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
