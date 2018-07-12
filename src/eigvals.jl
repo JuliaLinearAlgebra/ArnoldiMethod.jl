@@ -33,7 +33,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
     return λs
 end
 
-local_schurfact!(A, Q) = local_schurfact!(A, Q, 1, size(A, 1))
+local_schurfact!(A, Q; kwargs...) = local_schurfact!(A, Q, 1, size(A, 1); kwargs...)
 
 function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), maxiter = 100*size(H, 1)) where {T<:Real}
     to = stop

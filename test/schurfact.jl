@@ -8,8 +8,8 @@ using IRAM: eigvalues, local_schurfact!
         H = [1.0 2.0; 3.0 4.0]
         H_copy = copy(H)
         Q = Matrix{Float64}(I, 2, 2)
-        local_schurfact!(H, Q, 1, 2)
 
+        @test local_schurfact!(H, Q, 1, 2, maxiter = 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
         @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H), by=abs, rev=true)
         @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H_copy), by=abs, rev=true)
@@ -21,8 +21,8 @@ using IRAM: eigvalues, local_schurfact!
         H = [1.0 2.0; 0.0 4.0]
         H_copy = copy(H)
         Q = Matrix{Float64}(I, 2, 2)
-        local_schurfact!(H, Q, 1, 2)
-
+        
+        @test local_schurfact!(H, Q, 1, 2, maxiter = 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
         @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H), by=abs, rev=true)
         @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H_copy), by=abs, rev=true)
@@ -34,8 +34,8 @@ using IRAM: eigvalues, local_schurfact!
         H = [1.0 4.0; -5.0 3.0]
         H_copy = copy(H)
         Q = Matrix{Float64}(I, 2, 2)
-        local_schurfact!(H, Q, 1, 2)
-
+        
+        @test local_schurfact!(H, Q, 1, 2, maxiter = 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
         @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H), by=abs, rev=true)
         @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H_copy), by=abs, rev=true)
@@ -104,7 +104,7 @@ using IRAM: eigvalues, local_schurfact!
             Q = Matrix{ComplexF64}(I, 10, 10)
 
             # Test that the procedure has converged
-            local_schurfact!(H, Q, 1+i, 10-i)
+            @test local_schurfact!(H, Q, 1+i, 10-i)
 
             for j = 1 : 9 - 2*i  
                 # Test if subdiagonal is small. 
