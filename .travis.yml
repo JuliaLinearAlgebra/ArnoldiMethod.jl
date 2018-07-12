@@ -5,3 +5,6 @@ julia:
     - 0.6
 notifications:
     email: false
+after_success:
+  - julia -e 'Pkg.add("Documenter")'
+  - julia -e 'cd(Pkg.dir("IRAM")); include(joinpath("docs", "make.jl"))'
