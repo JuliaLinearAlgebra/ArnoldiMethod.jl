@@ -110,7 +110,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
                 # Run a bulge chase
                 singleShiftQR!(H, Q, λ, from, to)
-                # print("Single shift")
             else
                 # Conjugate pair
                 if from + 1 == to
@@ -122,7 +121,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
                     sqr = sqrt(complex(discriminant))
                     λ = (t + sqr) / 2
                     double_shift_schur!(H, from, to, λ, Q)
-                    print("Double shift")
                 end
             end
         end
@@ -210,7 +208,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
             λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
             # Run a bulge chase
             singleShiftQR!(H, Q, λ, from, to)
-            # print("Single shift")
         end
 
         debug && @show to
@@ -246,64 +243,6 @@ function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, ist
         end
         mul!(HH, G)
         mul!(Q, G)
-    end
-    return HH
-end
-
-function doubleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shiftTrace::Number, shiftDeterminant::Number, istart::Integer, iend::Integer)
-    m = size(HH, 2)
-    H11 = HH[istart, istart]
-    H21 = HH[istart + 1, istart]
-    Htmp11 = HH[istart + 2, istart]
-    HH[istart + 2, istart] = 0
-    if istart + 3 <= m
-        Htmp21 = HH[istart + 3, istart]
-        HH[istart + 3, istart] = 0
-        Htmp22 = HH[istart + 3, istart + 1]
-        HH[istart + 3, istart + 1] = 0
-    else
-        # values doen't matter in this case but variables should be initialized
-        Htmp21 = Htmp22 = Htmp11
-    end
-    c1, s1, nrm = givensAlgorithm(H21*(H11 + HH[istart + 1, istart + 1] - shiftTrace), H21*HH[istart + 2, istart + 1])
-    G1 = Givens(c1, s1, istart + 1)
-    c2, s2, _ = givensAlgorithm(H11*H11 + HH[istart, istart + 1]*H21 - shiftTrace*H11 + shiftDeterminant, nrm)
-    G2 = Givens(c2, s2, istart)
-
-    vHH = view(HH, :, istart:m)
-    mul!(G1, vHH)
-    mul!(G2, vHH)
-    vHH = view(HH, 1:min(istart + 3, m), :)
-    mul!(vHH, G1)
-    mul!(vHH, G2)
-    mul!(Q, G1)
-    mul!(Q, G2)
-
-    for i = istart:iend - 2
-        for j = 2:1
-            if i + j + 1 > iend break end
-            # G, _ = givens(H.H,i+1,i+j+1,i)
-            c, s, _ = givensAlgorithm(HH[i + j, i], HH[i + j + 1, i])
-            G = Givens(c, s, i + j)
-            mul!(G, view(HH, :, i:m))
-
-            # Not sure what this was for
-            # HH[i + j + 1, i] = Htmp11
-            # Htmp11 = Htmp21
-            
-            # Commented out from the start 
-            # if i + j + 2 <= iend
-                # Htmp21 = HH[i + j + 2, i + 1]
-                # HH[i + j + 2, i + 1] = 0
-            # end
-            
-            if i + 4 <= iend
-                Htmp22 = HH[i + 4, i + j]
-                HH[i + 4, i + j] = 0
-            end
-            mul!(view(HH, 1:min(i + j + 2, iend), :), G)
-            mul!(Q, G)
-        end
     end
     return HH
 end

@@ -39,33 +39,6 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
     @test sort!(eigvalues(H), by = abs, rev = true) ≈ sort!(eigvals(H_copy), by = abs, rev = true)
     @test H[2,1] < 1e-8
     
-
-    # # Transforming a 5 by 5 block in different positions of the matrix H into upper triangular form
-    # for i = 1 : 6
-    #     H = triu(rand(10,10), -1)
-    #     λs = sort!(eigvals(H), by=abs, rev=true)
-    #     H_copy = copy(H)
-    #     Q = eye(10)
-    #     local_schurfact!(H, Q, i, i+4)
-    #     λs_transformed = eigvals(H[i:i+4,i:i+4])
-
-    #     for j = 0 : 3
-    #         t = H[i+j,i+j] + H[i+j+1,i+j+1]
-    #         d = H[i+j,i+j]*H[i+j+1,i+j+1] - H[i+j+1,i+j]*H[i+j,i+j+1]
-
-    #         # Test if sbdiagonal is small. If not, check if conjugate eigenvalues.
-    #         @test H[i+j+1,i+j] < 1e-8 || t*t/4 - d < 0
-    #         @show H[i+j+1,i+j]
-    #         @show (t) * (t) / 4 - (d)
-    #         @show eigvals(H[i+j:i+j+1,i+j:i+j+1])
-    #     end
-
-    #     display(H)
-    #     @test vecnorm(Q[i:i+4,i:i+4]*H[i:i+4,i:i+4]*Q[i:i+4,i:i+4]' - H_copy[i:i+4,i:i+4]) < 1e-8
-    #     @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
-
-    # end
-    
     # Transforming a 1+i by 10-i block of the matrix H into upper triangular form
     for i = 0 : 4
         H = triu(rand(10,10), -1)
@@ -91,13 +64,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
 
             # Test if subdiagonal is small. If not, check if conjugate eigenvalues.
             @test H[i+j+1,i+j] < 1e-8 || t*t/4 - d < 0
-            @show H[i+j+1,i+j]
-            @show (t) * (t) / 4 - (d)
-            @show eigvals(H[i+j:i+j+1,i+j:i+j+1])
         end
-        @show 1+i : 10-i
-        display(H)
-        display(H_copy)
 
         # Test that the elements below the subdiagonal are 0
         for j = 1:10, i = j+2:10
@@ -109,14 +76,12 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
         
         # Test that the eigenvalues of H are the same before and after transformation
         @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
-        
-        @show sort!(eigvals(H), by=abs, rev=true)
     end
 
 
     # COMPLEX ARITHMETIC
 
-        # Transforming a 1+i by 10-i block of the matrix H into upper triangular form
+    # Transforming a 1+i by 10-i block of the matrix H into upper triangular form
     for i = 0 : 4
         H = triu(rand(Complex128, 10,10), -1)
 
@@ -139,11 +104,7 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
         for j = 1 : 9 - 2*i  
             # Test if subdiagonal is small. 
             @test abs(H[i+j+1,i+j]) < 1e-8
-            @show H[i+j+1,i+j]
-            @show eigvals(H[i+j:i+j+1,i+j:i+j+1])
         end
-        @show 1+i : 10-i
-        display(H)
 
         # Test that the elements below the subdiagonal are 0
         for j = 1:10
@@ -157,8 +118,6 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
         
         # Test that the eigenvalues of H are the same before and after transformation
         @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
-        
-        @show sort!(eigvals(H), by=abs, rev=true)
     end
 
     
