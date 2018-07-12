@@ -35,9 +35,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, Î
 
         active = new_active
 
-        if active > nev
-            break 
-        end
+        active > nev && break
     end
 
     return PartialSchur(arnoldi.V, arnoldi.H, active - 1)

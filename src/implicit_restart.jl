@@ -57,13 +57,13 @@ end
 # """
 # Assume a Hessenberg matrix of size (n + 1) × n.
 # """
-function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::AbstractMatrix; debug = false) where {Tv}
+function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::AbstractMatrix) where {Tv}
     # println("Single:")
     H = view(H_whole, min : max + 1, min : max)
     n = size(H, 2)
 
     # Construct the first givens rotation that maps (H - μI)e₁ to a multiple of e₁
-    c, s = givensAlgorithm(H[1,1] - μ, H[2,1])
+    @inbounds c, s = givensAlgorithm(H[1,1] - μ, H[2,1])
     givens = Givens(c, s, min)
 
     lmul!(givens, H_whole)
@@ -73,7 +73,7 @@ function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::Abstrac
     rmul!(Q, givens)
 
     # Chase the bulge!
-    for i = 2 : n - 1
+    @inbounds for i = 2 : n - 1
         c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
         givens = Givens(c, s, min + i - 1)
         lmul!(givens, H_whole)
@@ -85,20 +85,20 @@ function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::Abstrac
     end
 
     # Do the last Given's rotation by hand (assuming exact shifts!)
-    H[n, n - 1] = H[n + 1, n - 1]
-    H[n + 1, n - 1] = zero(eltype(H))
+    @inbounds H[n, n - 1] = H[n + 1, n - 1]
+    @inbounds H[n + 1, n - 1] = zero(Tv)
 
     return H
 end
 
-function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix; debug = false) where {Tv<:Real}
+function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix) where {Tv<:Real}
     H = view(H_whole, min : max + 1, min : max)
     n = size(H, 2)
 
     # Compute the entries of (H - μ₂)(H - μ₁)e₁.
-    p₁ = abs2(μ) - 2 * real(μ) * H[1,1] + H[1,1] * H[1,1] + H[1,2] * H[2,1]
-    p₂ = -2.0 * real(μ) * H[2,1] + H[2,1] * H[1,1] + H[2,2] * H[2,1]
-    p₃ = H[3,2] * H[2,1]
+    @inbounds p₁ = abs2(μ) - 2 * real(μ) * H[1,1] + H[1,1] * H[1,1] + H[1,2] * H[2,1]
+    @inbounds p₂ = -2.0 * real(μ) * H[2,1] + H[2,1] * H[1,1] + H[2,2] * H[2,1]
+    @inbounds p₃ = H[3,2] * H[2,1]
 
     c₁, s₁, nrm = givensAlgorithm(p₂, p₃)
     c₂, s₂,     = givensAlgorithm(p₁, nrm)
@@ -115,7 +115,7 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     rmul!(Q, G₂)
 
     # Bulge chasing!
-    for i = 2 : n - 2
+    @inbounds for i = 2 : n - 2
         c₁, s₁, nrm = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
         c₂, s₂,     = givensAlgorithm(H[i,i-1], nrm)
         G₁ = Givens(c₁, s₁, min+i)
@@ -138,7 +138,7 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         rmul!(Q, G₂)
     end
 
-    if n > 2
+    @inbounds if n > 2
         # Do the last Given's rotation by hand.
         H[n - 1, n - 2] = H[n + 1, n - 2]
 
@@ -147,7 +147,7 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         H[n + 1, n - 2] = zero(Tv)
     end
 
-    H[n + 1, n - 1] = zero(Tv)
+    @inbounds H[n + 1, n - 1] = zero(Tv)
     
     H
 end
