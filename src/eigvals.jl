@@ -1,5 +1,5 @@
 using Printf
-using LinearAlgebra: Givens, Rotation, givensAlgorithm
+using LinearAlgebra: givensAlgorithm
 import Base: @propagate_inbounds
 
 """
