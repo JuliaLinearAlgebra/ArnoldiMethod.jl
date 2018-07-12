@@ -1,4 +1,7 @@
-using Base.Test
+using Test
+using LinearAlgebra
+using SparseArrays
+using Random
 
 include("hessenberg_qr.jl")
 include("givens_rotation.jl")

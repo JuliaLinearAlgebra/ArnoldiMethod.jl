@@ -6,7 +6,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
-    h = Vector{T}(max)
+    h = Vector{T}(undef, max)
     iterate_arnoldi!(A, arnoldi, 1 : min, h)
 
     # min′ is the effective starting point -- may be min - 1 when the last two removed guys
@@ -14,13 +14,13 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
     min′ = min
 
     active = 1
-    V_prealloc = Matrix{T}(n, min)
+    V_prealloc = Matrix{T}(undef, n, min)
     for restarts = 1 : max_restarts
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max, h)
         
         # Compute the eigenvalues of the active part
-        Q = eye(T, max)
+        Q = Matrix{T}(I, max, max)
         H_copy = copy(view(arnoldi.H, active:max, active:max))
         local_schurfact!(H_copy, Q)
         λs = sort!(eigvalues(H_copy), by = abs, rev = true)
@@ -34,8 +34,6 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         end
 
         active = new_active
-
-        @show active
 
         if active > nev
             break 
@@ -61,7 +59,7 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     # H_lock <- Q' H_lock Q
     # H_above <- H_above Q
 
-    Q_large = eye(eltype(arnoldi.H), new_active - 1)
+    Q_large = Matrix{eltype(arnoldi.H)}(I, new_active - 1, new_active - 1)
 
     H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
     H_copy = copy(H_locked)
@@ -72,7 +70,7 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
-    A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
+    mul!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
     V_locked .= view(V_prealloc, :, active : new_active - 1)
 
 end

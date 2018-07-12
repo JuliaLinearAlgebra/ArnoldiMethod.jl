@@ -5,7 +5,7 @@ subspace of A. Sets H[i, i-1] := 0.
 """
 function detect_convergence!(H::AbstractMatrix{T}, tolerance) where {T}
     n = size(H, 2)
-    #λs, xs = eig(view(H, 1 : n, 1 : n))
+    #λs, xs = eigen(view(H, 1 : n, 1 : n))
     #perm = sortperm(λs, by = abs, rev = true)
     #λs = λs[perm]
     #xs = view(xs, :, perm)

@@ -1,9 +1,10 @@
-using Base.LinAlg: givensAlgorithm
-using Base.@propagate_inbounds
+using LinearAlgebra: givensAlgorithm
+using Base: @propagate_inbounds
 
 import Base: getindex, setindex!, size
+import LinearAlgebra: rmul!, lmul!
 
-export Hessenberg, qr!, mul!, ListOfRotations
+export Hessenberg, qr!, ListOfRotations
 
 struct Givens{Tc,Ts,Ti}
     c::Tc
@@ -17,7 +18,7 @@ end
 
 function ListOfRotations(Ts::Type, total::Int)
     Tc = real(Ts)
-    ListOfRotations{Tc,Ts}(Vector{Tuple{Tc,Ts}}(total))
+    ListOfRotations{Tc,Ts}(Vector{Tuple{Tc,Ts}}(undef, total))
 end
 
 struct Hessenberg{T,V<:AbstractMatrix{T}} <: AbstractMatrix{T}
@@ -45,16 +46,16 @@ size(R::UpperTriangularMatrix, d) = size(R.R, d)
     Givens(c, s, i)
 end
 
-function mul!(A::AbstractMatrix, Q::ListOfRotations)
+function rmul!(A::AbstractMatrix, Q::ListOfRotations)
     @inbounds for i = 1 : size(A, 2) - 1
-        mul!(A, Q[i])
+        rmul!(A, Q[i])
     end
     A
 end
 
-function mul!(Q::ListOfRotations, H::Hessenberg)
+function lmul!(Q::ListOfRotations, H::Hessenberg)
     @inbounds for i = 1:length(Q.rotations)
-        mul!(Q[i], H)
+        lmul!(Q[i], H)
     end
     H
 end
@@ -62,7 +63,7 @@ end
 """
 Applies the Givens rotation to Hessenberg matrix H from the left (in-place).
 """
-function mul!(G::Givens, H::Hessenberg)
+function lmul!(G::Givens, H::Hessenberg)
     @inbounds for j in G.i:size(H, 2)
         h_min = G.c .* H[G.i,j] + G.s * H[G.i + 1,j]
         h_max = -conj(G.s) * H[G.i,j] + G.c * H[G.i + 1,j]
@@ -72,7 +73,7 @@ function mul!(G::Givens, H::Hessenberg)
     H
 end
 
-function mul!(G::Givens, H::AbstractMatrix)
+function lmul!(G::Givens, H::AbstractMatrix)
     @inbounds for j in 1:size(H, 2)
         h_min = G.c .* H[G.i,j] + G.s * H[G.i + 1,j]
         h_max = -conj(G.s) * H[G.i,j] + G.c * H[G.i + 1,j]
@@ -85,7 +86,7 @@ end
 """
 Applies the transpose of the Givens rotation to A from the right (in-place).
 """
-function mul!(A::AbstractMatrix, G::Givens)
+function rmul!(A::AbstractMatrix, G::Givens)
     dim = size(A, 1)
     @inbounds for j in 1:dim
         a_min = G.c * A[j,G.i] + conj(G.s) * A[j,G.i + 1]
@@ -99,7 +100,7 @@ end
 """
 Applies the transpose of the Givens rotation to R from the right (in-place).
 """
-function mul!(R::UpperTriangularMatrix, G::Givens)
+function rmul!(R::UpperTriangularMatrix, G::Givens)
     @inbounds for j in 1:G.i + 1
         a_min = G.c * R[j,G.i] + conj(G.s) * R[j,G.i + 1]
         a_max = -G.s * R[j,G.i] + G.c * R[j,G.i + 1]
@@ -122,7 +123,7 @@ function qr!(H::Hessenberg, L::ListOfRotations)
         c, s = givensAlgorithm(H[i,i], H[i + 1,i])
 
         # Apply the rotation
-        mul!(Givens(c, s, i), H)
+        lmul!(Givens(c, s, i), H)
 
         # Store the rotation
         L.rotations[i] = (c, s)
