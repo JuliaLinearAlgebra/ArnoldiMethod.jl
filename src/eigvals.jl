@@ -2,6 +2,8 @@ using Printf
 using LinearAlgebra: givensAlgorithm
 import Base: @propagate_inbounds
 
+@propagate_inbounds is_offdiagonal_small(H, i, tol) = abs(H[i+1,i]) < tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
+
 """
 Computes the eigenvalues of the matrix A. Assumes that A is in Schur form.
 """
@@ -10,13 +12,13 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
     λs = Vector{complex(T)}(undef, n)
     i = 1
 
-    while i < n
-        if abs(A[i + 1, i]) < tol*(abs(A[i + 1, i + 1]) + abs( A[i, i]))
-            λs[i] =  A[i, i]
+    @inbounds while i < n
+        if is_offdiagonal_small(A, i, tol)
+            λs[i] = A[i, i]
             i += 1
         else
-            d =  A[i, i]*A[i + 1, i + 1] - A[i, i + 1]*A[i + 1, i]
-            x = 0.5*(A[i, i] + A[i + 1, i + 1])
+            d = A[i,i] * A[i+1,i+1] - A[i,i+1] * A[i+1,i]
+            x = 0.5*(A[i,i] + A[i+1,i+1])
             y = sqrt(complex(x*x - d))
             λs[i] = x + y
             λs[i + 1] = x - y
@@ -25,17 +27,15 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
     end
 
     if i == n 
-        λs[i] = A[n, n] 
+        @inbounds λs[i] = A[n, n] 
     end
 
     return λs
 end
 
-@propagate_inbounds is_offdiagonal_small(H, i, tol) = abs(H[i+1,i]) < tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
-
 local_schurfact!(A, Q) = local_schurfact!(A, Q, 1, size(A, 1))
 
-function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T<:Real}
+function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), maxiter = 100*size(H, 1)) where {T<:Real}
     to = stop
 
     # iteration count
@@ -44,8 +44,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
     @inbounds while true
         iter += 1
 
-        # Don't like that this throws :|
-        # iter > maxiter && throw(ArgumentError("iteration limit $maxiter reached"))
         iter > maxiter && return false
 
         # Indexing
@@ -78,7 +76,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
         if from == to
             # This just means H[to, to-1] == 0, so one eigenvalue converged at the end
             to -= 1
-            debug && @printf("Bottom deflation! Block size is one. New to is %6d\n", to)
         else
             # Now we are sure we can work with a 2x2 block H[to-1:to,to-1:to]
             # We check if this block has a conjugate eigenpair, which might mean we have
@@ -92,13 +89,9 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
             # Matrix determinant and trace
             d = H₁₁ * H₂₂ - H₂₁ * H₁₂
             t = H₁₁ + H₂₂
-
-            debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", from, to, d, t)
-
-            # Quadratic eqn discriminant
             discriminant = t * t - 4d
 
-            if discriminant > zero(T)
+            if discriminant ≥ zero(T)
                 # Real eigenvalues.
                 # Note that if from + 1 == to in this case, then just one additional
                 # iteration is necessary, since the Wilkinson shift will do an exact shift.
@@ -110,13 +103,12 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
                 λ₂ = (t - sqr) / 2
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
                 # Run a bulge chase
-                singleShiftQR!(H, Q, λ, from, to)
+                single_shift_schur!(H, Q, λ, from, to)
             else
                 # Conjugate pair
                 if from + 1 == to
                     # A conjugate pair has converged apparently!
                     to -= 2
-                    debug && @printf("Bottom deflation! Block size is two. New to is %6d\n", to)
                 else
                     # Otherwise we do a double shift!
                     sqr = sqrt(complex(discriminant))
@@ -126,8 +118,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
             end
         end
 
-        debug && @show to
-
         # Converged!
         to ≤ start && break
     end
@@ -135,7 +125,7 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
     return true
 end
 
-function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
+function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), maxiter = 100*size(H, 1)) where {T}
     to = stop
 
     # iteration count
@@ -178,7 +168,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
         if from == to
             # This just means H[to, to-1] == 0, so one eigenvalue converged at the end
             to -= 1
-            debug && @printf("Bottom deflation! Block size is one. New to is %6d\n", to)
         else
             # Now we are sure we can work with a 2x2 block H[to-1:to,to-1:to]
             # We check if this block has a conjugate eigenpair, which might mean we have
@@ -192,10 +181,6 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
             # Matrix determinant and trace
             d = H₁₁ * H₂₂ - H₂₁ * H₁₂
             t = H₁₁ + H₂₂
-
-            debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", from, to, d, t)
-
-            # Quadratic eqn discriminant
             discriminant = t * t - 4d
 
             # Note that if from + 1 == to in this case, then just one additional
@@ -208,10 +193,8 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
             λ₂ = (t - sqr) / 2
             λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
             # Run a bulge chase
-            singleShiftQR!(H, Q, λ, from, to)
+            single_shift_schur!(H, Q, λ, from, to)
         end
-
-        debug && @show to
 
         # Converged!
         to ≤ start && break
@@ -220,7 +203,7 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
     return true
 end
 
-function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, istart::Integer, iend::Integer)
+function single_shift_schur!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, istart::Integer, iend::Integer)
     m = size(HH, 1)
     H11 = HH[istart, istart]
     H21 = HH[istart + 1, istart]
@@ -250,9 +233,9 @@ end
 
 function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix) where {Tv<:Real}
     # Compute the three nonzero entries of (H - μ₂)(H - μ₁)e₁.
-    p₁ = abs2(μ) - 2 * real(μ) * H[min,min] + H[min,min] * H[min,min] + H[min,min+1] * H[min+1,min]
-    p₂ = -2.0 * real(μ) * H[min+1,min] + H[min+1,min] * H[min,min] + H[min+1,min+1] * H[min+1,min]
-    p₃ = H[min+2,min+1] * H[min+1,min]
+    @inbounds p₁ = abs2(μ) - 2 * real(μ) * H[min,min] + H[min,min] * H[min,min] + H[min,min+1] * H[min+1,min]
+    @inbounds p₂ = -2.0 * real(μ) * H[min+1,min] + H[min+1,min] * H[min,min] + H[min+1,min+1] * H[min+1,min]
+    @inbounds p₃ = H[min+2,min+1] * H[min+1,min]
 
     # Map that column to a mulitiple of e₁ via three Given's rotations
     c₁, s₁, nrm = givensAlgorithm(p₂, p₃)
@@ -296,7 +279,7 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     #             ↑
     #             i
 
-    for i = min + 1 : max - 2
+    @inbounds for i = min + 1 : max - 2
         c₁, s₁, nrm = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
         c₂, s₂,     = givensAlgorithm(H[i,i-1], nrm)
         G₁ = Givens(c₁, s₁, i+1)
@@ -325,16 +308,16 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     # min → x x x x x x x    x x x x x x x    x x x x x + +  
     #       x x x x x x x    x x x x x x x    x x x x x + +  
     #         x x x x x x      x x x x x x      x x x x + +  
-    #           x x x x x  ⇒     x x x x x  ⇒    x x x + +  
+    #           x x x x x  ⇒     x x x x x  ⇒     x x x + +  
     #             x x x x          x x x x          x x + +  
     #               x x x            + + +            x + +  
     # max → ------- x x x            o + +              + +
 
 
-    c, s, = givensAlgorithm(H[max-1,max-2], H[max,max-2])
+    @inbounds c, s, = givensAlgorithm(H[max-1,max-2], H[max,max-2])
     G = Givens(c, s, max-1)
     lmul!(G, H)
-    H[max,max-2] = zero(Tv)
+    @inbounds H[max,max-2] = zero(Tv)
     rmul!(H, G)
     rmul!(Q, G)
 
