@@ -21,12 +21,12 @@ end
 @testset "Double Shifted QR" begin
     n = 20
 
-    is_hessenberg(H) = vecnorm(tril(H, -2)) == 0
+    is_hessenberg(H) = norm(tril(H, -2)) == 0
 
     # Test on a couple random matrices
     for i = 1 : 50
         H, λs, μ = generate_real_H_with_imaginary_eigs(n, Float64)
-        Q = eye(n)
+        Q = Matrix{Float64}(I, n, n)
         double_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step

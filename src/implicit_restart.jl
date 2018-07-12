@@ -1,21 +1,13 @@
-using Base.LinAlg: givensAlgorithm
+using LinearAlgebra: givensAlgorithm
 
 """
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T<:Real}
+function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T<:Real}
     # Real arithmetic
     V, H = arnoldi.V, arnoldi.H
-    Q = eye(T, max)
-
-    # callback = function(givens)
-    #     # Apply the rotations to the G block
-    #     mul!(view(H, 1:active-1, active:max), givens)
-        
-    #     # Apply the rotations to Q
-    #     mul!(view(Q, :, active:max), givens)
-    # end
+    Q = Matrix{T}(I, max, max)
 
     m = max
 
@@ -34,25 +26,17 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     end
 
     # Update & copy the Krylov basis
-    A_mul_B!(view(V_new, :, 1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
-    copy!(view(V, :, active:m), view(V_new, :, 1:m-active+1))
-    copy!(view(V, :, m+1), view(V, :, max+1))
+    mul!(view(V_new, :, 1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
+    copyto!(view(V, :, active:m), view(V_new, :, 1:m-active+1))
+    copyto!(view(V, :, m+1), view(V, :, max+1))
 
     return m
 end
 
-function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(size(arnoldi.V,1),min)) where {T}
+function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T}
     # Complex arithmetic
     V, H = arnoldi.V, arnoldi.H
-    Q = eye(T, max)
-
-    # callback = function(givens)
-    #     # Apply the rotations to the G block
-    #     mul!(view(H, 1:active-1, active:max), givens)
-        
-    #     # Apply the rotations to Q
-    #     mul!(view(Q, :, 1:max), givens)
-    # end
+    Q = Matrix{T}(I, max, max)
 
     m = max
 
@@ -63,9 +47,9 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     end
 
     # Update & copy the Krylov basis
-    A_mul_B!(view(V_new, :, 1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
-    copy!(view(V, :, active:m), view(V_new,:,1:m-active+1))
-    copy!(view(V, :, m + 1), view(V, :, max + 1))
+    mul!(view(V_new, :, 1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
+    copyto!(view(V, :, active:m), view(V_new,:,1:m-active+1))
+    copyto!(view(V, :, m + 1), view(V, :, max + 1))
 
     return m
 end
@@ -82,22 +66,22 @@ function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::Abstrac
     c, s = givensAlgorithm(H[1,1] - μ, H[2,1])
     givens = Givens(c, s, min)
 
-    mul!(givens, H_whole)
-    mul!(H_whole, givens)
+    lmul!(givens, H_whole)
+    rmul!(H_whole, givens)
 
     # Update Q
-    mul!(Q, givens)
+    rmul!(Q, givens)
 
     # Chase the bulge!
     for i = 2 : n - 1
         c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
         givens = Givens(c, s, min + i - 1)
-        mul!(givens, H_whole)
+        lmul!(givens, H_whole)
         H_whole[i+1,i-1] = zero(Tv)
-        mul!(view(H_whole, 1 : min + i + 1, :), givens)
+        rmul!(view(H_whole, 1 : min + i + 1, :), givens)
         
         # Update Q
-        mul!(Q, givens)
+        rmul!(Q, givens)
     end
 
     # Do the last Given's rotation by hand (assuming exact shifts!)
@@ -121,14 +105,14 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     G₁ = Givens(c₁, s₁, min+1)
     G₂ = Givens(c₂, s₂, min)
 
-    mul!(G₁, H_whole)
-    mul!(G₂, H_whole)
-    mul!(H_whole, G₁)
-    mul!(H_whole, G₂)
+    lmul!(G₁, H_whole)
+    lmul!(G₂, H_whole)
+    rmul!(H_whole, G₁)
+    rmul!(H_whole, G₂)
 
     # Update Q
-    mul!(Q, G₁)
-    mul!(Q, G₂)
+    rmul!(Q, G₁)
+    rmul!(Q, G₂)
 
     # Bulge chasing!
     for i = 2 : n - 2
@@ -138,20 +122,20 @@ function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         G₂ = Givens(c₂, s₂, min+i-1)
 
         # Restore to Hessenberg
-        mul!(G₁, view(H_whole, :, min+i-2:max))
-        mul!(G₂, view(H_whole, :, min+i-2:max))
+        lmul!(G₁, view(H_whole, :, min+i-2:max))
+        lmul!(G₂, view(H_whole, :, min+i-2:max))
         
         # Zero out off-diagonal values
         H_whole[min+i, i-1] = zero(Tv)
         H_whole[min+i+1, i-1] = zero(Tv)
 
         # Create a new bulge
-        mul!(view(H_whole, 1:min+i+2, :), G₁)
-        mul!(view(H_whole, 1:min+i+2, :), G₂)
+        rmul!(view(H_whole, 1:min+i+2, :), G₁)
+        rmul!(view(H_whole, 1:min+i+2, :), G₂)
 
         # Update Q
-        mul!(Q, G₁)
-        mul!(Q, G₂)
+        rmul!(Q, G₁)
+        rmul!(Q, G₂)
     end
 
     if n > 2

@@ -4,12 +4,12 @@ using IRAM: implicit_restart!, initialize, iterate_arnoldi!
 
 @testset "Implicit restart" begin
 
-    for T in (Float64, Complex128)
+    for T in (Float64, ComplexF64)
 
         n = 20
         A = sprand(T, n, n, 5 / n) + I
         min, max = 5, 8
-        h = Vector{T}(max)
+        h = Vector{T}(undef, max)
 
         arnoldi = initialize(T, n, max)
         V, H = arnoldi.V, arnoldi.H
@@ -18,8 +18,8 @@ using IRAM: implicit_restart!, initialize, iterate_arnoldi!
 
         m = implicit_restart!(arnoldi, λs, min, max)
 
-        @test vecnorm(V[:, 1 : m]' * V[:, 1 : m] - eye(m)) < 1e-13
-        @test vecnorm(V[:, 1 : m]' * A * V[:, 1 : m] - H[1 : m, 1 : m]) < 1e-13
-        @test vecnorm(A * V[:, 1 : m] - V[:, 1 : m + 1] * H[1 : m + 1, 1 : m]) < 1e-13
+        @test norm(V[:, 1 : m]' * V[:, 1 : m] - I) < 1e-13
+        @test norm(V[:, 1 : m]' * A * V[:, 1 : m] - H[1 : m, 1 : m]) < 1e-13
+        @test norm(A * V[:, 1 : m] - V[:, 1 : m + 1] * H[1 : m + 1, 1 : m]) < 1e-13
     end
 end

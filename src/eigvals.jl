@@ -1,4 +1,5 @@
-using Base.LinAlg: Givens, Rotation, givensAlgorithm
+using Printf
+using LinearAlgebra: Givens, Rotation, givensAlgorithm
 import Base: @propagate_inbounds
 
 """
@@ -6,7 +7,7 @@ Computes the eigenvalues of the matrix A. Assumes that A is in Schur form.
 """
 function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
     n = size(A, 1)
-    λs = Vector{complex(T)}(n)
+    λs = Vector{complex(T)}(undef, n)
     i = 1
 
     while i < n
@@ -229,20 +230,20 @@ function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, ist
     end
     c, s = givensAlgorithm(H11 - shift, H21)
     G = Givens(c, s, istart)
-    mul!(G, HH)
-    mul!(HH, G)
-    mul!(Q, G)
+    lmul!(G, HH)
+    rmul!(HH, G)
+    rmul!(Q, G)
     for i = istart:iend - 2
         c, s = givensAlgorithm(HH[i + 1, i], HH[i + 2, i])
         G = Givens(c, s, i + 1)
-        mul!(G, HH)
+        lmul!(G, HH)
         HH[i + 2, i] = Htmp
         if i < iend - 2
             Htmp = HH[i + 3, i + 1]
             HH[i + 3, i + 1] = 0
         end
-        mul!(HH, G)
-        mul!(Q, G)
+        rmul!(HH, G)
+        rmul!(Q, G)
     end
     return HH
 end
@@ -260,14 +261,14 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
     G₂ = Givens(c₂, s₂, min)
 
     # Apply the Given's rotations
-    mul!(G₁, H)
-    mul!(G₂, H)
-    mul!(H, G₁)
-    mul!(H, G₂)
+    lmul!(G₁, H)
+    lmul!(G₂, H)
+    rmul!(H, G₁)
+    rmul!(H, G₂)
 
     # Update Q
-    mul!(Q, G₁)
-    mul!(Q, G₂)
+    rmul!(Q, G₁)
+    rmul!(Q, G₂)
 
     # Bulge chasing. First step of the for-loop below looks like:
     #   min           max
@@ -302,20 +303,20 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
         G₂ = Givens(c₂, s₂, i)
 
         # Restore to Hessenberg
-        mul!(G₁, H)
-        mul!(G₂, H)
+        lmul!(G₁, H)
+        lmul!(G₂, H)
 
         # Introduce zeros below Hessenberg part
         H[i+1,i-1] = zero(Tv)
         H[i+2,i-1] = zero(Tv)
 
         # Create a new bulge
-        mul!(H, G₁)
-        mul!(H, G₂)
+        rmul!(H, G₁)
+        rmul!(H, G₂)
 
         # Update Q
-        mul!(Q, G₁)
-        mul!(Q, G₂)
+        rmul!(Q, G₁)
+        rmul!(Q, G₂)
     end
 
     # Last bulge is just one Given's rotation
@@ -332,10 +333,10 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, min, max, μ::Complex, Q::Ab
 
     c, s, = givensAlgorithm(H[max-1,max-2], H[max,max-2])
     G = Givens(c, s, max-1)
-    mul!(G, H)
+    lmul!(G, H)
     H[max,max-2] = zero(Tv)
-    mul!(H, G)
-    mul!(Q, G)
+    rmul!(H, G)
+    rmul!(Q, G)
 
     H
 end

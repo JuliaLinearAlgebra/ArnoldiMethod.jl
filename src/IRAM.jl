@@ -1,5 +1,7 @@
 module IRAM
 
+using LinearAlgebra
+
 struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
     V::TV
     H::TH
