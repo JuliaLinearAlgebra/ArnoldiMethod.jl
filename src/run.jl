@@ -70,9 +70,6 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
     local_schurfact!(arnoldi.H, Q_large, active, new_active - 1)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
-    display(H_locked)
-    @show sort!(eigvalues(H_locked), by = abs, rev = true)
-    @show sort!(eigvals(H_locked), by = abs, rev = true)
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
     A_mul_B!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
