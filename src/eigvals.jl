@@ -32,7 +32,9 @@ end
 
 @propagate_inbounds is_offdiagonal_small(H, i, tol) = abs(H[i+1,i]) < tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
 
-function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T<:Real}
+local_schurfact!(A, Q) = local_schurfact!(A, Q, 1, size(A, 1))
+
+function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T<:Real}
     to = stop
 
     # iteration count
@@ -134,7 +136,7 @@ function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol
     return true
 end
 
-function schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
+function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
     n = size(H, 1)
 
     istart = active
