@@ -94,17 +94,17 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
 
             debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", from, to, d, t)
 
-            # Quadratic eqn determinant
-            determinant = t * t - 4d #Discriminant?
+            # Quadratic eqn discriminant
+            discriminant = t * t - 4d
 
-            if determinant > zero(T)
+            if discriminant > zero(T)
                 # Real eigenvalues.
                 # Note that if from + 1 == to in this case, then just one additional
                 # iteration is necessary, since the Wilkinson shift will do an exact shift.
 
                 # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
                 # near H[to,to]
-                sqr = sqrt(determinant)
+                sqr = sqrt(discriminant)
                 λ₁ = (t + sqr) / 2
                 λ₂ = (t - sqr) / 2
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
@@ -119,7 +119,7 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
                     debug && @printf("Bottom deflation! Block size is two. New to is %6d\n", to)
                 else
                     # Otherwise we do a double shift!
-                    sqr = sqrt(complex(determinant))
+                    sqr = sqrt(complex(discriminant))
                     λ = (t + sqr) / 2
                     double_shift_schur!(H, from, to, λ, Q)
                     print("Double shift")
@@ -136,73 +136,90 @@ function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, sto
     return true
 end
 
-function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, active, max; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
-    n = size(H, 1)
-
-    istart = active
-    iend = max
-    # HH = view(H, active:max, active:max)
-
-    # istart = 1
-    # iend = max - active + 1
-    # HH = view(H, active:max, active:max)
-    # HH_copy = copy(HH)
-    # Q = eye(T, max)
+function local_schurfact!(H::AbstractMatrix{T}, Q::AbstractMatrix{T}, start, stop; tol = eps(real(T)), debug = false, maxiter = 100*size(H, 1)) where {T}
+    to = stop
 
     # iteration count
-    i = 0
+    iter = 0
 
     @inbounds while true
-        i += 1
-        if i > maxiter
-            throw(ArgumentError("iteration limit $maxiter reached"))
+        iter += 1
+
+        # Don't like that this throws :|
+        # iter > maxiter && throw(ArgumentError("iteration limit $maxiter reached"))
+        iter > maxiter && return false
+
+        # Indexing
+        # `to` points to the column where the off-diagonal value was last zero.
+        # while `from` points to the smallest index such that there is no small off-diagonal
+        # value in columns from:end-1. Sometimes `from` is just 1. Cartoon of a split 
+        # with from != 1:
+        # 
+        #  + + | | | | + +
+        #  + + | | | | + +
+        #    o X X X X = =
+        #      X X X X = =
+        #      . X X X = =
+        #      .   X X = =
+        #      .     o + +
+        #      .     . + +
+        #      ^     ^
+        #   from   to
+        # The X's form the unreduced Hessenberg matrix we are applying QR iterations to,
+        # the | and = values get updated by Given's rotations, while the + values remain
+        # untouched! The o's are zeros -- or numerically considered zeros.
+
+        # We keep `from` one column past the zero off-diagonal value, so we check whether
+        # the `from - 1` column has a small off-diagonal value.
+        from = to
+        while from > start && !is_offdiagonal_small(H, from - 1, tol)
+            from -= 1
         end
 
-        # Determine if the matrix splits. Find lowest positioned subdiagonal "zero"
-        for istart = iend - 1:-1:1
-            if abs(H[istart + 1, istart]) < tol*(abs(H[istart, istart]) + abs(H[istart + 1, istart + 1]))
-                istart += 1
-                debug && @printf("Split! Subdiagonal element is: %10.3e and istart now %6d\n", H[istart, istart - 1], istart)
-                break
-            elseif istart > 1 && abs(H[istart, istart - 1]) < tol*(abs(H[istart - 1, istart - 1]) + abs(H[istart, istart]))
-                debug && @printf("Split! Next subdiagonal element is: %10.3e and istart now %6d\n", H[istart, istart - 1], istart)
-                break
-            end
-        end
-
-        # if block size is one we deflate
-        if istart >= iend
-            debug && @printf("Bottom deflation! Block size is one. New iend is %6d\n", iend - 1)
-            iend -= 1
-
-        # and the same for a 2x2 block
-        elseif istart + 1 == iend
-            debug && @printf("Bottom deflation! Block size is two. New iend is %6d\n", iend - 2)
-            iend -= 2
-
-        # run a QR iteration
-        # shift method is specified with shiftmethod kw argument
+        if from == to
+            # This just means H[to, to-1] == 0, so one eigenvalue converged at the end
+            to -= 1
+            debug && @printf("Bottom deflation! Block size is one. New to is %6d\n", to)
         else
-            Hmm = H[iend, iend]
-            Hm1m1 = H[iend - 1, iend - 1]
-            d = Hm1m1*Hmm - H[iend, iend - 1]*H[iend - 1, iend]
-            t = Hm1m1 + Hmm
-            t = iszero(t) ? eps(one(t)) : t # introduce a small pertubation for zero shifts
-            debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", istart, iend, d, t)
+            # Now we are sure we can work with a 2x2 block H[to-1:to,to-1:to]
+            # We check if this block has a conjugate eigenpair, which might mean we have
+            # converged w.r.t. this block if from + 1 == to. 
+            # Otherwise, if from + 1 < to, we do either a single or double shift, based on
+            # whether the H[to-1:to,to-1:to] part has real eigenvalues or a conjugate pair.
 
-            debug && @printf("Double shift with Wilkinson shift! Subdiagonal is: %10.3e, last subdiagonal is: %10.3e\n", H[iend, iend - 1], H[iend - 1, iend - 2])
-            
-            # Wilkinson shift
-            λ1 = (t + sqrt(t*t - 4d))/2
-            λ2 = (t - sqrt(t*t - 4d))/2
-            λ = ifelse(abs(Hmm - λ1) < abs(Hmm - λ2), λ1, λ2)
+            H₁₁, H₁₂ = H[to-1,to-1], H[to-1,to]
+            H₂₁, H₂₂ = H[to  ,to-1], H[to  ,to]
+
+            # Matrix determinant and trace
+            d = H₁₁ * H₂₂ - H₂₁ * H₁₂
+            t = H₁₁ + H₂₂
+
+            debug && @printf("block start is: %6d, block end is: %6d, d: %10.3e, t: %10.3e\n", from, to, d, t)
+
+            # Quadratic eqn discriminant
+            discriminant = t * t - 4d
+
+            # Note that if from + 1 == to in this case, then just one additional
+            # iteration is necessary, since the Wilkinson shift will do an exact shift.
+
+            # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
+            # near H[to,to]
+            sqr = sqrt(discriminant)
+            λ₁ = (t + sqr) / 2
+            λ₂ = (t - sqr) / 2
+            λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
             # Run a bulge chase
-            singleShiftQR!(H, Q, λ, istart, iend)
+            singleShiftQR!(H, Q, λ, from, to)
+            # print("Single shift")
         end
-        if iend <= 2 break end #Wrong
+
+        debug && @show to
+
+        # Converged!
+        to ≤ start && break
     end
 
-    return H, Q
+    return true
 end
 
 function singleShiftQR!(HH::StridedMatrix, Q::AbstractMatrix, shift::Number, istart::Integer, iend::Integer)

@@ -116,40 +116,50 @@ using IRAM: mul!, Givens, Hessenberg, ListOfRotations, qr!, implicit_restart!, i
 
     # COMPLEX ARITHMETIC
 
-    #     # Transforming a 1+i by 10-i block of the matrix H into upper triangular form
-    # for i = 0 : 4
-    #     H = triu(rand(Complex128, 10,10), -1)
-    #     λs = sort!(eigvals(H), by=abs, rev=true)
-    #     H_copy = copy(H)
-    #     Q = eye(Complex128, 10)
+        # Transforming a 1+i by 10-i block of the matrix H into upper triangular form
+    for i = 0 : 4
+        H = triu(rand(Complex128, 10,10), -1)
 
-    #     # Test that the procedure has converged
-    #     local_schurfact!(H, Q, 1+i, 10-i)
+        # Add zeros to the subdiagonals assuming convergence
+        if i != 0 
+            # The previous block has converged, hence H[i+1,i] = 0
+            H[i+1,i] = zero(Complex128)
 
-    #     for j = 1 : 9 - 2*i  
-    #         # Test if subdiagonal is small. 
-    #         @test abs(H[i+j+1,i+j]) < 1e-8
-    #         @show H[i+j+1,i+j]
-    #         @show eigvals(H[i+j:i+j+1,i+j:i+j+1])
-    #     end
-    #     @show 1+i : 10-i
-    #     display(H)
+            # Current block has converged, hence H[11-i,10-i] = 0
+            H[11-i,10-i] = zero(Complex128)
+        end
 
-    #     # Test that the elements below the subdiagonal are 0
-    #     for j = 1:10
-    #         for i = j+2:10
-    #             @test abs(H[i,j]) < 1e-8
-    #         end
-    #     end
+        λs = sort!(eigvals(H), by=abs, rev=true)
+        H_copy = copy(H)
+        Q = eye(Complex128, 10)
 
-    #     # Test that the partial Schur decomposition relation holds
-    #     @test vecnorm(Q*H*Q' - H_copy) < 1e-8
+        # Test that the procedure has converged
+        local_schurfact!(H, Q, 1+i, 10-i)
+
+        for j = 1 : 9 - 2*i  
+            # Test if subdiagonal is small. 
+            @test abs(H[i+j+1,i+j]) < 1e-8
+            @show H[i+j+1,i+j]
+            @show eigvals(H[i+j:i+j+1,i+j:i+j+1])
+        end
+        @show 1+i : 10-i
+        display(H)
+
+        # Test that the elements below the subdiagonal are 0
+        for j = 1:10
+            for i = j+2:10
+                @test abs(H[i,j]) < 1e-8
+            end
+        end
+
+        # Test that the partial Schur decomposition relation holds
+        @test vecnorm(Q*H*Q' - H_copy) < 1e-8
         
-    #     # Test that the eigenvalues of H are the same before and after transformation
-    #     @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
+        # Test that the eigenvalues of H are the same before and after transformation
+        @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
         
-    #     @show sort!(eigvals(H), by=abs, rev=true)
-    # end
+        @show sort!(eigvals(H), by=abs, rev=true)
+    end
 
     
     
