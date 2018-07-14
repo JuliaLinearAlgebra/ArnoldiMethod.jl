@@ -189,7 +189,7 @@ function _double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
         lmul!(G, H, i, n)
 
         # Create a new bulge
-        rmul!(H, G, 1, min(i + 3, to))
+        rmul!(H, G, 1, min(i + 3, m))
         rmul!(Q, G)
     end
 
@@ -275,7 +275,7 @@ function _single_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
         lmul!(G, H, i, n)
 
         # Create a new bulge
-        rmul!(H, G, 1, min(i + 2, to))
+        rmul!(H, G, 1, min(i + 2, m))
         rmul!(Q, G)
     end
 
