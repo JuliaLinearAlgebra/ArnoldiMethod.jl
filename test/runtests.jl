@@ -13,3 +13,4 @@ include("implicit_restart.jl")
 include("locked_restart.jl")
 
 include("schurfact.jl")
+include("improved_schurfact.jl")

@@ -19,6 +19,7 @@ include("implicit_restart.jl")
 include("factorization.jl")
 include("run.jl")
 include("eigvals.jl")
+include("improved_schurfact.jl")
 
 
 end
