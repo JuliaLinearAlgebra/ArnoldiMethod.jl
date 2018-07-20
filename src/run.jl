@@ -19,25 +19,8 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         
-        # Compute the eigenvalues of the active part
-        H_copy = copy(view(arnoldi.H, active:max, active:max))
-        local_schurfact!(H_copy, 1, size(H_copy, 1))
-        λs = eigvalues(H_copy)
-
-        y = Vector{T}(undef,n)
-        res = Vector{Float64}(undef,n)
-        @inbounds for i = n : -1 : 1
-            y[i] = one(T)
-            y[1:i-1] .= - view(H_copy, 1:i-1, i)
-            y[i+1:n] .= zero(T)
-            backward_subst!(view(H_copy,1:i-1,1:i-1), y, H_copy[i,i])
-            y ./= norm(y)
-
-            res[i] = abs(dot(view(Q, n, :), y) * arnoldi.H[max + 1, max])
-        end
-
-        perm = sortperm(res, by=abs)
-        λs .= λs[perm]
+        # Compute shifts
+        λs = compute_shifts(arnoldi.H, active, max)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
         new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
@@ -84,5 +67,33 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
     V_locked = view(arnoldi.V, :, active : new_active - 1)
     mul!(view(V_prealloc, :, active : new_active - 1), V_locked, Q_small)
     V_locked .= view(V_prealloc, :, active : new_active - 1)
+
+end
+
+function compute_shifts(H::AbstractMatrix{T}, active, max) where {T}
+
+    n = max - active + 1
+    # Compute the eigenvalues of the active part
+    Q = Matrix{T}(I, n, n)
+    H_copy = copy(view(H, active:max, active:max))
+    local_schurfact!(H_copy, Q)
+    # λs = sort!(eigvalues(H_copy), by = abs, rev = true)
+    λs = eigvalues(H_copy)
+
+    y = Vector{T}(undef,n)
+    res = Vector{Float64}(undef,n)
+    @inbounds for i = n : -1 : 1
+        y[i] = one(T)
+        y[1:i-1] .= - view(H_copy, 1:i-1, i)
+        y[i+1:n] .= zero(T)
+        backward_subst!(view(H_copy,1:i-1,1:i-1), y, H_copy[i,i])
+        y ./= norm(y)
+
+        res[i] = abs(dot(view(Q, n, 1:n), y) * H[max + 1, max])
+    end
+
+    perm = sortperm(res, by=abs)
+    λs .= λs[perm]
+    return λs
 
 end
