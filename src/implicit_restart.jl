@@ -96,10 +96,6 @@ function exact_single_shift!(H::AbstractMatrix{Tv}, from::Int, to::Int, μ::Numb
     # Do the last Given's rotation by hand (assuming exact shifts!)
     @inbounds H[to+0,to-1] = H[to+1,to-1]
     @inbounds H[to+1,to-1] = zero(Tv)
-
-    # Update Q with the last rotation
-    Q[1:max+1, max] .= 0
-    Q[max+1,max] = 1
     
     return H
 end

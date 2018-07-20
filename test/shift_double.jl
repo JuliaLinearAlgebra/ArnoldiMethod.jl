@@ -37,6 +37,10 @@ end
         H_copy = copy(H)
         exact_double_shift!(H, 1, n, μ, Q)
 
+        # Update Q with the last rotation
+        Q[1:n+1, n-1:n] .= 0
+        Q[n+1, n-1] = 1
+
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
         @test λs ≈ sort!(eigvals(H[1:n-2,1:n-2]), by=realimag)
 
