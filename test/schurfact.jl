@@ -2,7 +2,7 @@
 # Here we look at some edge cases.
 
 using Test, LinearAlgebra
-using IRAM: eigvalues, local_schurfact!, is_offdiagonal_small
+using IRAM: eigvalues, local_schurfact!, is_offdiagonal_small, backward_subst!
 
 include("utils.jl")
 
@@ -108,4 +108,21 @@ include("utils.jl")
             @test sort!(eigvals(H), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
         end
     end
+end
+
+@testset "Backard subsitution" begin
+
+    # Test whether backward substitution works
+    let  
+        for T in (Float64, ComplexF64)       
+            R = triu(rand(T, 10,10))
+            R_copy = copy(R)
+            y = rand(T, 10)
+            y_ans = R\y
+            backward_subst!(R, y)
+        
+            @test R_copy*y_ans ≈ y
+        end
+    end
+    
 end
