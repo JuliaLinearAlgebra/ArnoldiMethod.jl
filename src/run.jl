@@ -22,7 +22,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         # Compute the eigenvalues of the active part
         H_copy = copy(view(arnoldi.H, active:max, active:max))
         local_schurfact!(H_copy, 1, size(H_copy, 1))
-        λs = sort!(eigvalues(H_copy), by = abs, rev = true)
+        λs = eigvalues(H_copy)
 
         y = Vector{T}(undef,n)
         res = Vector{Float64}(undef,n)
