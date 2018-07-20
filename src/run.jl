@@ -15,6 +15,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
     active = 1
     V_prealloc = Matrix{T}(undef, n, min)
     for restarts = 1 : max_restarts
+        n = max - active + 1
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         
@@ -22,6 +23,26 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         H_copy = copy(view(arnoldi.H, active:max, active:max))
         local_schurfact!(H_copy, 1, size(H_copy, 1))
         λs = sort!(eigvalues(H_copy), by = abs, rev = true)
+
+        y = Vector{T}(undef,n)
+        res = Vector{Float64}(undef,n)
+        for i = n : -1 : 1
+            R = copy(H_copy)
+            for j = 1:n
+                R[j,j] .-= H_copy[i,i]
+            end
+            y[i] = one(T)
+            y[1:i-1] .= -R[1:i-1,i]
+            y[i+1:n] .= zero(T)
+            # display(y)
+            backward_subst!(view(R,1:i,1:i), y)
+            y ./= norm(y)
+
+            res[i] = abs(dot(view(Q, n, :), y) * arnoldi.H[active + i, active + i - 1]) # H... is this correct?
+        end
+
+        perm = sortperm(res, by=abs)
+        λs .= λs[perm]
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
         new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
