@@ -98,53 +98,52 @@ function compute_shifts(H::AbstractMatrix{T}, active, max) where {T}
     # @show res
     perm = sortperm(res, by=abs)
 
-    # perm_r = sortperm(rval, by=abs)
-    # perm_y = sortperm(diag(R), by=abs)
-    # perm_vals = sortperm(vals, by=abs)
-    # @assert isapprox(sort(diag(R), by=abs), sort(vals, by=abs))
-    # ys_perm = ys[:, perm_y]
-    # rvec_perm = rvec[:, perm_r]
-    # vecs_perm = vecs[:,perm_vals]
-    # @assert isapprox(abs.(ys_perm), abs.(rvec_perm))
+    λs .= λs[perm]
+    return λs
 
-    # @show ys_perm[:, 4]
-    # @show rvec_perm[:, 4]
-    # a = ys_perm - rvec_perm
-    # @show norm(a[:,1:end])
-    # display(a)
+end
+
+
+function compute_shifts(H::AbstractMatrix{T}, active, max) where {T<:Real}
+    n = max - active + 1
+    # Compute the eigenvalues of the active part
+    Q = Matrix{T}(I, n, n)
+    # vals,vecs = eigen(H[active:max,active:max])
+
+    R = copy(view(H, active:max, active:max))
+    local_schurfact!(R, Q)
     # @assert isapprox(H[active:max,active:max]*Q, Q*R)
-    # @assert isapprox(ys_perm,rvec_perm)
-    # @show norm(H[active:max,active:max]*Q - Q*R)
-    # @show norm(H[active:max,active:max] * vecs - vecs * Diagonal(vals))
-    # @show norm(H[active:max,active:max] * vecs_perm - vecs_perm * Diagonal(vals[perm_vals]))
-    # @show norm(Q*R*Q' * vecs_perm - vecs_perm * Diagonal(vals[perm_vals]))
-    # @show norm(R* Q'*vecs_perm - Q'*vecs_perm * Diagonal(vals[perm_vals]))
-    # @show norm(R * ys_perm - ys_perm * Diagonal(vals[perm_vals]))
-    # for i = active:max
-    #     # @show norm(Q'*vecs_perm[:,i] - ys_perm[:,i])
-    #     # display(Q'*vecs_perm[:,i])
-    #     display(abs.(vecs_perm[:,i]))
-    #     @show abs(vecs_perm[n,i])
-    #     temp = vals[perm_vals]
-    #     # @show norm(R*Q'*vecs_perm[:,i] - temp[i]*Q'*vecs_perm[:,i])
-    #     @show norm(H[active:max,active:max]*vecs_perm[:,i] - temp[i]*vecs_perm[:,i])
-    #     # display(ys_perm[:,i])
-    #     display(abs.(Q*ys_perm[:,i]))
-    #     @show abs(dot(conj(Q[n,1:n]),ys_perm[:,i]))
-    #     tempor = Q*ys_perm[:,i]
-    #     @show abs(tempor[n])
-    #     @show norm(H[active:max,active:max]*Q*ys_perm[:,i] - temp[i]*Q*ys_perm[:,i])
-    # end
-    # @show norm(Q'*vecs_perm - ys_perm)
-    # @show norm(Q*ys_perm - vecs_perm)
-    # @show norm(ys_perm), norm(vecs)
-    # @show norm(Q*ys_perm), norm(vecs)
-    # display(Q' * Q)
-    # display(Q*ys[:, perm_y])
-    # display(vecs_perm)
-    # @info "Residuals" Q*ys_perm - vecs_perm
-    # display(ys[:, perm_y])
-    # display(rvec_perm)
+
+    # rval, rvec = eigen(R)
+    λs = eigvalues(R)
+
+    y = Vector{T}(undef,n)
+    res = Vector{Float64}(undef,n)
+    # ys = Matrix{T}(undef, n,n)
+    i = n
+    while i > 1
+        if R[i,i-1] > 1e-10
+            y[i] = one(T)
+            y[1:i-1] .= - view(R, 1:i-1, i)
+            y[i+1:n] .= zero(T)
+            backward_subst!(view(R,1:i-1,1:i-1), y, R[i-1:i,i-1:i])
+            y ./= norm(y)
+            res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max]) # Check the order of these
+            i-=2
+        else
+            y[i] = one(T)
+            y[1:i-1] .= - view(R, 1:i-1, i)
+            y[i+1:n] .= zero(T)
+            backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i])
+            y ./= norm(y)
+            # ys[:,i] .= y
+            res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max])
+            i-=1
+        end
+    end
+    # @show res
+    perm = sortperm(res, by=abs)
+
     λs .= λs[perm]
     return λs
 
