@@ -166,4 +166,51 @@ end
         end
     end
 
+    #Repeated eigvals at different positions.
+    for T in (Float64,ComplexF64)
+        let
+            for i = 6:10
+                R = triu(rand(T, 10,10))
+                lambda = rand(T)
+                R[i-2,i-2] = lambda
+                R[i-3,i-3] = lambda
+                R[i,i] = lambda
+                λs, vs = eigen(R)
+                R_small = R[1:i-1,1:i-1]
+                y = [-R[1:i-1,i]; 1.0]
+    
+                backward_subst!(R_small, y, R[i,i])
+                eigvec = [y; zeros(Float64, 10-i)] / norm([y; zeros(Float64, 10-i)])
+                    
+                @test abs.(vs[:,i]) ≈ abs.(eigvec)
+                # @show eigvec
+                # @show vs[:,i]
+            end
+        end
+    end
+
+    # Repeated eigvals. Test that all eigenvectors are correct.
+    for T in (Float64,ComplexF64)
+        let
+            R = triu(rand(T, 10,10))
+            lambda = rand(T)
+            R[9,9] = lambda
+            R[8,8] = lambda
+            R[7,7] = lambda
+            λs, vs = eigen(R)
+
+            for i = 10:-1:1
+                R_small = R[1:i-1,1:i-1]
+                y = [-R[1:i-1,i]; 1.0]
+
+                backward_subst!(R_small, y, R[i,i])
+                eigvec = [y; zeros(Float64, 10-i)] / norm([y; zeros(Float64, 10-i)])
+                    
+                @test abs.(vs[:,i]) ≈ abs.(eigvec)
+            end
+        end
+    end
+
+    #Geometric multiplicity > 1
+
 end

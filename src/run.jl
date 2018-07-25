@@ -21,6 +21,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         
         # Compute shifts
         λs = compute_shifts(arnoldi.H, active, max, ε)
+        # λs = sort!(eigvals(view(arnoldi.H, active:max, active:max)), by=abs, rev=true)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
         new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
@@ -72,30 +73,23 @@ end
 
 function compute_shifts(H::AbstractMatrix{T}, active, max, tol=1e-10) where {T}
     n = max - active + 1
+
     # Compute the eigenvalues of the active part
     Q = Matrix{T}(I, n, n)
-    # vals,vecs = eigen(H[active:max,active:max])
-
-    R = copy(H[active:max, active:max])
+    R = H[active:max, active:max]
     local_schurfact!(R, Q)
-    # @assert isapprox(H[active:max,active:max]*Q, Q*R)
-
-    # rval, rvec = eigen(R)
     λs = eigvalues(R)
 
     y = Vector{T}(undef,n)
     res = Vector{Float64}(undef,n)
-    # ys = Matrix{T}(undef, n,n)
     @inbounds for i = n : -1 : 1
         y[i] = one(T)
         y[1:i-1] .= - view(R, 1:i-1, i)
         y[i+1:n] .= zero(T)
-        backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i])
+        backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i], tol)
         y ./= norm(y)
-        # ys[:,i] .= y
         res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max])
     end
-    # @show res
     perm = sortperm(res, by=abs)
 
     λs .= λs[perm]
@@ -106,27 +100,22 @@ end
 
 function compute_shifts(H::AbstractMatrix{T}, active, max, tol=1e-10) where {T<:Real}
     n = max - active + 1
+
     # Compute the eigenvalues of the active part
     Q = Matrix{T}(I, n, n)
-    # vals,vecs = eigen(H[active:max,active:max])
-
-    R = copy(H[active:max, active:max])
+    R = H[active:max, active:max]
     local_schurfact!(R, Q)
-    # @assert isapprox(H[active:max,active:max]*Q, Q*R)
-
-    # rval, rvec = eigen(R)
     λs = eigvalues(R)
 
     y = Vector{T}(undef,n)
     res = Vector{Float64}(undef,n)
-    # ys = Matrix{T}(undef, n,n)
     i = n
     while i > 1
-        if R[i,i-1] > 1e-10        
+        if !is_offdiagonal_small(R, i-1, tol)
             y[i] = one(T)
             y[1:i-1] .= - view(R, 1:i-1, i)
             y[i+1:n] .= zero(T)
-            backward_subst!(view(R,1:i-1,1:i-1), y, R[i-1:i,i-1:i])
+            backward_subst!(view(R,1:i-1,1:i-1), y, R[i-1:i,i-1:i], tol)
             y ./= norm(y)
             res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max]) # Check the order of these
             i-=2
@@ -134,14 +123,12 @@ function compute_shifts(H::AbstractMatrix{T}, active, max, tol=1e-10) where {T<:
             y[i] = one(T)
             y[1:i-1] .= - view(R, 1:i-1, i)
             y[i+1:n] .= zero(T)
-            backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i])
+            backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i], tol)
             y ./= norm(y)
-            # ys[:,i] .= y
             res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max])
             i-=1
         end
     end
-    # @show res
     perm = sortperm(res, by=abs)
 
     λs .= λs[perm]
