@@ -151,8 +151,8 @@ end
     let
         for i = 6:10
             R = triu(rand(10,10))
-            R[i-4,i-5] = rand(1)[1]
-            R[i-2,i-3] = rand(1)[1]
+            R[i-4,i-5] = rand()
+            R[i-2,i-3] = rand()
             R_small = copy(R[1:i-1,1:i-1])
             λs, vs = eigen(R)
             y = -R[1:i-1,i]

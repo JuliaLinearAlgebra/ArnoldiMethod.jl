@@ -20,7 +20,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         
         # Compute shifts
-        λs = compute_shifts(arnoldi.H, active, max)
+        λs = compute_shifts(arnoldi.H, active, max, ε)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
         new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
@@ -70,13 +70,13 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
 end
 
-function compute_shifts(H::AbstractMatrix{T}, active, max) where {T}
+function compute_shifts(H::AbstractMatrix{T}, active, max, tol=1e-10) where {T}
     n = max - active + 1
     # Compute the eigenvalues of the active part
     Q = Matrix{T}(I, n, n)
     # vals,vecs = eigen(H[active:max,active:max])
 
-    R = copy(view(H, active:max, active:max))
+    R = copy(H[active:max, active:max])
     local_schurfact!(R, Q)
     # @assert isapprox(H[active:max,active:max]*Q, Q*R)
 
@@ -104,13 +104,13 @@ function compute_shifts(H::AbstractMatrix{T}, active, max) where {T}
 end
 
 
-function compute_shifts(H::AbstractMatrix{T}, active, max) where {T<:Real}
+function compute_shifts(H::AbstractMatrix{T}, active, max, tol=1e-10) where {T<:Real}
     n = max - active + 1
     # Compute the eigenvalues of the active part
     Q = Matrix{T}(I, n, n)
     # vals,vecs = eigen(H[active:max,active:max])
 
-    R = copy(view(H, active:max, active:max))
+    R = copy(H[active:max, active:max])
     local_schurfact!(R, Q)
     # @assert isapprox(H[active:max,active:max]*Q, Q*R)
 
@@ -122,7 +122,7 @@ function compute_shifts(H::AbstractMatrix{T}, active, max) where {T<:Real}
     # ys = Matrix{T}(undef, n,n)
     i = n
     while i > 1
-        if R[i,i-1] > 1e-10
+        if R[i,i-1] > 1e-10        
             y[i] = one(T)
             y[1:i-1] .= - view(R, 1:i-1, i)
             y[i+1:n] .= zero(T)

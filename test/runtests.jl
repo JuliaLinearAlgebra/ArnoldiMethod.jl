@@ -12,3 +12,5 @@ include("shift_single.jl")
 include("shift_double.jl")
 include("implicit_restart.jl")
 include("locked_restart.jl")
+
+include("compute_shifts.jl")
