@@ -2,7 +2,7 @@
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
 `max_restarts` has been reached.
 """
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, ε = eps(T), max_restarts = 10, target=LM) where {T}
+function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, ε = eps(T), max_restarts = 10, target=LM()) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
