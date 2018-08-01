@@ -10,6 +10,7 @@ include("utils.jl")
 
 function normal_hess_conjugate_eigvals(T::Type{<:Real}, n::Int)
     vals = Vector{complex(T)}(range(0.5, stop=1.0, length=n))
+    
     # Add two conjugate eigenpairs
     vals[1] = vals[1] + im
     vals[2] = conj(vals[1])
