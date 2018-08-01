@@ -5,6 +5,7 @@ using Test, LinearAlgebra
 using IRAM: eigvalues, local_schurfact!
 
 @testset "Schur factorization" begin
+    realimag(x) = (real(x), imag(x))
     let
         # 2-by-2 matrix with distinct eigenvalues while H[2,1] != 0
         H = [1.0 2.0; 3.0 4.0]
@@ -13,8 +14,8 @@ using IRAM: eigvalues, local_schurfact!
         
         @test local_schurfact!(H, 1, 2, Q, eps(), 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
-        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H), by=abs)
-        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H_copy), by=abs)
+        @test sort!(eigvalues(H), by=realimag) ≈ sort!(eigvals(H), by=realimag)
+        @test sort!(eigvalues(H), by=realimag) ≈ sort!(eigvals(H_copy), by=realimag)
         @test abs(H[2,1]) < 10eps()
     end
 
@@ -26,8 +27,8 @@ using IRAM: eigvalues, local_schurfact!
         
         @test local_schurfact!(H, 1, 2, Q, eps(), 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
-        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H), by=abs)
-        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H_copy), by=abs)
+        @test sort!(eigvalues(H), by=realimag) ≈ sort!(eigvals(H), by=realimag)
+        @test sort!(eigvalues(H), by=realimag) ≈ sort!(eigvals(H_copy), by=realimag)
         @test abs(H[2,1]) < 10eps()
     end
 
@@ -39,8 +40,8 @@ using IRAM: eigvalues, local_schurfact!
         
         @test local_schurfact!(H, 1, 2, Q, eps(), 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
-        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H), by=abs)
-        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H_copy), by=abs)
+        @test sort!(eigvalues(H), by=realimag) ≈ sort!(eigvals(H), by=realimag)
+        @test sort!(eigvalues(H), by=realimag) ≈ sort!(eigvals(H_copy), by=realimag)
     end
     
     let
@@ -56,7 +57,7 @@ using IRAM: eigvalues, local_schurfact!
                 # Current block has converged, hence H[11-i,10-i] = 0
                 H[11-i,10-i] = 0
             end
-            λs = sort!(eigvals(H), by=abs)
+            λs = sort!(eigvals(H), by=realimag)
             H_copy = copy(H)
             Q = Matrix{Float64}(I, 10, 10)
 
@@ -80,7 +81,7 @@ using IRAM: eigvalues, local_schurfact!
             @test norm(Q*H*Q' - H_copy) < 100eps()
             
             # Test that the eigenvalues of H are the same before and after transformation
-            @test λs ≈ sort!(eigvals(H), by=abs)
+            @test λs ≈ sort!(eigvals(H), by=realimag)
         end
     end
 
@@ -101,7 +102,7 @@ using IRAM: eigvalues, local_schurfact!
                 H[11-i,10-i] = zero(ComplexF64)
             end
 
-            λs = sort!(eigvals(H), by=abs)
+            λs = sort!(eigvals(H), by=realimag)
             H_copy = copy(H)
             Q = Matrix{ComplexF64}(I, 10, 10)
 
@@ -124,7 +125,7 @@ using IRAM: eigvalues, local_schurfact!
             @test norm(H_copy * Q - Q * H) < 100eps()
             
             # Test that the eigenvalues of H are the same before and after transformation
-            @test λs ≈ sort!(eigvals(H), by=abs)
+            @test λs ≈ sort!(eigvals(H), by=realimag)
         end
     end
 end

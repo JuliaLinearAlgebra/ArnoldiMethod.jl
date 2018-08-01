@@ -6,26 +6,23 @@
 using Test, LinearAlgebra
 using IRAM: exact_double_shift!
 
-function generate_real_H_with_imaginary_eigs(n, T::Type = Float64)
-    while true
-        H = triu(rand(T, n + 1, n), -1)
-        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = x -> (real(x), imag(x)))
+include("utils.jl")
 
-        for i = 1 : n
-            μ = λs[i]
-            if imag(μ) != 0
-                # Remove conjugate pair
-                deleteat!(λs, (i, i + 1))
-                return H, λs, μ
-            end
-        end
-    end
+# Generate a real normal hessenberg matrix with eigenvalues in [0.5, 1.0]
+function normal_hess_conjugate_eigvals(T::Type{<:Real}, n::Int)
+    Htop = normal_hessenberg_matrix(T, range(0.5, stop=1.0, length=n))
+    H = [Htop; zeros(T, n)']
+    H[end,end] = one(T)
+    λs = sort!(eigvals(Htop), by = realimag)
+    μ = popfirst!(λs)
+    return H, λs, μ
 end
 
 @testset "Double Shifted QR" begin
     n = 20
 
     is_hessenberg(H) = norm(tril(H, -2)) == 0
+    
 
     # Test on a couple random matrices
     for i = 1 : 50
@@ -34,7 +31,7 @@ end
         exact_double_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
-        @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by = x -> (real(x), imag(x)))
+        @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by=realimag)
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)
