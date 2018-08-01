@@ -19,7 +19,7 @@ end
 
 @testset "Locked restart" begin
     min, max = 25, 35
-    for T in (ComplexF64, ) #(Float64, ComplexF64)
+    for T in (Float64, ComplexF64)
         A = matrix_with_three_clusters(T, 100)
         ε = 1e-6
 
