@@ -9,7 +9,7 @@ using IRAM: exact_double_shift!
 function generate_real_H_with_imaginary_eigs(n, T::Type = Float64)
     while true
         H = triu(rand(T, n + 1, n), -1)
-        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
+        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = x -> (real(x), imag(x)))
 
         for i = 1 : n
             μ = λs[i]
@@ -34,7 +34,7 @@ end
         exact_double_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
-        @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by = abs)
+        @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by = x -> (real(x), imag(x)))
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)

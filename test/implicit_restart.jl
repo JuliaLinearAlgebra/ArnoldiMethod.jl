@@ -1,5 +1,4 @@
-using Test
-
+using Test, LinearAlgebra, SparseArrays
 using IRAM: implicit_restart!, initialize, iterate_arnoldi!
 
 @testset "Implicit restart" begin
@@ -9,11 +8,10 @@ using IRAM: implicit_restart!, initialize, iterate_arnoldi!
         n = 20
         A = sprand(T, n, n, 5 / n) + I
         min, max = 5, 8
-        h = Vector{T}(undef, max)
 
         arnoldi = initialize(T, n, max)
         V, H = arnoldi.V, arnoldi.H
-        iterate_arnoldi!(A, arnoldi, 1 : max, h)
+        iterate_arnoldi!(A, arnoldi, 1 : max)
         λs = sort!(eigvals(view(H, 1:max, 1:max)), by = abs, rev = true)
 
         m = implicit_restart!(arnoldi, λs, min, max)

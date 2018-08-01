@@ -91,9 +91,6 @@ function exact_single_shift!(H::AbstractMatrix{Tv}, from::Int, to::Int, μ::Numb
         # Create a new bulge
         rmul!(H, G, 1, min(i + 2, to + 1))
         rmul!(Q, G)
-        
-        # Update Q
-        rmul!(Q, G)
     end
 
     # Do the last Given's rotation by hand (assuming exact shifts!)

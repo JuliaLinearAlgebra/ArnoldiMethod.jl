@@ -6,8 +6,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, Î
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
-    h = Vector{T}(undef, max)
-    iterate_arnoldi!(A, arnoldi, 1 : min, h)
+    iterate_arnoldi!(A, arnoldi, 1 : min)
 
     # minâ€² is the effective starting point -- may be min - 1 when the last two removed guys
     # are a complex conjugate
@@ -17,7 +16,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, Î
     V_prealloc = Matrix{T}(undef, n, min)
     for restarts = 1 : max_restarts
 
-        iterate_arnoldi!(A, arnoldi, minâ€² + 1 : max, h)
+        iterate_arnoldi!(A, arnoldi, minâ€² + 1 : max)
         
         # Compute the eigenvalues of the active part
         H_copy = copy(view(arnoldi.H, active:max, active:max))

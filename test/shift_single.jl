@@ -11,7 +11,7 @@ using IRAM: exact_single_shift!
 function generate_real_H_with_real_eigs(n, T::Type = Float64)
     while true
         H = triu(rand(T, n + 1, n), -1)
-        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
+        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = x -> (real(x), imag(x)))
 
         for i = 1 : n
             μ = λs[i]
@@ -27,7 +27,7 @@ end
 # that can be used to test a single shift in complex arithmetic
 function generate_complex_H(n, T::Type = ComplexF64)
     H = triu(rand(T, n + 1, n), -1)
-    λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
+    λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = x -> (real(x), imag(x)))
     μ = λs[1]
     deleteat!(λs, 1)
     return H, λs, μ
@@ -47,7 +47,7 @@ end
         exact_single_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
-        @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = abs)
+        @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = x -> (real(x), imag(x)))
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)
@@ -61,7 +61,7 @@ end
         exact_single_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
-        @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = abs)
+        @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = x -> (real(x), imag(x)))
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)
