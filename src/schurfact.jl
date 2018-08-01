@@ -2,6 +2,11 @@ using LinearAlgebra: givensAlgorithm
 using Base: @propagate_inbounds
 
 import LinearAlgebra: lmul!, rmul!
+import Base: Matrix
+
+@propagate_inbounds is_offdiagonal_small(H::AbstractMatrix{T}, i::Int, tol = eps(real(T))) where {T} = 
+    abs(H[i+1,i]) < tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
+
 
 abstract type SmallRotation end
 
@@ -24,6 +29,23 @@ struct Rotation3{Tc,Ts} <: SmallRotation
     c₂::Tc
     s₂::Ts
     i::Int
+end
+
+# Some utility to materialize a rotation to a matrix.
+function Matrix(r::Rotation2{Tc,Ts}, n::Int) where {Tc,Ts}
+    r.i < n || throw(ArgumentError("Matrix should have order $(r.i+1) or larger"))
+    G = Matrix{promote_type(Tc,Ts)}(I, n, n)
+    G[r.i+0,r.i+0] = r.c
+    G[r.i+1,r.i+0] = -conj(r.s)
+    G[r.i+0,r.i+1] = r.s
+    G[r.i+1,r.i+1] = r.c
+    return G
+end
+
+function Matrix(r::Rotation3{Tc,Ts}, n::Int) where {Tc,Ts}
+    G₁ = Matrix(Rotation2(r.c₁, r.s₁, r.i + 1), n)
+    G₂ = Matrix(Rotation2(r.c₂, r.s₂, r.i), n)
+    return G₂ * G₁
 end
 
 """
@@ -122,7 +144,7 @@ end
     A
 end
 
-function _double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int, 
+function double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int, 
                              μ::Complex, Q = NotWanted()) where {Tv<:Real}
     m, n = size(H)
 
@@ -216,7 +238,7 @@ function _double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
     H
 end
 
-function _single_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int, 
+function single_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int, 
                              μ::Number, Q = NotWanted()) where {Tv<:Number}
     m, n = size(H)
 
@@ -282,12 +304,10 @@ function _single_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
     H
 end
 
-@propagate_inbounds _is_offdiagonal_small(H, i, tol) = abs(H[i+1,i]) ≤ tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
-
 ###
 ### Real arithmetic
 ###
-function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int, 
+function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int, 
                           Q = NotWanted(), tol = eps(T), 
                           maxiter = 100*size(H, 1)) where {T<:Real}
     # iteration count
@@ -321,7 +341,7 @@ function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
         # We keep `from` one column past the zero off-diagonal value, so we check whether
         # the `from - 1` column has a small off-diagonal value.
         from = to
-        while from > start && !_is_offdiagonal_small(H, from - 1, tol)
+        while from > start && !is_offdiagonal_small(H, from - 1, tol)
             from -= 1
         end
 
@@ -356,7 +376,7 @@ function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
                 λ₂ = (t - sqr) / 2
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
                 # Run a bulge chase
-                _single_shift_schur!(H, from, to, λ, Q)
+                single_shift_schur!(H, from, to, λ, Q)
             else
                 # Conjugate pair
                 if from + 1 == to
@@ -368,7 +388,7 @@ function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
                 else
                     # Otherwise we do a double shift!
                     sqr = sqrt(complex(discriminant))
-                    _double_shift_schur!(H, from, to, (t + sqr) / 2, Q)
+                    double_shift_schur!(H, from, to, (t + sqr) / 2, Q)
                 end
             end
         end
@@ -381,9 +401,9 @@ function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
 end
 
 ###
-### Complex arithmetic
+### Generic implementation
 ###
-function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int, 
+function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int, 
                           Q = NotWanted(), tol = eps(real(T)), 
                           maxiter = 100*size(H, 1)) where {T}
     # iteration count
@@ -396,7 +416,7 @@ function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
         # Indexing, see the real arithmetic version!
 
         from = to
-        while from > start && !_is_offdiagonal_small(H, from - 1, tol)
+        while from > start && !is_offdiagonal_small(H, from - 1, tol)
             from -= 1
         end
 
@@ -416,7 +436,7 @@ function _local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
             λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
             
             # Run a bulge chase
-            _single_shift_schur!(H, from, to, λ, Q)
+            single_shift_schur!(H, from, to, λ, Q)
         end
 
         # Converged!

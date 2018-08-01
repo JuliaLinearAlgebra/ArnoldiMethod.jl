@@ -1,6 +1,10 @@
-using Test
+# Core part of implicit restart is to shift away unwanted eigenvalues from the
+# non-square Hessenberg matrix. Here we test the double shift on a real 
+# Hessenberg matrix with a conjugate eigenpair; once it is shifted away, the
+# other eigenvalues should be retained (in exact arithmetic)
 
-using IRAM: double_shift!
+using Test, LinearAlgebra
+using IRAM: exact_double_shift!
 
 function generate_real_H_with_imaginary_eigs(n, T::Type = Float64)
     while true
@@ -27,7 +31,7 @@ end
     for i = 1 : 50
         H, λs, μ = generate_real_H_with_imaginary_eigs(n, Float64)
         Q = Matrix{Float64}(I, n, n)
-        double_shift!(H, 1, n, μ, Q)
+        exact_double_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
         @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by = abs)

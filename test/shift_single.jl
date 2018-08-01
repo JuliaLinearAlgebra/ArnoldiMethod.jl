@@ -1,6 +1,10 @@
-using Test
+# Core part of implicit restart is to shift away unwanted eigenvalues from the
+# non-square Hessenberg matrix. Here we test the single shift on a real Hessenberg
+# matrix with a real eigenvalue, and a random complex Hessenberg matrix.
+# Once it is shifted away, the other eigenvalues should be retained (in exact arithmetic)
 
-using IRAM: single_shift!
+using Test, LinearAlgebra
+using IRAM: exact_single_shift!
 
 # Generates a real Hessenberg matrix with one real eigenvalue
 # which can be used for testing the single shift in real arithmetic
@@ -40,7 +44,7 @@ end
         Q = Matrix{Float64}(I, n, n)
         # H_copy = copy(H)
 
-        single_shift!(H, 1, n, μ, Q)
+        exact_single_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
         @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = abs)
@@ -54,7 +58,7 @@ end
         H, λs, μ = generate_complex_H(n, ComplexF64)
         Q = Matrix{ComplexF64}(I, n, n)
 
-        single_shift!(H, 1, n, μ, Q)
+        exact_single_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
         @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by = abs)

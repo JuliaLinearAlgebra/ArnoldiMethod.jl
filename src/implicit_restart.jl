@@ -14,13 +14,13 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     while m > min
         μ = λs[m-active+1]
         if imag(μ) == 0
-            single_shift!(H, active, m, real(μ), Q)
+            exact_single_shift!(H, active, m, real(μ), Q)
             m -= 1
         else
             # Dont double shift past min
             # m == min + 1 && break
 
-            double_shift!(H, active, m, μ, Q)
+            exact_double_shift!(H, active, m, μ, Q)
             m -= 2 # incorrect
         end
     end
@@ -34,7 +34,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
 end
 
 function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T}
-    # Complex arithmetic
+    # General arithmetic
     V, H = arnoldi.V, arnoldi.H
     Q = Matrix{T}(I, max, max)
 
@@ -42,7 +42,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
 
     while m > min
         μ = λs[m - active + 1]
-        single_shift!(H, active, m, μ, Q)
+        exact_single_shift!(H, active, m, μ, Q)
         m -= 1
     end
 
@@ -54,100 +54,109 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     return m
 end
 
-# """
-# Assume a Hessenberg matrix of size (n + 1) × n.
-# """
-function single_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Tv, Q::AbstractMatrix) where {Tv}
-    # println("Single:")
-    H = view(H_whole, min : max + 1, min : max)
-    n = size(H, 2)
+"""
+    exact_single_shift!(H, min, max, μ, Q)
 
+Performs an exact single shift of the QR algorithm on the non-square Hessenberg
+matrix H[from:to+1,from:to]
+"""
+function exact_single_shift!(H::AbstractMatrix{Tv}, from::Int, to::Int, μ::Number, Q) where {Tv}
     # Construct the first givens rotation that maps (H - μI)e₁ to a multiple of e₁
-    @inbounds c, s = givensAlgorithm(H[1,1] - μ, H[2,1])
-    givens = Givens(c, s, min)
+    @inbounds H₁₁ = H[from+0,from+0]
+    @inbounds H₂₁ = H[from+1,from+0]
 
-    lmul!(givens, H_whole)
-    rmul!(H_whole, givens)
+    p₁ = H₁₁ - μ
+    p₂ = H₂₁
 
-    # Update Q
-    rmul!(Q, givens)
+    G₁, nrm = get_rotation(p₁, p₂, from)
+
+    lmul!(G₁, H, from, to)
+    rmul!(H, G₁, 1, min(from + 2, to + 1))
+    rmul!(Q, G₁)
 
     # Chase the bulge!
-    @inbounds for i = 2 : n - 1
-        c, s = givensAlgorithm(H[i,i-1], H[i+1,i-1])
-        givens = Givens(c, s, min + i - 1)
-        lmul!(givens, H_whole)
-        H_whole[i+1,i-1] = zero(Tv)
-        rmul!(view(H_whole, 1 : min + i + 1, :), givens)
+    @inbounds for i = from + 1 : to - 1
+        p₁ = H[i+0,i-1]
+        p₂ = H[i+1,i-1]
+
+        G, nrm = get_rotation(p₁, p₂, i)
+
+        # First column is done by hand
+        H[i+0,i-1] = nrm
+        H[i+1,i-1] = zero(Tv)
+        
+        # Rotate remaining columns
+        lmul!(G, H, i, to)
+
+        # Create a new bulge
+        rmul!(H, G, 1, min(i + 2, to + 1))
+        rmul!(Q, G)
         
         # Update Q
-        rmul!(Q, givens)
+        rmul!(Q, G)
     end
 
     # Do the last Given's rotation by hand (assuming exact shifts!)
-    @inbounds H[n, n - 1] = H[n + 1, n - 1]
-    @inbounds H[n + 1, n - 1] = zero(Tv)
+    @inbounds H[to+0,to-1] = H[to+1,to-1]
+    @inbounds H[to+1,to-1] = zero(Tv)
 
     return H
 end
 
-function double_shift!(H_whole::AbstractMatrix{Tv}, min, max, μ::Complex, Q::AbstractMatrix) where {Tv<:Real}
-    H = view(H_whole, min : max + 1, min : max)
-    n = size(H, 2)
+"""
+    exact_double_shift!(H, min, max, μ, Q)
 
+Performs an exact double shift of the QR algorithm on the non-square Hessenberg
+matrix H[from:to+1,from:to]
+"""
+function exact_double_shift!(H::AbstractMatrix{Tv}, from::Int, to::Int, μ::Complex, Q::AbstractMatrix) where {Tv<:Real}
     # Compute the entries of (H - μ₂)(H - μ₁)e₁.
-    @inbounds p₁ = abs2(μ) - 2 * real(μ) * H[1,1] + H[1,1] * H[1,1] + H[1,2] * H[2,1]
-    @inbounds p₂ = -2.0 * real(μ) * H[2,1] + H[2,1] * H[1,1] + H[2,2] * H[2,1]
-    @inbounds p₃ = H[3,2] * H[2,1]
+    @inbounds H₁₁ = H[from+0,from+0]
+    @inbounds H₂₁ = H[from+1,from+0]
 
-    c₁, s₁, nrm = givensAlgorithm(p₂, p₃)
-    c₂, s₂,     = givensAlgorithm(p₁, nrm)
-    G₁ = Givens(c₁, s₁, min+1)
-    G₂ = Givens(c₂, s₂, min)
+    @inbounds H₁₂ = H[from+0,from+1]
+    @inbounds H₂₂ = H[from+1,from+1]
+    @inbounds H₃₂ = H[from+2,from+1]
 
-    lmul!(G₁, H_whole)
-    lmul!(G₂, H_whole)
-    rmul!(H_whole, G₁)
-    rmul!(H_whole, G₂)
+    p₁ = abs2(μ) - 2real(μ) * H₁₁ + H₁₁ * H₁₁ + H₁₂ * H₂₁
+    p₂ = -2real(μ) * H₂₁ + H₂₁ * H₁₁ + H₂₂ * H₂₁
+    p₃ = H₃₂ * H₂₁
 
-    # Update Q
+    # Map that column to a mulitiple of e₁ via two Given's rotations
+    G₁, nrm = get_rotation(p₁, p₂, p₃, from)
+
+    # Apply the Given's rotations
+    lmul!(G₁, H, from, to)
+    rmul!(H, G₁, 1, min(from + 3, to + 1))
     rmul!(Q, G₁)
-    rmul!(Q, G₂)
 
-    # Bulge chasing!
-    @inbounds for i = 2 : n - 2
-        c₁, s₁, nrm = givensAlgorithm(H[i+1,i-1], H[i+2,i-1])
-        c₂, s₂,     = givensAlgorithm(H[i,i-1], nrm)
-        G₁ = Givens(c₁, s₁, min+i)
-        G₂ = Givens(c₂, s₂, min+i-1)
+    @inbounds for i = from + 1 : to - 2
+        p₁ = H[i+0,i-1]
+        p₂ = H[i+1,i-1]
+        p₃ = H[i+2,i-1]
 
-        # Restore to Hessenberg
-        lmul!(G₁, view(H_whole, :, min+i-2:max))
-        lmul!(G₂, view(H_whole, :, min+i-2:max))
+        G, nrm = get_rotation(p₁, p₂, p₃, i)
+
+        # First column is done by hand
+        H[i+0,i-1] = nrm
+        H[i+1,i-1] = zero(Tv)
+        H[i+2,i-1] = zero(Tv)
         
-        # Zero out off-diagonal values
-        H_whole[min+i, i-1] = zero(Tv)
-        H_whole[min+i+1, i-1] = zero(Tv)
+        # Rotate remaining columns
+        lmul!(G, H, i, to)
 
         # Create a new bulge
-        rmul!(view(H_whole, 1:min+i+2, :), G₁)
-        rmul!(view(H_whole, 1:min+i+2, :), G₂)
-
-        # Update Q
-        rmul!(Q, G₁)
-        rmul!(Q, G₂)
+        rmul!(H, G, 1, min(i + 3, to + 1))
+        rmul!(Q, G)
     end
 
-    @inbounds if n > 2
-        # Do the last Given's rotation by hand.
-        H[n - 1, n - 2] = H[n + 1, n - 2]
+    # Do the last Given's rotation by hand.
+    @inbounds H[to-1,to-2] = H[to+1,to-2]
 
-        # Zero out the off-diagonal guys
-        H[n    , n - 2] = zero(Tv)
-        H[n + 1, n - 2] = zero(Tv)
-    end
-
-    @inbounds H[n + 1, n - 1] = zero(Tv)
+    # Zero out the off-diagonal guys
+    @inbounds H[to+0,to-2] = zero(Tv)
+    @inbounds H[to+1,to-2] = zero(Tv)
+    @inbounds H[to+1,to-1] = zero(Tv)
     
     H
 end

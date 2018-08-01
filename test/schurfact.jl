@@ -1,5 +1,7 @@
-using Test
+# Test if we can transform part of a Hessenberg matrix to Schur form.
+# Here we look at some edge cases.
 
+using Test, LinearAlgebra
 using IRAM: eigvalues, local_schurfact!
 
 @testset "Schur factorization" begin
@@ -8,11 +10,11 @@ using IRAM: eigvalues, local_schurfact!
         H = [1.0 2.0; 3.0 4.0]
         H_copy = copy(H)
         Q = Matrix{Float64}(I, 2, 2)
-
-        @test local_schurfact!(H, Q, 1, 2, maxiter = 2)
+        
+        @test local_schurfact!(H, 1, 2, Q, eps(), 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
-        @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H), by=abs, rev=true)
-        @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H_copy), by=abs, rev=true)
+        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H), by=abs)
+        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H_copy), by=abs)
         @test abs(H[2,1]) < 10eps()
     end
 
@@ -22,10 +24,10 @@ using IRAM: eigvalues, local_schurfact!
         H_copy = copy(H)
         Q = Matrix{Float64}(I, 2, 2)
         
-        @test local_schurfact!(H, Q, 1, 2, maxiter = 2)
+        @test local_schurfact!(H, 1, 2, Q, eps(), 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
-        @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H), by=abs, rev=true)
-        @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H_copy), by=abs, rev=true)
+        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H), by=abs)
+        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H_copy), by=abs)
         @test abs(H[2,1]) < 10eps()
     end
 
@@ -35,10 +37,10 @@ using IRAM: eigvalues, local_schurfact!
         H_copy = copy(H)
         Q = Matrix{Float64}(I, 2, 2)
         
-        @test local_schurfact!(H, Q, 1, 2, maxiter = 2)
+        @test local_schurfact!(H, 1, 2, Q, eps(), 2)
         @test norm(Q' * H_copy * Q - H) < 10eps()
-        @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H), by=abs, rev=true)
-        @test sort!(eigvalues(H), by=abs, rev=true) ≈ sort!(eigvals(H_copy), by=abs, rev=true)
+        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H), by=abs)
+        @test sort!(eigvalues(H), by=abs) ≈ sort!(eigvals(H_copy), by=abs)
     end
     
     let
@@ -54,12 +56,12 @@ using IRAM: eigvalues, local_schurfact!
                 # Current block has converged, hence H[11-i,10-i] = 0
                 H[11-i,10-i] = 0
             end
-            λs = sort!(eigvals(H), by=abs, rev=true)
+            λs = sort!(eigvals(H), by=abs)
             H_copy = copy(H)
             Q = Matrix{Float64}(I, 10, 10)
 
             # Test that the procedure has converged
-            @test local_schurfact!(H, Q, 1+i, 10-i)
+            @test local_schurfact!(H, 1+i, 10-i, Q)
 
             for j = 1 : 9 - 2*i
                 t = H[i+j,i+j] + H[i+j+1,i+j+1]
@@ -78,7 +80,7 @@ using IRAM: eigvalues, local_schurfact!
             @test norm(Q*H*Q' - H_copy) < 100eps()
             
             # Test that the eigenvalues of H are the same before and after transformation
-            @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
+            @test λs ≈ sort!(eigvals(H), by=abs)
         end
     end
 
@@ -99,12 +101,12 @@ using IRAM: eigvalues, local_schurfact!
                 H[11-i,10-i] = zero(ComplexF64)
             end
 
-            λs = sort!(eigvals(H), by=abs, rev=true)
+            λs = sort!(eigvals(H), by=abs)
             H_copy = copy(H)
             Q = Matrix{ComplexF64}(I, 10, 10)
 
             # Test that the procedure has converged
-            @test local_schurfact!(H, Q, 1+i, 10-i)
+            @test local_schurfact!(H, 1+i, 10-i, Q)
 
             for j = 1 : 9 - 2*i  
                 # Test if subdiagonal is small. 
@@ -119,10 +121,10 @@ using IRAM: eigvalues, local_schurfact!
             end
 
             # Test that the partial Schur decomposition relation holds
-            @test norm(Q*H*Q' - H_copy) < 100eps()
+            @test norm(H_copy * Q - Q * H) < 100eps()
             
             # Test that the eigenvalues of H are the same before and after transformation
-            @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
+            @test λs ≈ sort!(eigvals(H), by=abs)
         end
     end
 end

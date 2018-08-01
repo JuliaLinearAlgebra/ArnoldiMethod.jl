@@ -20,9 +20,8 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max, h)
         
         # Compute the eigenvalues of the active part
-        Q = Matrix{T}(I, max, max)
         H_copy = copy(view(arnoldi.H, active:max, active:max))
-        local_schurfact!(H_copy, Q)
+        _local_schurfact!(H_copy, 1, size(H_copy, 1))
         λs = sort!(eigvalues(H_copy), by = abs, rev = true)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
