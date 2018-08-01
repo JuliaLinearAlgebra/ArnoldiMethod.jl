@@ -4,8 +4,9 @@
 using Test, LinearAlgebra
 using IRAM: eigvalues, local_schurfact!
 
+include("utils.jl")
+
 @testset "Schur factorization" begin
-    realimag(x) = (real(x), imag(x))
     let
         # 2-by-2 matrix with distinct eigenvalues while H[2,1] != 0
         H = [1.0 2.0; 3.0 4.0]

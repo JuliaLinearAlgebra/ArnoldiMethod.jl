@@ -12,20 +12,24 @@ function normal_hessenberg_matrix(T::Type{<:Number}, vals::AbstractVector)
     return triu(hessenberg!(A).factors, -1)
 end
 
-function normal_hessenberg_matrix_conjugate_pair(T::Type{<:Real}, vals::AbstractVector{<:Complex})
+function normal_hessenberg_matrix(T::Type{<:Real}, vals::AbstractVector{<:Complex})
     n = length(vals)
     Q, R = qr(randn(T, n, n))
     D = zeros(T, n, n)
     i = 1
     while i ≤ n
         if imag(vals[i]) != 0
-            //
+            D[i+0,i+0] = real(vals[i])
+            D[i+1,i+0] = imag(vals[i])
+            D[i+0,i+1] = -imag(vals[i])
+            D[i+1,i+1] = real(vals[i])
+            i += 2
         else
-
+            D[i] = real(vals[i])
+            i += 1
         end
     end
-    A = Q * Diagonal(vals) * Q'
-    return triu(hessenberg!(A).factors, -1)
+    return triu(hessenberg!(Q * D * Q').factors, -1)
 end
 
 """
