@@ -20,7 +20,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         
         # Compute the eigenvalues of the active part
         H_copy = copy(view(arnoldi.H, active:max, active:max))
-        _local_schurfact!(H_copy, 1, size(H_copy, 1))
+        local_schurfact!(H_copy, 1, size(H_copy, 1))
         λs = sort!(eigvalues(H_copy), by = abs, rev = true)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
@@ -62,7 +62,7 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
     H_copy_full = copy(arnoldi.H)
 
-    local_schurfact!(arnoldi.H, Q_large, active, new_active - 1)
+    local_schurfact!(arnoldi.H, active, new_active - 1, Q_large)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
 
     V_locked = view(arnoldi.V, :, active : new_active - 1)
