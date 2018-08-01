@@ -19,7 +19,7 @@ end
 """
 Perform Arnoldi iterations.
 """
-function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::UnitRange{Int}, Δh::Vector{T}) where {T}
+function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
     V, H = arnoldi.V, arnoldi.H
     
     @inbounds @views for j = range
@@ -27,12 +27,13 @@ function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::Unit
         mul!(v, A, V[:, j])
 
         # Orthogonalize
-        mul!(H[1:j,j], adjoint(V[:,1:j]), v)
+        mul!(H[1:j,j], V[:,1:j]', v)
         LinearAlgebra.BLAS.gemv!('N', -one(T), V[:,1:j], H[1:j,j], one(T), v)
         
-        mul!(Δh[1:j], adjoint(V[:,1:j]), v)
-        LinearAlgebra.BLAS.gemv!('N', -one(T), V[:,1:j], Δh[1:j], one(T), v)
-        H[1:j,j] .+= Δh[1:j]
+        # This allocates, but yeah.
+        Δh = V[:,1:j]' * v
+        LinearAlgebra.BLAS.gemv!('N', -one(T), V[:,1:j], Δh, one(T), v)
+        H[1:j,j] .+= Δh
 
         # Normalize
         H[j + 1, j] = norm(v)

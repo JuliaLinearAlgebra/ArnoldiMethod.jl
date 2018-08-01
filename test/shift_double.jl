@@ -1,36 +1,43 @@
-using Test
+# Core part of implicit restart is to shift away unwanted eigenvalues from the
+# non-square Hessenberg matrix. Here we test the double shift on a real 
+# Hessenberg matrix with a conjugate eigenpair; once it is shifted away, the
+# other eigenvalues should be retained (in exact arithmetic)
 
-using IRAM: double_shift!
+using Test, LinearAlgebra
+using IRAM: exact_double_shift!
 
-function generate_real_H_with_imaginary_eigs(n, T::Type = Float64)
-    while true
-        H = triu(rand(T, n + 1, n), -1)
-        λs = sort!(eigvals(view(H, 1 : n, 1 : n)), by = abs)
+include("utils.jl")
 
-        for i = 1 : n
-            μ = λs[i]
-            if imag(μ) != 0
-                # Remove conjugate pair
-                deleteat!(λs, (i, i + 1))
-                return H, λs, μ
-            end
-        end
-    end
+function normal_hess_conjugate_eigvals(T::Type{<:Real}, n::Int)
+    vals = Vector{complex(T)}(range(0.5, stop=1.0, length=n))
+    
+    # Add two conjugate eigenpairs
+    vals[1] = vals[1] + im
+    vals[2] = conj(vals[1])
+    vals[4] = vals[4] + im
+    vals[5] = conj(vals[4])
+
+    Htop = normal_hessenberg_matrix(T, vals)
+    H = [Htop; zeros(T, n)']
+    H[end,end] = one(T)
+
+    λs = sort!(eigvals(Htop), by = realimag)
+    μ = first(λs)
+    λs = λs[3:end]
+    return H, λs, μ
 end
 
 @testset "Double Shifted QR" begin
     n = 20
 
-    is_hessenberg(H) = norm(tril(H, -2)) == 0
-
     # Test on a couple random matrices
     for i = 1 : 50
-        H, λs, μ = generate_real_H_with_imaginary_eigs(n, Float64)
+        H, λs, μ = normal_hess_conjugate_eigvals(Float64, n)
         Q = Matrix{Float64}(I, n, n)
-        double_shift!(H, 1, n, μ, Q)
+        exact_double_shift!(H, 1, n, μ, Q)
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
-        @test λs ≈ sort!(eigvals(view(H, 1:n-2, 1:n-2)), by = abs)
+        @test λs ≈ sort!(eigvals(H[1:n-2,1:n-2]), by=realimag)
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)

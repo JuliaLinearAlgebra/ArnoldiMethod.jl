@@ -1,28 +1,51 @@
-using Test
+# Tests in-place products with the implicit Given's rotations we have by forming
+# the Given's rotation as a matrix explicitly.
 
-using IRAM: Givens, Hessenberg
+using Test, LinearAlgebra
+using IRAM: Hessenberg, Rotation2, Rotation3
 
 @testset "Givens rotation" begin
-    for T in (Float64, ComplexF64)
-        H = triu(rand(T, 5,5), -1)
-        H[2,1] = 0
-        G = Matrix{T}(I, 5, 5)
-        c, s = rand(), rand(T)
-        G[2:3,2:3] = [c s; -conj(s) c]
+    @testset "Single rotation" begin
+        @testset "lmul!" for T in (Float64, ComplexF64)
+            A = rand(T, 6, 5)
 
-        H_new = Hessenberg(copy(H))
-        lmul!(Givens(c, s, 2), H_new)
+            G = Rotation2(rand(real(T)), rand(T), 2)
+            G_mat = Matrix(G, 6)
 
-        @test G * H ≈ H_new.H
+            @test [A[:,1:1] G_mat * A[:,2:4] A[:,5:5]] ≈ lmul!(G, copy(A), 2, 4)
+            @test G_mat * A ≈ lmul!(G, copy(A))
+        end
+
+        @testset "rmul!" for T in (Float64, ComplexF64)
+            A = rand(T, 10, 5)
+
+            G = Rotation2(rand(real(T)), rand(T), 2)
+            G_mat = Matrix(G, 5)
+
+            @test [A[1:1,:]; A[2:4,:]*G_mat'; A[5:10,:]] ≈ rmul!(copy(A), G, 2, 4)
+            @test A * G_mat' ≈ rmul!(copy(A), G)
+        end
     end
 
-    for T in (Float64, ComplexF64)
-        Q = rand(T, 10, 4)
-        G = Matrix{T}(I, 4, 4)
-        c, s = rand(), rand(T)
-        G[2:3,2:3] = [c s; -conj(s) c]
-        Q_new = copy(Q)
-        rmul!(Q_new, Givens(c, s, 2))
-        @test Q * G' ≈ Q_new
+    @testset "Double rotation" begin
+        @testset "lmul!" for T in (Float64, ComplexF64)
+            A = rand(T, 6, 5)
+
+            G = Rotation3(rand(real(T)), rand(T), rand(real(T)), rand(T), 2)
+            G_mat = Matrix(G, 6)
+
+            @test [A[:,1:1] G_mat * A[:,2:4] A[:,5:5]] ≈ lmul!(G, copy(A), 2, 4)
+            @test G_mat * A ≈ lmul!(G, copy(A))
+        end
+
+        @testset "rmul!" for T in (Float64, ComplexF64)
+            A = rand(T, 10, 5)
+
+            G = Rotation3(rand(real(T)), rand(T), rand(real(T)), rand(T), 2)
+            G_mat = Matrix(G, 5)
+
+            @test [A[1:1,:]; A[2:4,:]*G_mat'; A[5:10,:]] ≈ rmul!(copy(A), G, 2, 4)
+            @test A * G_mat' ≈ rmul!(copy(A), G)
+        end
     end
 end

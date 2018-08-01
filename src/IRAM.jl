@@ -13,12 +13,12 @@ struct PartialSchur{TQ,TR}
     k::Int
 end
 
-include("rotations.jl")
 include("expansion.jl")
 include("implicit_restart.jl")
 include("factorization.jl")
 include("run.jl")
 include("eigvals.jl")
+include("schurfact.jl")
 
 
 end
