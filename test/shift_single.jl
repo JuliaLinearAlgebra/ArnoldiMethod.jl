@@ -49,13 +49,22 @@ end
     # Complex arithmethic
     for i = 1 : 50
         H, λs, μ = normal_hess_imag_eigvals(ComplexF64, n)
-        Q = Matrix{ComplexF64}(I, n, n)
+        Q = Matrix{ComplexF64}(I, n+1, n+1)
+        H_copy = copy(H)
         exact_single_shift!(H, 1, n, μ, Q)
+
+        # Update Q with the last rotation
+        Q[1:n+1, n] .= 0
+        Q[n+1,n] = 1
 
         # Test whether exact shifts retain the remaining eigenvalues after the QR step
         @test λs ≈ sort!(eigvals(view(H, 1:n-1, 1:n-1)), by=realimag)
 
         # Test whether the full matrix remains Hessenberg.
         @test is_hessenberg(H)
+
+        # Test whether relation " H_prev * Q = Q * H_next " holds
+        @test norm(H_copy * Q[1:n,1:n-1] - Q[1:n+1,1:n] * H[1:n,1:n-1]) < 1e-6
+        @test norm(Q[1:n,1:n-1]' * H_copy[1:n,1:n] * Q[1:n,1:n-1] - H[1:n-1,1:n-1]) < 1e-6
     end
 end

@@ -7,7 +7,7 @@ where the Schur vectors corresponding to smallest eigenvalues are removed.
 function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T<:Real}
     # Real arithmetic
     V, H = arnoldi.V, arnoldi.H
-    Q = Matrix{T}(I, max, max)
+    Q = Matrix{T}(I, max+1, max+1)
 
     m = max
 
@@ -36,7 +36,7 @@ end
 function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T}
     # General arithmetic
     V, H = arnoldi.V, arnoldi.H
-    Q = Matrix{T}(I, max, max)
+    Q = Matrix{T}(I, max+1, max+1)
 
     m = max
 
@@ -96,7 +96,7 @@ function exact_single_shift!(H::AbstractMatrix{Tv}, from::Int, to::Int, μ::Numb
     # Do the last Given's rotation by hand (assuming exact shifts!)
     @inbounds H[to+0,to-1] = H[to+1,to-1]
     @inbounds H[to+1,to-1] = zero(Tv)
-
+    
     return H
 end
 
