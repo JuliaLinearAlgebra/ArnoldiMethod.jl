@@ -77,11 +77,6 @@ include("utils.jl")
             @test sort!(eigvals(H), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
         end
 
-        # Test that the partial Schur decomposition relation holds
-        @test norm(Q*H*Q' - H_copy) < 100eps()
-        
-        # Test that the eigenvalues of H are the same before and after transformation
-        @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
     end
 
 
@@ -114,30 +109,10 @@ include("utils.jl")
             @test sort!(eigvals(H), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
         end
 
-        # Test that the partial Schur decomposition relation holds
-        @test norm(Q*H*Q' - H_copy) < 1000eps()
-        
-        # Test that the eigenvalues of H are the same before and after transformation
-        @test λs ≈ sort!(eigvals(H), by=abs, rev=true)
     end
 end
 
 @testset "Backward subsitution" begin
-
-    # # Test whether backward substitution works
-    # let  
-    #     for i = 10:15
-    #         for T in (Float64, ComplexF64)       
-    #             R = triu(rand(T, i,i))
-    #             y = rand(T, i)
-    #             x = R\y
-    #             backward_subst!(R, y)
-    #             # @test R*x ≈ y
-    #             # R should be identity
-    #             @test x ≈ y
-    #         end
-    #     end
-    # end
 
     # Test whether the eigenvector comes out properly
     for T in (Float64,ComplexF64)

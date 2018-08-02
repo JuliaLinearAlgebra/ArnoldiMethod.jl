@@ -73,7 +73,7 @@ function compute_shifts(H::AbstractMatrix{T}, active, max, tol=100eps(real(T))) 
     # Compute the eigenvalues of the active part
     Q = Matrix{T}(I, n, n)
     R = H[active:max, active:max]
-    local_schurfact!(R, Q)
+    local_schurfact!(R, 1, n, Q)
     λs = eigvalues(R)
 
     # y = Vector{T}(undef,n)
@@ -102,7 +102,7 @@ function compute_shifts(H::AbstractMatrix{T}, active, max, tol=100eps(T)) where 
     # Compute the eigenvalues of the active part
     Q = Matrix{T}(I, n, n)
     R = H[active:max, active:max]
-    local_schurfact!(R, Q)
+    local_schurfact!(R, 1, n, Q)
     λs = eigvalues(R)
 
     # y = Vector{T}(undef,n)

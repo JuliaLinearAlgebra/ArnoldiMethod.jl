@@ -12,9 +12,8 @@ using LinearAlgebra
             A[i,i] = i
         end
         max = 10
-        h = Vector{ComplexF64}(undef, max)
         arnoldi = initialize(ComplexF64, n, max)
-        iterate_arnoldi!(A, arnoldi, 1:max, h)
+        iterate_arnoldi!(A, arnoldi, 1:max)
 
         shifts = compute_shifts(arnoldi.H, 1, max)
         vals, vecs = eigen(arnoldi.H[1:max, 1:max])

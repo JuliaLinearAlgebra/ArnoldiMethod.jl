@@ -14,12 +14,13 @@ struct PartialSchur{TQ,TR}
 end
 
 include("targets.jl")
+include("schurfact.jl")
 include("expansion.jl")
 include("implicit_restart.jl")
 include("factorization.jl")
+include("backward_substitution.jl")
 include("run.jl")
 include("eigvals.jl")
-include("schurfact.jl")
 
 
 end
