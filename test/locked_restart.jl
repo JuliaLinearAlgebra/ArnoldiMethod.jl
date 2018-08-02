@@ -1,7 +1,7 @@
 using Test
 using LinearAlgebra
 
-using IRAM: restarted_arnoldi
+using IRAM: partial_schur
 
 function matrix_with_three_clusters(T::Type, n = 100)
     A = triu(rand(T, n, n))
@@ -24,9 +24,9 @@ end
         ε = 1e-6
 
         # Get the Arnoldi relation after seven restarts.
-        partial_schur = restarted_arnoldi(A, min, max, min, eps(real(T)), 20)
+        schur_decomp = partial_schur(A, min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
 
-        R, Q, k = partial_schur.R, partial_schur.Q, partial_schur.k
+        R, Q, k = schur_decomp.R, schur_decomp.Q, schur_decomp.k
 
         # Testing the Arnoldi relation AV = VH
         @test norm(Q[:, 1 : k]' * A * Q[:, 1 : k] - R[1 : k, 1 : k]) < ε
@@ -36,8 +36,8 @@ end
         @test abs(R[4, 3]) ≤ ε
         @test abs(R[21, 20]) ≤ ε
 
-        V₁ = view(partial_schur.Q, :, 1 : 3)
-        V₂ = view(partial_schur.Q, :, 4 : 20)
+        V₁ = view(schur_decomp.Q, :, 1 : 3)
+        V₂ = view(schur_decomp.Q, :, 4 : 20)
 
         # Compute the first 3 approx eigenvalues and eigenvectors.
         Λ₁, Y₁ = eigen(R[1:3, 1:3])

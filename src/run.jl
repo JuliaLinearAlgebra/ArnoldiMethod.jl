@@ -1,8 +1,8 @@
 """
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
-`max_restarts` has been reached.
+`maxiter` has been reached.
 """
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, ε = eps(T), max_restarts = 10, target=LM()) where {T}
+function partial_schur(A::AbstractMatrix{T}; min = 5, max = 30, nev = min, tol = eps(T), maxiter = 20, which=LM()) where {T}
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
@@ -14,18 +14,18 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
 
     active = 1
     V_prealloc = Matrix{T}(undef, n, min)
-    for restarts = 1 : max_restarts
+    for restarts = 1 : maxiter
         n = max - active + 1
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         
         # Compute shifts
-        λs = compute_shifts(arnoldi.H, active, max, ε)
-        sort_vals!(λs, target)
+        λs = compute_shifts(arnoldi.H, active, max, tol)
+        sort_vals!(λs, which)
         # λs = sort!(eigvals(view(arnoldi.H, active:max, active:max)), by=abs, rev=true)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
-        new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
+        new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), tol)
         new_active += active - 1 
         if new_active > active + 1
             # Bring the new locked part oF H into upper triangular form
