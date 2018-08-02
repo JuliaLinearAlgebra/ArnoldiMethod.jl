@@ -58,11 +58,6 @@ function transform_converged(arnoldi, active, new_active, min′, V_prealloc)
 
     Q_large = Matrix{eltype(arnoldi.H)}(I, new_active - 1, new_active - 1)
 
-    H_locked = view(arnoldi.H, active : new_active - 1, active : new_active - 1)
-    H_copy = copy(H_locked)
-
-    H_copy_full = copy(arnoldi.H)
-
     local_schurfact!(arnoldi.H, active, new_active - 1, Q_large)
     Q_small = view(Q_large, active : new_active - 1, active : new_active - 1)
 
