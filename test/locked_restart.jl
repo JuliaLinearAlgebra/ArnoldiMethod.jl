@@ -24,7 +24,7 @@ end
         ε = 1e-6
 
         # Get the Arnoldi relation after seven restarts.
-        schur_decomp = partial_schur(A, min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
+        schur_decomp = partial_schur(A, eltype(A), min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
 
         R, Q, k = schur_decomp.R, schur_decomp.Q, schur_decomp.k
 
@@ -32,6 +32,7 @@ end
         @test norm(Q[:, 1 : k]' * A * Q[:, 1 : k] - R[1 : k, 1 : k]) < ε
         @test norm(Q[:, 1 : k]' * Q[:, 1 : k] - I) < ε
         @test norm(A * Q[:, 1 : k] - Q[:, 1 : k + 1] * R[1 : k + 1, 1 : k]) < ε
+        @test norm(A * Q[:, 1 : end-1] - Q * R) < ε
 
         @test abs(R[4, 3]) ≤ ε
         @test abs(R[21, 20]) ≤ ε
