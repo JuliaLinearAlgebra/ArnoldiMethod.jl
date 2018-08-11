@@ -24,18 +24,18 @@ end
         ε = 1e-6
 
         # Get the Arnoldi relation after seven restarts.
-        schur_decomp = partial_schur(A, eltype(A), min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
+        schur_decomp = partial_schur(A, min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
 
-        R, Q, k = schur_decomp.R, schur_decomp.Q, schur_decomp.k
+        R, Q = schur_decomp.R, schur_decomp.Q
+        n = size(R,1)
 
-        # Testing the Arnoldi relation AV = VH
-        @test norm(Q[:, 1 : k]' * A * Q[:, 1 : k] - R[1 : k, 1 : k]) < ε
-        @test norm(Q[:, 1 : k]' * Q[:, 1 : k] - I) < ε
-        @test norm(A * Q[:, 1 : k] - Q[:, 1 : k + 1] * R[1 : k + 1, 1 : k]) < ε
-        @test norm(A * Q[:, 1 : end-1] - Q * R) < ε
+        # Testing the partial Schur relation AQ = QR
+        @test norm(Q' * A * Q - R) < ε
+        @test norm(Q' * Q - I) < ε
 
+        # Test that the clusters have converged
         @test abs(R[4, 3]) ≤ ε
-        @test abs(R[21, 20]) ≤ ε
+        @test n ≤ 20 || abs(R[21, 20]) ≤ ε
 
         V₁ = view(schur_decomp.Q, :, 1 : 3)
         V₂ = view(schur_decomp.Q, :, 4 : 20)
@@ -63,74 +63,5 @@ end
             @test norm(r) ≤ ε
         end
     end
-        # Test the orthonormality of V
-        # @test norm(Q[:,1:min]'*Q[:,1:min] - I) < 1e-6
-        # S =  Q[:,1:min]'*Q[:,1:min] - I
-        # for i = 1:min
-        #     for j = 1:min
-        #         if abs(S[i,j]) > 1e-9
-        #             @show (i,j)
-        #             @show S[i,j]
-        #         end
-        #     end
-        # end
 
-        # Test the orthonormality of Q
-        # @test norm(Q[:,1:k]'*Q[:,1:k] - I) < 1e-6
-
-        # Test that R is upper triangular
-        # @test norm(triu(R[1:k,1:k])-R[1:k,1:k]) < 1e-4
-
-        # for i = 1:min
-        #     for j = 1:min
-        #         if abs(R[i,j]) > 1e-9
-        #             @show (i,j)
-        #         end
-        #     end
-        # end
-
-        # Test the partial Schur decomposition relation AQ = QR
-        # @test norm(A*Q[:,1:k] - Q[:,1:k]*R[1:k,1:k]) < 1e-6
 end
-
-
-# Fails, as A has complex eigenvals
-# @testset "Special case" begin
-#    ε = 1e-6
-#    min, max = 25, 35
-#    A = triu(rand(Float64, 100, 100))
-#    for i = 1 : 100
-#        A[i,i] = i
-#    end
-#     # A = matrix_with_three_clusters(Float64, 100)
-#    A[25:26,25:26] = [0.0 26.0; -26.0 0.0] 
-# #    A[1:2,1:2] = [1.0 22.0; -22.0 1.0]
-# #    A[1:2,1:2] = [2.0 1.0; 1.0 1.0]
-# #    display(A)
-#    partial_schur = restarted_arnoldi(A, min, max, 5, eps(Float64), 100)
-#    # partial_schur = restarted_arnoldi(A, min, max, min, eps(real(T)), 10)
-
-#    R, Q, k = partial_schur.R, partial_schur.Q, partial_schur.k
-#    @show k
-#    # Testing the Arnoldi relation AV = VH
-#    @test norm(Q[:, 1 : k]' * A * Q[:, 1 : k] - R[1 : k, 1 : k]) < ε
-#    @test norm(Q[:, 1 : k]' * Q[:, 1 : k] - I) < ε
-#    @test norm(A * Q[:, 1 : k] - Q[:, 1 : k + 1] * R[1 : k + 1, 1 : k]) < ε
-
-#    # @test abs(R[4, 3]) ≤ ε
-#    # @test abs(R[21, 20]) ≤ ε
-
-#    V₁ = view(partial_schur.Q, :, 1 : k)
-#    # V₂ = view(partial_schur.Q, :, 4 : 20)
-
-#    # Compute the first k approx eigenvalues and eigenvectors.
-#    Λ₁, Y₁ = eigen(R[1:k, 1:k])
-#    X₁ = V₁ * Y₁
-
-#    # Look at the residuals.
-#    for i = 1 : length(Λ₁)
-#        r = norm(A * X₁[:, i] - Λ₁[i] * X₁[:, i])
-#        @test r ≤ ε
-#    end
-# end
-

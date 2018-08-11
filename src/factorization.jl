@@ -7,7 +7,7 @@ function detect_convergence!(H::AbstractMatrix{T}, tolerance) where {T}
     n = size(H, 2)
 
     @inbounds for i = n : -1 : 2
-        if abs(H[i, i-1]) ≤ 1e-6 # tolerance
+        if abs(H[i, i-1]) ≤ tolerance
             H[i, i-1] = zero(T)
             return i
         end

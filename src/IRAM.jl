@@ -10,7 +10,6 @@ end
 struct PartialSchur{TQ,TR} 
     Q::TQ
     R::TR
-    k::Int
 end
 
 include("targets.jl")

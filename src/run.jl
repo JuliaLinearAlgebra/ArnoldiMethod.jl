@@ -2,7 +2,8 @@
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
 `maxiter` has been reached.
 """
-function partial_schur(A, T::Type; min = 5, max = 30, nev = min, tol = eps(T), maxiter = 20, which=LM())
+function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A))), maxiter = 20, which=LM())
+    T = eltype(A)
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
@@ -36,9 +37,7 @@ function partial_schur(A, T::Type; min = 5, max = 30, nev = min, tol = eps(T), m
         active > nev && break
     end
 
-    # Returns V and H of the arnoldi relation that respectively contain Q and R 
-    # of the partial Schur decomposition 
-    return PartialSchur(arnoldi.V[:,1:min′+1], arnoldi.H[1:min′+1,1:min′], active - 1)
+    return PartialSchur(view(arnoldi.V,:,1:active - 1), view(arnoldi.H, 1:active - 1, 1:active - 1))
 end
 
 """
