@@ -2,6 +2,8 @@ module IRAM
 
 using LinearAlgebra
 
+export partial_schur, LM, SM
+
 struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
     V::TV
     H::TH
@@ -10,7 +12,6 @@ end
 struct PartialSchur{TQ,TR} 
     Q::TQ
     R::TR
-    k::Int
 end
 
 include("targets.jl")

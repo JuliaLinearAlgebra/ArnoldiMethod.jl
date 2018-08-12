@@ -19,7 +19,7 @@ end
 """
 Perform Arnoldi iterations.
 """
-function iterate_arnoldi!(A::AbstractMatrix{T}, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
+function iterate_arnoldi!(A, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
     V, H = arnoldi.V, arnoldi.H
     
     @inbounds @views for j = range

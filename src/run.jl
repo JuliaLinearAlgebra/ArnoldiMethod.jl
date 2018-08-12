@@ -1,8 +1,9 @@
 """
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
-`max_restarts` has been reached.
+`maxiter` has been reached.
 """
-function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, ε = eps(T), max_restarts = 10, target=LM()) where {T}
+function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A))), maxiter = 20, which=LM())
+    T = eltype(A)
     n = size(A, 1)
 
     arnoldi = initialize(T, n, max)
@@ -14,21 +15,20 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
 
     active = 1
     V_prealloc = Matrix{T}(undef, n, min)
-    for restarts = 1 : max_restarts
+    for restarts = 1 : maxiter
         n = max - active + 1
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         
         # Compute shifts
-        λs = compute_shifts(arnoldi.H, active, max, ε)
-        sort_vals!(λs, target)
-        # λs = sort!(eigvals(view(arnoldi.H, active:max, active:max)), by=abs, rev=true)
+        λs = compute_shifts(arnoldi.H, active, max, tol)
+        sort_vals!(λs, which)
 
         min′ = implicit_restart!(arnoldi, λs, min, max, active, V_prealloc)
-        new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), ε)
+        new_active = detect_convergence!(view(arnoldi.H, active:min′+1, active:min′), tol)
         new_active += active - 1 
         if new_active > active + 1
-            # Bring the new locked part oF H into upper triangular form
+            # Bring the new locked part of H into upper triangular form
             transform_converged(arnoldi, active, new_active, min′, V_prealloc)
         end
 
@@ -37,7 +37,7 @@ function restarted_arnoldi(A::AbstractMatrix{T}, min = 5, max = 30, nev = min, �
         active > nev && break
     end
 
-    return PartialSchur(arnoldi.V, arnoldi.H, active - 1)
+    return PartialSchur(view(arnoldi.V,:,1:active - 1), view(arnoldi.H, 1:active - 1, 1:active - 1))
 end
 
 """
@@ -76,21 +76,6 @@ function compute_shifts(H::AbstractMatrix{T}, active, max, tol=100eps(real(T))) 
     local_schurfact!(R, 1, n, Q)
     λs = eigvalues(R)
 
-    # y = Vector{T}(undef,n)
-    # res = Vector{Float64}(undef,n)
-    # @inbounds for i = n : -1 : 1
-    #     y[i] = one(T)
-    #     y[1:i-1] .= - view(R, 1:i-1, i)
-    #     y[i+1:n] .= zero(T)
-    #     backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i], tol)
-    #     y ./= norm(y)
-    #     res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max])
-    # end
-    # perm = sortperm(res, by=abs)
-
-    # # @show res
-    # λs .= view(λs, perm)
-    # # @show abs.(λs)
     return λs
 
 end
@@ -105,31 +90,6 @@ function compute_shifts(H::AbstractMatrix{T}, active, max, tol=100eps(T)) where 
     local_schurfact!(R, 1, n, Q)
     λs = eigvalues(R)
 
-    # y = Vector{T}(undef,n)
-    # res = Vector{Float64}(undef,n)
-    # i = n
-    # while i > 1
-    #     if !is_offdiagonal_small(R, i-1, tol)
-    #         y[i] = one(T)
-    #         y[1:i-1] .= - view(R, 1:i-1, i)
-    #         y[i+1:n] .= zero(T)
-    #         backward_subst!(view(R,1:i-1,1:i-1), y, R[i-1:i,i-1:i], tol)
-    #         y ./= norm(y)
-    #         res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max]) # Check the order of these
-    #         i-=2
-    #     else
-    #         y[i] = one(T)
-    #         y[1:i-1] .= - view(R, 1:i-1, i)
-    #         y[i+1:n] .= zero(T)
-    #         backward_subst!(view(R,1:i-1,1:i-1), y, R[i,i], tol)
-    #         y ./= norm(y)
-    #         res[i] = abs(transpose(view(Q, n, 1:n))*y * H[max + 1, max])
-    #         i-=1
-    #     end
-    # end
-    # perm = sortperm(res, by=abs)
-
-    # λs .= λs[perm]
     return λs
 
 end
