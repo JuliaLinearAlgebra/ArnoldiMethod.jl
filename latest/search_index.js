@@ -101,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Using IRAM.jl",
     "title": "Using IRAM.jl",
     "category": "section",
-    "text": "Todo."
+    "text": "An example of how to use IRAM.jl\'s function partial_schur:julia> using IRAM\njulia> A = rand(100, 100)\njulia> schur_form = partial_schur(A, min = 12, max = 30, nev = 10, tol = 1e-10, maxiter = 20, which=LM())\njulia> Q,R = schur_form.Q, schur_form.R\njulia> norm(A*Q - Q*R)\n1.4782234971282938e-14"
 },
 
 ]}
