@@ -8,6 +8,11 @@ makedocs(
 	sitename = "IRAM.jl",
 	pages = [
 		"Home" => "index.md",
+		"Theory" => [
+			"Eigenvalue problems" => "theory/transformations.md",
+			"Schur decomposition" => "theory/partial_schur.md"
+		],
+		"Using IRAM.jl" => "usage/usage.md"
 	]
 )
 
@@ -15,7 +20,7 @@ deploydocs(
 	repo = "github.com/haampie/IRAM.jl.git",
 	target = "build",
 	osname = "linux",
-	julia  = "0.6",
+	julia  = "0.7",
 	deps = nothing,
 	make = nothing,
 )
