@@ -101,7 +101,23 @@ var documenterSearchIndex = {"docs": [
     "page": "Using IRAM.jl",
     "title": "Using IRAM.jl",
     "category": "section",
-    "text": "An example of how to use IRAM.jl\'s function partial_schur:julia> using IRAM\njulia> A = rand(100, 100)\njulia> schur_form = partial_schur(A, min = 12, max = 30, nev = 10, tol = 1e-10, maxiter = 20, which=LM())\njulia> Q,R = schur_form.Q, schur_form.R\njulia> norm(A*Q - Q*R)\n1.4782234971282938e-14"
+    "text": "You can compute the partial Schur form of a matrix with partial_schur:partial_schur(A; min, max, nev, tol, maxiter, which)where A is the n×n matrix whose eigenvalues and eigenvectors you want; min specifies the minimum dimension to which the Hessenberg matrix is reduced after implicit_restart!; max specifies the maximum dimension of the Hessenberg matrix at which point iterate_arnoldi! stops increasing the dimension of the Krylov subspace; nev specifies the minimum amount of eigenvalues the method gives you; tol specifies the criterion that determines when the eigenpairs are considered converged (in practice, smaller tol forces the eigenpairs to converge even more); maxiter specifies the maximum amount of restarts the method can perform before ending the iteration; and which is a Target structure and specifies which eigenvalues are desired (Largest magnitude, smallest real part, etc.).The function call partial_schur returns a tuple (P,prods), where P is a PartialSchur struct with fields Q and R for which A * P.Q ≈ P.Q * P.R. The upper triangular matrix R is of size nev×nev and the unitary matrix Q is of size n×nev. The amount of matrix-vector products computed during the iterations is stored in prods.You can compute the eigenvalues and eigenvectors from the Schur form with schur_to_eigen:schur_to_eigen(P)where P is a PartialSchur struct that contains the partial Schur decomposition of a matrix A. This computes the eigenvalues and eigenvectors of matrix A from the Schur decomposition P.An example of how to use IRAM.jl\'s function partial_schur:julia> using IRAM, LinearAlgebra\n# Generate a sparse matrix\njulia> A = spdiagm(-1 => fill(-1.0, 99), 0 => fill(2.0, 100), 1 => fill(-1.001, 99));\n# Compute Schur form of A\njulia> schur_form,  = partial_schur(A, min = 12, max = 30, nev = 10, tol = 1e-10, maxiter = 20, which=LM());\njulia> Q,R = schur_form.Q, schur_form.R;\njulia> norm(A*Q - Q*R)\n6.336794280593682e-11\n# Compute eigenvalues and eigenvectors of A\njulia> vals, vecs = schur_to_eigen(schur_form);\n# Show that Ax = λx\njulia> norm(A*vecs - vecs*Diagonal(vals))\n6.335460143979987e-11"
+},
+
+{
+    "location": "usage/usage.html#Applying-shift-and-invert-to-target-smallest-eigenvalues-with-LinearMaps.jl-1",
+    "page": "Using IRAM.jl",
+    "title": "Applying shift-and-invert to target smallest eigenvalues with LinearMaps.jl",
+    "category": "section",
+    "text": "using IRAM, LinearMaps\n\n# Define a matrix whose eigenvalues you want\nA = rand(100,100)\n\n# Inverts the problem\nfunction construct_linear_map(A)\n    a = factorize(A)\n    LinearMap{eltype(A)}((y, x) -> ldiv!(y, a, x), size(A,1), ismutating=true)\nend\n\n# Target the largest eigenvalues of the inverted problem\nschur_form,  = partial_schur(construct_linear_map(A), min=11, max=22, nev=10, tol=1e-5, maxiter=100, which=LM())\ninv_vals, vecs = schur_to_eigen(schur_form)\n\n# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.\nvals = ones(length(inv_vals))./inv_vals\n\n# Show that Ax = λx\n@assert norm(A*vecs - vecs*Diagonal(vals)) < 1e-5"
+},
+
+{
+    "location": "usage/usage.html#Solving-a-generalized-eigenvalue-problem-targeting-smallest-eigenvalues-with-LinearMaps.jl-1",
+    "page": "Using IRAM.jl",
+    "title": "Solving a generalized eigenvalue problem targeting smallest eigenvalues with LinearMaps.jl",
+    "category": "section",
+    "text": "using IRAM, LinearMaps\n\n# Define the matrices of the generalized eigenvalue problem\nA, B = rand(100,100), rand(100,100)\n\nstruct ShiftAndInvert{TA,TB,TT}\n    A_lu::TA\n    B::TB\n    temp::TT\nend\n\nfunction (M::ShiftAndInvert)(y,x)\n    mul!(M.temp, M.B, x)\n    ldiv!(y, M.A_lu, M.temp)\nend\n\nfunction construct_linear_map(A,B)\n    a = ShiftAndInvert(factorize(A),B,Vector{eltype(A)}(undef, size(A,1)))\n    LinearMap{eltype(A)}(a, size(A,1), ismutating=true)\nend\n\n# Target the largest eigenvalues of the inverted problem\nschur_form,  = partial_schur(construct_linear_map(A,B), min=11, max=22, nev=10, tol=1e-5, maxiter=100, which=LM())\ninv_vals, vecs = schur_to_eigen(schur_form)\n\n# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.\nvals = ones(length(inv_vals))./inv_vals\n\n# Show that Ax = λBx\n@assert norm(A*vecs - B*vecs*Diagonal(vals)) < 1e-5"
 },
 
 ]}
