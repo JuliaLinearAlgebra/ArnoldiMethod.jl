@@ -1,159 +1,95 @@
 using IRAM: is_offdiagonal_small
 
-function backward_subst!(R::AbstractMatrix{T}, λ::Number, y::AbstractVector, tol=100eps(real(T))) where{T}
+"""
+    shifted_backward_sub!(x, R, λ, k) -> x
 
-    n = size(R,1)
+Solve the problem (R[1:k,1:k] - λI) \\ x[1:k] in-place.
+"""
+function shifted_backward_sub!(x, R::AbstractMatrix{Tm}, λ, k) where {Tm<:Real}
+    @inbounds while k > 0
+        if k > 1 && R[k,k-1] != zero(Tm)
+            # Solve 2x2 problem
+            R11, R12 = R[k-1,k-1] - λ, R[k-1,k]
+            R21, R22 = R[k  ,k-1]    , R[k  ,k] - λ
+            det = R11 * R22 - R21 * R12
+            a1 = ( R22 * x[k-1] - R12 * x[k-0]) / det
+            a2 = (-R21 * x[k-1] + R11 * x[k-0]) / det
+            x[k-1] = a1
+            x[k-0] = a2
 
-    @inbounds for i = n : -1 : 1
-        if abs(R[i,i] - λ) < tol
-            if abs(y[i]) < tol
-                y[i] = zero(T)
-            else
-                y[i] /= tol
-                y .*= tol
+            # Backward substitute
+            for i = 1 : k-2
+                x[i] -= R[i,k-1] * x[k-1] + R[i,k-0] * x[k-0]
             end
+            k -= 2
         else
-            y[i] /= R[i,i] - λ
-        end
-        # R[i,i] = one(T)
-        @inbounds for k = i-1 : -1 : 1
-            y[k] -= y[i]*R[k,i]
-            # R[k,i] = zero(T)
+            # Solve 1x1 "problem"
+            x[k] /= R[k,k] - λ
+    
+            # Backward substitute
+            for i = 1 : k - 1
+                x[i] -= R[i,k] * x[k]
+            end
+
+            k -= 1
         end
     end
+    
+    x
 end
 
-function backward_subst!(R::AbstractMatrix{T}, λ::Number, y::AbstractVector, tol=100eps(T)) where{T<:Real}
+"""
+    collect_eigen!(x, R, j) -> x
 
-    n = size(R,1)
-    i = n
+Store the `j`th eigenvector of an upper triangular matrix `R` in `x`.
+In the end `norm(x[1:j]) = 1` This function leaves x[j+1:end] untouched!
+"""
+function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix{Tm}, j::Integer) where {Tm<:Real,Tv<:Number}
+    n = size(R, 2)
 
-    while i > 1
-        if !is_offdiagonal_small(R, i-1, tol)
-            det = (R[i-1,i-1]-λ)*(R[i,i]-λ) - R[i,i-1]*R[i-1,i]
-            a1 = ((R[i,i]-λ) * y[i-1] - R[i-1,i] * y[i]) / det
-            a2 = (-R[i,i-1] * y[i-1] + (R[i-1,i-1]-λ) * y[i]) / det
-            y[i-1] = a1
-            y[i] = a2
+    @inbounds begin
+        # If it's a conjugate pair with the next index, then just increment j.
+        if j < n && R[j+1,j] != zero(Tv)
+            j += 1
+        end
 
-            @inbounds for k = i-2 : -1 : 1
-                y[k] -= y[i-1]*R[k,i-1]
-                y[k] -= y[i]*R[k,i]
+        # Initialize the rhs and do the first backward substitution
+        # Then do the rest of the shifted backward substitution in another function,
+        # cause λ is either real or complex.
+        if j > 1 && R[j,j-1] != 0
+            # Complex arithmetic
+            R11, R21 = R[j-1,j-1], R[j-0,j-1]
+            R12, R22 = R[j-1,j-0], R[j-0,j-0]
+            det = R11 * R22 - R21 * R12
+            tr = R11 + R22
+            λ = (tr + sqrt(complex(tr * tr - 4det))) / 2
+            x[j-1] = -R12 / (R11 - λ)
+            x[j-0] = one(Tv)
+            for i = 1 : j-2
+                x[i] = -R[i,j-1] * x[j-1] - R[i,j]
             end
-            i-=2
+
+            shifted_backward_sub!(x, R, λ, j-2)
         else
-            # @show abs(R[i,i] - λ)
-            if abs(R[i,i] - λ) < tol
-                if abs(y[i]) < tol
-                    y[i] = zero(T)
-                else
-                    y[i] /= tol
-                    y .*= tol
-                end
-                # temp = y[i]
-                # y .*= tol
-                # y .*= 0
-                # y[i] = temp
-            else
-                y[i] /= R[i,i] - λ
+            # Real arithmetic
+            λ = R[j,j]
+            x[j] = one(Tv)
+            for i = 1 : j-1
+                x[i] = -R[i,j]
             end
-            @inbounds for k = i-1 : -1 : 1
-                y[k] -= y[i]*R[k,i]
-            end
-            i-=1
+            shifted_backward_sub!(x, R, λ, j-1)
+        end
+
+        # Normalize
+        nrm = zero(real(Tv))
+        for k = 1:j
+            nrm += abs2(x[k])
+        end
+        scale = inv(√nrm)
+        for k = 1:j
+            x[k] *= scale
         end
     end
-    if i==1
-        if abs(R[i,i] - λ) < tol
-            if abs(y[i]) < tol
-                y[i] = zero(T)
-            else
-                y[i] /= tol
-                y .*= tol
-            end
-        else
-            y[i] /= R[i,i] - λ
-        end
-        @inbounds for k = i-1 : -1 : 1
-            y[k] -= y[i]*R[k,i]
-        end
-        i-=1
-    end
-end
 
-
-function backward_subst!(R::AbstractMatrix{TR}, y::AbstractVector{Ty}, tol::Number=100eps(TR)) where{TR<:Real, Ty}
-
-    n = size(R,1)
-    y .= zero(Ty)
-
-    A = view(R, n-1:n, n-1:n)
-
-    det = A[1,1]*A[2,2] - A[2,1]*A[1,2]
-    tr = A[1,1] + A[2,2]
-    λ = 0.5*(tr + sqrt(Complex(tr*tr - 4*det)))
-
-    x1 = -A[1,2] / (A[1,1] - λ)
-    @assert isapprox(x1, -(A[2,2] - λ) / A[2,1])
-
-    y[n-1] = x1
-    y[n] = one(Ty)
-
-    @inbounds for k = n-2 : -1 : 1
-        y[k] -= y[n-1]*R[k,n-1]
-        y[k] -= y[n]*R[k,n]
-    end
-
-    i = n - 2
-    while i > 1
-        if !is_offdiagonal_small(R, i-1, tol)
-            det = (R[i-1,i-1]-λ)*(R[i,i]-λ) - R[i,i-1]*R[i-1,i]
-            a1 = ((R[i,i]-λ) * y[i-1] - R[i-1,i] * y[i]) / det
-            a2 = (-R[i,i-1] * y[i-1] + (R[i-1,i-1]-λ) * y[i]) / det
-            y[i-1] = a1
-            y[i] = a2
-
-            @inbounds for k = i-2 : -1 : 1
-                y[k] -= y[i-1]*R[k,i-1]
-                y[k] -= y[i]*R[k,i]
-            end
-            i-=2
-        else
-            # @show abs(R[i,i] - λ)
-            if abs(R[i,i] - λ) < tol
-                if abs(y[i]) < tol
-                    y[i] = zero(Ty)
-                else
-                    y[i] /= tol
-                    y[:]*= tol
-                end
-                # temp = y[i]
-                # y[:]*= tol
-                # y[:]*= 0
-                # y[i] = temp
-            else
-                y[i] /= R[i,i] - λ
-            end
-            @inbounds for k = i-1 : -1 : 1
-                y[k] -= y[i]*R[k,i]
-            end
-            i-=1
-        end
-    end
-    if i==1
-        if abs(R[i,i] - λ) < tol
-            if abs(y[i]) < tol
-                y[i] = zero(Ty)
-            else
-                y[i] /= tol
-                y[:].*= tol
-            end
-        else
-            y[i] /= R[i,i] - λ
-        end
-        @inbounds for k = i-1 : -1 : 1
-            y[k] -= y[i]*R[k,i]
-        end
-        i-=1
-    end
+    return x
 end
