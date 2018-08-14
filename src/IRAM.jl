@@ -2,14 +2,14 @@ module IRAM
 
 using LinearAlgebra
 
-export partial_schur, LM, SM
+export partial_schur, LM, SR, LR, SI, LI, eigvalues, schur_to_eigen
 
 struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
     V::TV
     H::TH
 end
 
-struct PartialSchur{TQ,TR} 
+struct PartialSchur{TQ,TR}
     Q::TQ
     R::TR
 end

@@ -5,6 +5,7 @@ Run IRAM until the eigenvectors are approximated to the prescribed tolerance or 
 function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A))), maxiter = 20, which=LM())
     T = eltype(A)
     n = size(A, 1)
+    prods = min 
 
     arnoldi = initialize(T, n, max)
     iterate_arnoldi!(A, arnoldi, 1 : min)
@@ -19,7 +20,7 @@ function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A)
         n = max - active + 1
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
-        
+        prods += length(min′ + 1 : max)
         # Compute shifts
         λs = compute_shifts(arnoldi.H, active, max, tol)
         sort_vals!(λs, which)
@@ -36,9 +37,9 @@ function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A)
 
         active > nev && break
     end
-
-    return PartialSchur(view(arnoldi.V,:,1:active - 1), view(arnoldi.H, 1:active - 1, 1:active - 1))
+    return PartialSchur(view(arnoldi.V,:,1:active - 1), view(arnoldi.H, 1:active - 1, 1:active - 1)), prods
 end
+
 
 """
 Transfrom the converged block into an upper triangular form.

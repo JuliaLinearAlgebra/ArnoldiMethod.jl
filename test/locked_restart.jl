@@ -23,8 +23,8 @@ end
         A = matrix_with_three_clusters(T, 100)
         ε = 1e-6
 
-        # Get the Arnoldi relation after seven restarts.
-        schur_decomp = partial_schur(A, min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
+        # Get the partial Schur decomposition
+        schur_decomp, = partial_schur(A, min=min, max=max, nev=min, tol=eps(real(T)), maxiter=20)
 
         R, Q = schur_decomp.R, schur_decomp.Q
         n = size(R,1)
