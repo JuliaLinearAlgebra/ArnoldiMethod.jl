@@ -22,10 +22,10 @@ sort_vals!(λs,::LM) = sort!(λs, by=abs, rev=true)
 
 sort_vals!(λs,::SM) = sort!(λs, by=abs)
 
-sort_vals!(λs,::LR) = sort!(λs, by = real)
+sort_vals!(λs,::LR) = sort!(λs, by = real, rev=true)
 
-sort_vals!(λs,::SR) = sort!(λs, by = real, rev=true)
+sort_vals!(λs,::SR) = sort!(λs, by = real)
 
-sort_vals!(λs,::LI) = sort!(λs, by = imag)
+sort_vals!(λs,::LI) = sort!(λs, by = imag, rev=true)
 
-sort_vals!(λs,::SI) = sort!(λs, by = imag, rev=true)
+sort_vals!(λs,::SI) = sort!(λs, by = imag)

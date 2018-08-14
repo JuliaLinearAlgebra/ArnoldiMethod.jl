@@ -31,3 +31,8 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
 
     return λs
 end
+
+function schur_to_eigen(P::PartialSchur)
+    vals, vecs = eigen(P.R)
+    return vals, P.Q*vecs
+end
