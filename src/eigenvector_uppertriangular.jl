@@ -1,11 +1,10 @@
-using IRAM: is_offdiagonal_small
-
 """
     shifted_backward_sub!(x, R, λ, k) -> x
 
 Solve the problem (R[1:k,1:k] - λI) \\ x[1:k] in-place.
 """
 function shifted_backward_sub!(x, R::AbstractMatrix{Tm}, λ, k) where {Tm<:Real}
+    # Real arithmetic with quasi-upper triangular R
     @inbounds while k > 0
         if k > 1 && R[k,k-1] != zero(Tm)
             # Solve 2x2 problem
@@ -33,6 +32,23 @@ function shifted_backward_sub!(x, R::AbstractMatrix{Tm}, λ, k) where {Tm<:Real}
 
             k -= 1
         end
+    end
+    
+    x
+end
+
+function shifted_backward_sub!(x, R::AbstractMatrix, λ, k)
+    # Generic implementation, upper triangular R
+    @inbounds while k > 0
+        # Solve 1x1 "problem"
+        x[k] /= R[k,k] - λ
+
+        # Backward substitute
+        for i = 1 : k - 1
+            x[i] -= R[i,k] * x[k]
+        end
+
+        k -= 1
     end
     
     x
@@ -79,6 +95,32 @@ function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix{Tm}, j::Integer
             end
             shifted_backward_sub!(x, R, λ, j-1)
         end
+
+        # Normalize
+        nrm = zero(real(Tv))
+        for k = 1:j
+            nrm += abs2(x[k])
+        end
+        scale = inv(√nrm)
+        for k = 1:j
+            x[k] *= scale
+        end
+    end
+
+    return x
+end
+
+function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix, j::Integer) where {Tv}
+    n = size(R, 2)
+
+    @inbounds begin
+        λ = R[j,j]
+        x[j] = one(Tv)
+        for i = 1 : j-1
+            x[i] = -R[i,j]
+        end
+
+        shifted_backward_sub!(x, R, λ, j-1)
 
         # Normalize
         nrm = zero(real(Tv))
