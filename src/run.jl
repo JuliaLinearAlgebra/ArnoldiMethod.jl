@@ -7,7 +7,13 @@ function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A)
     n = size(A, 1)
     prods = min 
 
-    arnoldi = initialize(T, n, max)
+    # Pre-allocated arnoldi decomp
+    arnoldi = Arnoldi{T}(n, max)
+
+    # Start with a random vector
+    reinitialize!(arnoldi)
+
+    # Expand
     iterate_arnoldi!(A, arnoldi, 1 : min)
 
     # min′ is the effective starting point -- may be min - 1 when the last two removed guys
