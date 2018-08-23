@@ -28,6 +28,10 @@ function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A)
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         prods += length(min′ + 1 : max)
+
+        @info "Outer iteration start" restarts active
+
+        show_estimates(arnoldi)
         
         # Compute shifts
         λs = compute_shifts(arnoldi.H, active, max, tol)
@@ -43,11 +47,26 @@ function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A)
 
         active = new_active
 
+        @info "Outer iteration end" restarts active
+
         active > nev && break
     end
     return PartialSchur(view(arnoldi.V,:,1:active - 1), view(arnoldi.H, 1:active - 1, 1:active - 1)), prods
 end
 
+function show_estimates(arnoldi::Arnoldi{T}) where {T}
+    max = size(arnoldi.H, 2)
+    H = arnoldi.H[1:max,1:max]
+    h = arnoldi.H[max+1, max]
+    Q = Matrix{T}(I, max, max)
+    x = zeros(complex(T), max)
+    local_schurfact!(H, 1, max, Q)
+    for (λ, i) = zip(eigvalues(H), 1 : max)
+        fill!(x, zero(complex(T)))
+        collect_eigen!(x, H, i)
+        @show abs(λ) abs(sum(Q[max, j] * x[j] for j = 1 : i)) * abs(h)
+    end
+end
 
 """
 Transfrom the converged block into an upper triangular form.
