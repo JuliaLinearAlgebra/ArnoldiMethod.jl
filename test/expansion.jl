@@ -28,3 +28,22 @@ end
     @test A * V[:,1:max] ≈ V * H
     @test norm(V' * V - I) < 1e-10
 end
+
+@testset "Invariant subspace" begin
+    # Generate a block-diagonal matrix A
+    A = [rand(4,4)  zeros(4,4); 
+         zeros(4,4) rand(4,4)]
+
+    # and an initial vector [1; 0; ... 0]
+    vh = Arnoldi{Float64}(8, 5)
+    V, H = vh.V, vh.H
+    V[:,1] .= 0.0
+    V[1,1] = 1.0
+
+    # Then {v, Av, A²v, A³v}
+    # is an invariant subspace
+    iterate_arnoldi!(A, vh, 1:5)
+
+    @test norm(V' * V - I) < 1e-10
+    @test iszero(H[5, 4])
+end
