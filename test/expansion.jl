@@ -1,10 +1,11 @@
 # Tests the Arnoldi relation AV = VH when expanding the search subspace
 
 using Test, LinearAlgebra, SparseArrays
-using IRAM: initialize, iterate_arnoldi!
+using IRAM: reinitialize!, Arnoldi, iterate_arnoldi!
 
 @testset "Initialization" begin
-    arnoldi = initialize(Float64, 5, 3)
+    arnoldi = Arnoldi{Float64}(5, 3)
+    reinitialize!(arnoldi)
     @test norm(arnoldi.V[:, 1]) ≈ 1
 end
 
@@ -13,7 +14,8 @@ end
     max = 6
     A = sprand(n, n, .1) + I
 
-    arnoldi = initialize(Float64, n, max)
+    arnoldi = Arnoldi{Float64}(n, max)
+    reinitialize!(arnoldi)
     V, H = arnoldi.V, arnoldi.H
 
     # Do a few iterations
