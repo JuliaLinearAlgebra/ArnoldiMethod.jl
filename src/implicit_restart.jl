@@ -18,10 +18,10 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
             m -= 1
         else
             # Dont double shift past min
-            # m == min + 1 && break
+            m == min + 1 && break
 
             exact_double_shift!(H, active, m, μ, Q)
-            m -= 2 # incorrect
+            m -= 2
         end
     end
 
