@@ -21,12 +21,14 @@ function partial_schur(A; min = 5, max = 30, nev = min, tol = eps(real(eltype(A)
     min′ = min
 
     active = 1
-    V_prealloc = Matrix{T}(undef, n, min)
+    V_prealloc = Matrix{T}(undef, n, max)
+
     for restarts = 1 : maxiter
         n = max - active + 1
 
         iterate_arnoldi!(A, arnoldi, min′ + 1 : max)
         prods += length(min′ + 1 : max)
+        
         # Compute shifts
         λs = compute_shifts(arnoldi.H, active, max, tol)
         sort_vals!(λs, which)

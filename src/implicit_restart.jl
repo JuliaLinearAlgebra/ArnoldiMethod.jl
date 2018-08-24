@@ -4,7 +4,7 @@ using LinearAlgebra: givensAlgorithm
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T<:Real}
+function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1), max)) where {T<:Real}
     # Real arithmetic
     V, H = arnoldi.V, arnoldi.H
     Q = Matrix{T}(I, max+1, max+1)
@@ -33,7 +33,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     return m
 end
 
-function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1),min)) where {T}
+function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1), max)) where {T}
     # General arithmetic
     V, H = arnoldi.V, arnoldi.H
     Q = Matrix{T}(I, max+1, max+1)
