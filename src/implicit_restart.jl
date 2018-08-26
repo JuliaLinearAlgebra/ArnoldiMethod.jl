@@ -1,10 +1,8 @@
-using LinearAlgebra: givensAlgorithm
-
 """
 Shrink the dimension of Krylov subspace from `max` to `min` using shifted QR,
 where the Schur vectors corresponding to smallest eigenvalues are removed.
 """
-function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1), max)) where {T<:Real}
+function implicit_restart!(arnoldi::Arnoldi{T}, Vtmp, ritz::RitzValues, min = 5, max = 30, active = 1) where {T<:Real}
     # Real arithmetic
     V, H = arnoldi.V, arnoldi.H
     Q = Matrix{T}(I, max+1, max+1)
@@ -12,7 +10,7 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     m = max
 
     while m > min
-        μ = λs[m-active+1]
+        μ = ritz.λs[ritz.ord[m]]
         if imag(μ) == 0
             exact_single_shift!(H, active, m, real(μ), Q)
             m -= 1
@@ -26,14 +24,14 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     end
 
     # Update & copy the Krylov basis
-    mul!(view(V_new, :, 1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
-    copyto!(view(V, :, active:m), view(V_new, :, 1:m-active+1))
+    mul!(view(Vtmp, :, active:m), view(V, :, active:max), view(Q, active:max, active:m))
+    copyto!(view(V, :, active:m), view(Vtmp, :, active:m))
     copyto!(view(V, :, m+1), view(V, :, max+1))
 
     return m
 end
 
-function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active = 1, V_new = Matrix{T}(undef, size(arnoldi.V,1), max)) where {T}
+function implicit_restart!(arnoldi::Arnoldi{T}, Vtmp, ritz::RitzValues, min = 5, max = 30, active = 1) where {T}
     # General arithmetic
     V, H = arnoldi.V, arnoldi.H
     Q = Matrix{T}(I, max+1, max+1)
@@ -41,15 +39,15 @@ function implicit_restart!(arnoldi::Arnoldi{T}, λs, min = 5, max = 30, active =
     m = max
 
     while m > min
-        μ = λs[m - active + 1]
+        μ = ritz.λs[ritz.ord[m]]
         exact_single_shift!(H, active, m, μ, Q)
         m -= 1
     end
 
     # Update & copy the Krylov basis
-    mul!(view(V_new, :, 1:m-active+1), view(V, :, active:max), view(Q, active:max, active:m))
-    copyto!(view(V, :, active:m), view(V_new,:,1:m-active+1))
-    copyto!(view(V, :, m + 1), view(V, :, max + 1))
+    mul!(view(Vtmp, :, active:m), view(V, :, active:max), view(Q, active:max, active:m))
+    copyto!(view(V, :, active:m), view(Vtmp, :, active:m))
+    copyto!(view(V, :, m+1), view(V, :, max+1))
 
     return m
 end

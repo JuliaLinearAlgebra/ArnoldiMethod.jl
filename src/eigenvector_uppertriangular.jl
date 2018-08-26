@@ -55,10 +55,10 @@ function shifted_backward_sub!(x, R::AbstractMatrix, λ, k)
 end
 
 """
-    collect_eigen!(x, R, j) -> x
+    collect_eigen!(x, R, j) -> k
 
 Store the `j`th eigenvector of an upper triangular matrix `R` in `x`.
-In the end `norm(x[1:j]) = 1` This function leaves x[j+1:end] untouched!
+In the end `norm(x[1:k]) = 1` This function leaves x[k+1:end] untouched!
 """
 function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix{Tm}, j::Integer) where {Tm<:Real,Tv<:Number}
     n = size(R, 2)
@@ -107,7 +107,7 @@ function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix{Tm}, j::Integer
         end
     end
 
-    return x
+    return j
 end
 
 function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix, j::Integer) where {Tv}

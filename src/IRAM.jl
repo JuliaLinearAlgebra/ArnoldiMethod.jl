@@ -22,6 +22,7 @@ struct PartialSchur{TQ,TR}
 end
 
 include("targets.jl")
+include("partition.jl")
 include("schurfact.jl")
 include("expansion.jl")
 include("implicit_restart.jl")

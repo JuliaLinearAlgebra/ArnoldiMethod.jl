@@ -12,10 +12,11 @@ using IRAM: Arnoldi, implicit_restart!, reinitialize!, iterate_arnoldi!
         arnoldi = Arnoldi{T}(n, max)
         reinitialize!(arnoldi)
         V, H = arnoldi.V, arnoldi.H
+        Vtmp = similar(V)
         iterate_arnoldi!(A, arnoldi, 1 : max)
         λs = sort!(eigvals(view(H, 1:max, 1:max)), by = abs, rev = true)
 
-        m = implicit_restart!(arnoldi, λs, min, max)
+        m = implicit_restart!(arnoldi, Vtmp, λs, min, max)
 
         @test norm(V[:, 1 : m]' * V[:, 1 : m] - I) < 1e-13
         @test norm(V[:, 1 : m]' * A * V[:, 1 : m] - H[1 : m, 1 : m]) < 1e-13
