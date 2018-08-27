@@ -8,11 +8,11 @@ makedocs(
 	sitename = "IRAM.jl",
 	pages = [
 		"Home" => "index.md",
-		"Theory" => [
-			"Eigenvalue problems" => "theory/transformations.md",
-			"Schur decomposition" => "theory/partial_schur.md"
-		],
-		"Using IRAM.jl" => "usage/usage.md"
+		"Theory" => "theory.md",
+		"Using IRAM.jl" => [
+			"Getting started" => "usage/01_getting_started.md",
+			"Transformations" => "usage/02_spectral_transformations.md"
+		]
 	]
 )
 

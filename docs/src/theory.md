@@ -1,11 +1,55 @@
-# Eigenvalue problems and transformations
+# Standard-form eigenvalue problems
 
-In this section we explore several ways to use IRAM.jl to solve the generalized
-eigenvalue problem
+The IRAM.jl is intended to find a few approximate solutions to the eigenvalue 
+problem
 
 ```math
-Ax = \lambda Bx.
+Ax = x \lambda
 ```
+
+This problem is handled in two steps:
+
+1. For numerical stability, the method firstly constructs a partial Schur form
+   ```math
+   AQ = QR
+   ```
+   where $Q$ is orthonormal of size $n \times \texttt{nev}$ and $R$ is upper 
+   triangular of size $\texttt{nev} \times \texttt{nev}.$ In real arithmetic $R$
+   is quasi upper triangular, with $2 \times 2$ blocks on the diagonal 
+   corresponding to conjugate complex-valued eigenpairs.
+2. The user can transform the partial Schur form into an eigendecomposition via
+   a helper function. The basic math is to determine the eigendecomposition of
+   the upper triangular matrix $RY = Y\Lambda$ such that
+   ```math
+   A(QY) = (QY)\Lambda
+   ```
+   forms the full eigendecomposition.
+
+Step 2 is a cheap post-processing step. Also note that it is not necessary when 
+the matrix is symmetric, because in that case the Schur decomposition coincides 
+with the eigendecomposition.
+
+## Stopping criterion
+IRAM.jl considers an approximate eigenpair converged when the condition
+
+```math
+\|Ax - x\lambda\|_2 < \texttt{tol}|\lambda|
+```
+
+is met, where `tol` is a user provided tolerance. Note that this stopping 
+criterion is scale-invariant. For a scaled matrix $B = \alpha A$ the same 
+approximate eigenvector together with the scaled eigenvalue $\alpha\lambda$ 
+would satisfy the stopping criterion.
+
+## Spectral transformations
+
+There are multiple reasons to use a spectral transformation. Firstly, consider
+the generalized eigenvalue problem
+
+```math
+Ax = Bx\lambda.
+```
+
 This problem arises for instance in:
 
 1. Finite element discretizations, with $B$ a symmetric, positive definite mass 
@@ -17,26 +61,26 @@ This problem arises for instance in:
 Because IRAM.jl only deals with the standard form
 
 ```math
-Cx = \lambda x.
+Cx = x\lambda.
 ```
-we have to do a spectral transformation whenever $B \neq I.$ Secondly, to get
-fast convergence, one typically applies shift-and-invert techniques, which also
-requires a spectral transformation.
+we have to do a spectral transformation whenever $B \neq I.$ 
+
+Secondly, to get fast convergence, one typically applies shift-and-invert 
+techniques, which also requires a spectral transformation.
 
 ## Transformation to standard form for non-singular B
 If $B$ is nonsingular and easy to factorize, one can define the matrix $C = B^{-1}A$
 and apply IRAM to the eigenproblem
 
 ```math
-Cx = \lambda x
+Cx = x\lambda
 ```
 
 which is in standard form. Of course $C$ should not be formed explicity! One only
 has to provide the action of the matrix-vector product by implementing
 `LinearAlgebra.mul!(y, C, x)`. The best way to do so is to factorize $B$ up front.
 
-IRAM.jl does not yet provide helper functions for this transformation.
-
+See [an example here](@ref generalized_shift_invert).
 
 ## Targeting eigenvalues with shift-and-invert
 When looking for eigenvalues near a specific target $\sigma$, one can get fast 
