@@ -1,10 +1,17 @@
 using Base.Order: ReverseOrdering, By
 
 """
-    partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(), maxiter = 20, which = LM())
+    partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(), maxiter = 20, which = LM()) -> PartialSchur, prods, converged
 
 Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
 `maxiter` has been reached.
+
+Returns a partial Schur decomposition of A whenever `converged = true`. At the
+moment we do not handle the situation where things have only partially converged
+well.
+
+The `prods` return value is the number of matrix-vector products that were
+necessary.
 """
 partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(real(eltype(A))), maxiter = 20, which=LM()) =
     _partial_schur(A, eltype(A), min, max, nev, tol, maxiter, which)
@@ -12,7 +19,10 @@ partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(real(eltype(A))), max
 """
     IsConverged(ritz, tol)
 
-Functor to test whether Ritz values satisfy the convergence criterion.
+Functor to test whether Ritz values satisfy the convergence criterion. Current
+convergence condition is ‖Ax - xλ‖₂ < tol * |λ|. This is supposed to be scale
+invariant: the matrix `B = αA` for some constant `α` has the same eigenvectors
+with eigenvalue λα, so this scaling with `α` cancels in the inequality.
 """
 struct IsConverged{RV<:RitzValues,T}
     ritz::RV
@@ -58,6 +68,9 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
     # Effective smallest size of the Arnoldi decomp.
     k = mindim
 
+    # Ordering used in sort!
+    ordering = get_order(ritz, which)
+
     for restarts = 1 : maxiter
 
         # Expand Krylov subspace dimension from `k` to `max`.
@@ -96,10 +109,15 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         # Total number of converged Ritz values
         converged = (active - 1) + (first_not_converged - 1)
 
-        # Break if we have enough converged Ritz values
+        # Ritz values are converged, but not all of them are deflated, so we still
+        # have to bring the Hessenberg matrix to upper triangular form.
+        # For now just shift away those Ritz values that have not converged
+        # and then act like H[converged+1,converged] = 0, so that V[:,1:converged]
+        # spans an invariant subspace for A.
         if converged ≥ nev
             implicit_restart!(arnoldi, Vtmp, ritz, converged, maxdim, active)
-            break
+            transform_converged!(arnoldi, active, converged, Vtmp)
+            return PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged)), prods, true
         end
 
         # We will reduce the the size of the Krylov subspace from `max` to `k`
@@ -117,7 +135,7 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         # TODO: worry about the order of the exact shifts -- maybe there is value in
         # a particular order such as from worst converged to best converged. Would not be
         # surprised if ARPACK did this.
-        sort!(ritz.ord, converged + 1, maxdim, MergeSort, ReverseOrdering(By(i -> abs(ritz.λs[i]))))
+        sort!(ritz.ord, converged + 1, maxdim, MergeSort, ordering)
 
         # Shrink the subspace. Note that implicit_restart! returns the effective size of
         # the shrunken Krylov subspace. In complex arithmetic it will always be the old `k`
@@ -133,7 +151,7 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         active > nev && break
     end
 
-    return PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged)), prods
+    return PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged)), prods, false
 end
 
 """
