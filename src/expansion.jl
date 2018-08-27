@@ -20,7 +20,7 @@ function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
     # Norm before orthogonalization
     rnorm = norm(v)
 
-    # Just normalize, don't Orthogonalize
+    # Just normalize, don't orthogonalize
     if j == 0
         v ./= rnorm
         return true

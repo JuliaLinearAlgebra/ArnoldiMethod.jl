@@ -1,13 +1,10 @@
 """
-    eigvalues(A::AbstractMatrix{T}, tol = eps()) -> Vector{complex(T)}
+    copy_eigenvalues!(λs, A) -> λs
 
-Computes the eigenvalues of the matrix A. Assumes that A is quasi-upper triangular.
-The eigenvalues are returned in complex arithmetic, even if their imaginary
-part is 0.
+Puts the eigenvalues of a quasi-upper triangular matrix A in the λs vector.
 """
-function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
+function copy_eigenvalues!(λs, A::AbstractMatrix{T}, tol = eps(real(T))) where {T}
     n = size(A, 1)
-    λs = Vector{complex(T)}(undef, n)
     i = 1
 
     @inbounds while i < n
@@ -17,7 +14,7 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
         else
             # Conjugate pair
             d = A[i,i] * A[i+1,i+1] - A[i,i+1] * A[i+1,i]
-            x = (A[i,i] + A[i+1,i+1]) / real(T)(2)
+            x = (A[i,i] + A[i+1,i+1]) / 2
             y = sqrt(complex(x*x - d))
             λs[i] = x + y
             λs[i + 1] = x - y
@@ -31,6 +28,16 @@ function eigvalues(A::AbstractMatrix{T}; tol = eps(real(T))) where {T}
 
     return λs
 end
+
+"""
+    eigenvalues(A::AbstractMatrix{T}) -> Vector{complex(T)}
+
+Computes the eigenvalues of the matrix A. Assumes that A is quasi-upper triangular.
+The eigenvalues are returned in complex arithmetic, even if their imaginary
+part is 0.
+"""
+eigenvalues(A::AbstractMatrix{T}, tol = eps(real(T))) where {T} =
+    copy_eigenvalues!(Vector{complex(T)}(undef, size(A, 1)), A, tol)
 
 function schur_to_eigen(P::PartialSchur)
     vals, vecs = eigen(P.R)

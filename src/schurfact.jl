@@ -445,3 +445,6 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
 
     return true
 end
+
+local_schurfact!(H::AbstractMatrix{T}, Q = NotWanted(), tol = eps(real(T)), maxiter = 100*size(H, 1)) where {T} =
+    local_schurfact!(H, 1, size(H, 2), Q, tol, maxiter)
