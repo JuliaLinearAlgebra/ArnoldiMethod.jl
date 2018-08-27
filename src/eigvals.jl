@@ -1,3 +1,8 @@
+"""
+    copy_eigenvalues!(λs, A) -> λs
+
+Puts the eigenvalues of a quasi-upper triangular matrix A in the λs vector.
+"""
 function copy_eigenvalues!(λs, A::AbstractMatrix{T}, tol = eps(real(T))) where {T}
     n = size(A, 1)
     i = 1
@@ -9,7 +14,7 @@ function copy_eigenvalues!(λs, A::AbstractMatrix{T}, tol = eps(real(T))) where 
         else
             # Conjugate pair
             d = A[i,i] * A[i+1,i+1] - A[i,i+1] * A[i+1,i]
-            x = (A[i,i] + A[i+1,i+1]) / real(T)(2)
+            x = (A[i,i] + A[i+1,i+1]) / 2
             y = sqrt(complex(x*x - d))
             λs[i] = x + y
             λs[i + 1] = x - y

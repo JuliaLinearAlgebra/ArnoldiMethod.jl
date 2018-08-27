@@ -2,7 +2,7 @@
 # Here we look at some edge cases.
 
 using Test, LinearAlgebra
-using IRAM: eigvalues, local_schurfact!, is_offdiagonal_small
+using IRAM: eigenvalues, local_schurfact!, is_offdiagonal_small
 
 include("utils.jl")
 
@@ -15,8 +15,8 @@ include("utils.jl")
         
         @test local_schurfact!(H′, 1, 2, Q, eps(), 2)
         @test norm(H * Q - Q * H′) < 10eps()
-        @test sort!(eigvalues(H′), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
-        @test sort!(eigvalues(H′), by=realimag) ≈ sort!(eigvals(H), by=realimag)
+        @test sort!(eigenvalues(H′), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
+        @test sort!(eigenvalues(H′), by=realimag) ≈ sort!(eigvals(H), by=realimag)
         @test iszero(H′[2,1])
     end
 
@@ -28,8 +28,8 @@ include("utils.jl")
         
         @test local_schurfact!(H′, 1, 2, Q, eps(), 2)
         @test norm(H * Q - Q * H′) < 10eps()
-        @test sort!(eigvalues(H′), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
-        @test sort!(eigvalues(H′), by=realimag) ≈ sort!(eigvals(H), by=realimag)
+        @test sort!(eigenvalues(H′), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
+        @test sort!(eigenvalues(H′), by=realimag) ≈ sort!(eigvals(H), by=realimag)
         @test iszero(H′[2,1])
     end
 
@@ -41,8 +41,8 @@ include("utils.jl")
         
         @test local_schurfact!(H′, 1, 2, Q, eps(), 2)
         @test norm(H * Q - Q * H′) < 10eps()
-        @test sort!(eigvalues(H′), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
-        @test sort!(eigvalues(H′), by=realimag) ≈ sort!(eigvals(H), by=realimag)
+        @test sort!(eigenvalues(H′), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
+        @test sort!(eigenvalues(H′), by=realimag) ≈ sort!(eigvals(H), by=realimag)
     end
     
     # Larger real matrix.

@@ -9,20 +9,6 @@ Run IRAM until the eigenvectors are approximated to the prescribed tolerance or 
 partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(real(eltype(A))), maxiter = 20, which=LM()) =
     _partial_schur(A, eltype(A), min, max, nev, tol, maxiter, which)
 
-
-struct RitzValues{Tv,Tr}
-    λs::Vector{Tv}
-    rs::Vector{Tr}
-    ord::Vector{Int}
-
-    function RitzValues{T}(maxdim::Int) where {T}
-        λs = Vector{complex(T)}(undef, maxdim)
-        rs = Vector{real(T)}(undef, maxdim)
-        ord = Vector{Int}(undef, maxdim)
-        return new{complex(T),real(T)}(λs, rs, ord)
-    end
-end
-
 """
     IsConverged(ritz, tol)
 
@@ -40,7 +26,7 @@ function (r::IsConverged)(i::Integer)
     end
 end
 
-function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T, maxiter::Int, which::Target) where {T<:Real}
+function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, maxiter::Int, which::Target) where {T,Ttol<:Real}
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
@@ -184,7 +170,7 @@ If only one vector has converged (i.e. from == to), then we don't have to do any
 function transform_converged!(arnoldi::Arnoldi{T}, from::Int, to::Int, Vtmp) where {T}
 
     # Nothing to transform
-    from == to && return nothing
+    to ≤ from && return nothing
     
     # H = Q R Q'
 

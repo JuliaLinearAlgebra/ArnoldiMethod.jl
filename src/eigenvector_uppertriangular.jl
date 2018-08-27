@@ -133,5 +133,5 @@ function collect_eigen!(x::AbstractVector{Tv}, R::AbstractMatrix, j::Integer) wh
         end
     end
 
-    return x
+    return j
 end

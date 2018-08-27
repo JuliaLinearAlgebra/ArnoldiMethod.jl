@@ -3,8 +3,8 @@
     partition!(predicate, v::AbstractVector) -> Union{Nothing,Int}
 
 Calling `k = partition!(f, v)` reorders `v` such that `all(f, v[k:end])` and
-`all(x -> !f(x), v[1:k-1]` are true. If there is no element in `v` for which the predicate
-is false, then `k` is `nothing`.
+`all(x -> !f(x), v[1:k-1]` are true. If there is no element in `v` for which the
+predicate is false, then `k` is `nothing`.
 """
 function partition!(predicate, v::AbstractVector)
     first = findfirst(x -> !predicate(x), v)
