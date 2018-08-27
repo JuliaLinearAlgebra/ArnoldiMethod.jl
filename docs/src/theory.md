@@ -1,4 +1,4 @@
-# Standard-form eigenvalue problems
+# [Standard-form eigenvalue problems](@id theory)
 
 The IRAM.jl is intended to find a few approximate solutions to the eigenvalue 
 problem

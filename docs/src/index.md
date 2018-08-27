@@ -37,7 +37,7 @@ Further, one can solve generalized eigenvalue problems $Ax = Bx \lambda$ by
 applying a suitable spectral transformation as well. Also quadratic eigenvalue 
 problems can be casted to standard form.
 
-See [Eigenvalue problem in standard form](@ref) for more information.
+See [Theory](@ref theory) for more information.
 
 ## Goal of this package: a pure Julia implementation
 The algorithm is a pure Julia implementation of the implicitly restarted 
