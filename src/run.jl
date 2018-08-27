@@ -97,7 +97,10 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         converged = (active - 1) + (first_not_converged - 1)
 
         # Break if we have enough converged Ritz values
-        converged ≥ nev && break
+        if converged ≥ nev
+            implicit_restart!(arnoldi, Vtmp, ritz, converged, maxdim, active)
+            break
+        end
 
         # We will reduce the the size of the Krylov subspace from `max` to `k`
         # and in the special case of a conjugate pair sometimes to `k+1`
@@ -130,7 +133,7 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         active > nev && break
     end
 
-    return PartialSchur(view(arnoldi.V, :, 1:active-1), view(arnoldi.H, 1:active-1, 1:active-1)), prods
+    return PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged)), prods
 end
 
 """
