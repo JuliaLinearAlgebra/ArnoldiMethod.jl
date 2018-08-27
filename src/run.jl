@@ -1,5 +1,3 @@
-using Base.Order: ReverseOrdering, By
-
 """
     partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(), maxiter = 20, which = LM()) -> PartialSchur, prods, converged
 
