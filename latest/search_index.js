@@ -129,11 +129,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "usage/01_getting_started.html#IRAM.partial_schur",
+    "page": "Getting started",
+    "title": "IRAM.partial_schur",
+    "category": "function",
+    "text": "partial_schur(A; nev, which, tol, min, max, restarts) -> PartialSchur, History\n\nFind nev approximate eigenpairs of A with eigenvalues near a specified target.\n\nThe matrix A can be any linear map that implements mul!(y, A, x), eltype and size.\n\nThe method will run iteratively until the eigenpairs are approximated to the prescribed tolerance or until restarts restarts have passed.\n\nArguments\n\nThe most important keyword arguments:\n\nKeyword Type Default Description\nnev Int 6 Number of eigenvalues\nwhich Target LM() One of LM(), LR(), SR(), LI(), SI(), see below.\ntol Real √eps Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖\n\nThe target which can be any of subtypes(IRAM.Target):\n\nTarget Description\nLM() Largest magnitude: abs(λ) is largest\nLR() Largest real part: real(λ) is largest\nSR() Smallest real part: real(λ) is smallest\nLI() Largest imaginary part: imag(λ) is largest\nSI() Smallest imaginary part: imag(λ) is smallest\n\nnote: Note\nThe targets LI() and SI() only make sense in complex arithmetic. In real arithmetic λ is an eigenvalue iff conj(λ) is an eigenvalue and this  conjugate pair converges simultaneously.\n\nReturn values\n\nThe function returns a tuple\n\ndecomp, history = partial_schur(A, ...)\n\nwhere decomp is a PartialSchur struct which forms a partial Schur  decomposition of A to a prescribed tolerance:\n\n> norm(A * decomp.Q - decomp.Q * decomp.R)\n\nhistory is a History struct that holds some basic information about convergence of the method:\n\n> history.converged\ntrue\n> @show history\nConverged after 359 matrix-vector products\n\nAdvanced usage\n\nFurther there are advanced keyword arguments for tuning the algorithm:\n\nKeyword Type Default Description\nmin Int max(10, nev) Minimum Krylov dimension (≥ nev)\nmax Int max(20, 2nev) Maximum Krylov dimension (> min)\nrestarts Int 200 Maximum number of restarts\n\nWhen the algorithm does not converge, one can increase restarts. When the  algorithm converges too slowly, one can play with min and max. It is  suggested to keep min equal to or slightly larger than nev, and max is  usually about two times min.\n\n\n\n\n\n"
+},
+
+{
     "location": "usage/01_getting_started.html#Construct-a-partial-Schur-decomposition-1",
     "page": "Getting started",
     "title": "Construct a partial Schur decomposition",
     "category": "section",
-    "text": "IRAM.jl exports the partial_schur function which can be used to obtain a  partial Schur decomposition of any matrix A:decomp, prods, converged = partial_schur(A; nev::Int, tol::Real, which::Target, min, max, maxiter)From a user perspective, the interesting parameters are nev, tol and which:Argument Description\nnev Number of eigenvalues\ntol Tolerance for the stopping criterion\nwhich Which eigenvalues do you want? In real arithmetic, choose largest magnitude LM(), largest real part LR(), or smallest real part SR(). In complex arithmetic additionally largest imaginary part LI() and smallest imaginary part SI()The other keyword arguments have sensible values by default and are for advanced use. When the algorithm does not converge, one can increase maxiter. When the algorithm converges to slowly, one can play with min and max. It is  suggested to keep min equal to or slighly larger than nev, and max is  usually about two times min.The function returns a tuple with values:Return value Description\ndecomp A PartialSchur object with orthonormal matrix decomp.Q and (quasi) upper triangular decomp.R. for which A * P.Q ≈ P.Q * P.R\nprods Number of matrix-vector products that were necessary\nconverged Boolean indicating whether all eigenvalues have converged"
+    "text": "IRAM.jl exports the partial_schur function which can be used to obtain a  partial Schur decomposition of any matrix A.partial_schur"
 },
 
 {
@@ -141,7 +149,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Getting started",
     "title": "From a Schur decomposition to an eigendecomposition",
     "category": "section",
-    "text": "The eigenvalues and eigenvectors are obtained from the Schur form with the  schur_to_eigen function that is exported by IRAM.jl:λs, X = schur_to_eigen(decomp::PartialSchur)"
+    "text": "The eigenvalues and eigenvectors are obtained from the Schur form with the  schur_to_eigen function that is exported by IRAM.jl:λs, X = schur_to_eigen(decomp::PartialSchur)Note that whenever the matrix A is real-symmetric or Hermitian, the partial  Schur decomposition coincides with the partial eigendecomposition, so in that  case there is no need for the transformation."
 },
 
 {
@@ -149,7 +157,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Getting started",
     "title": "Example",
     "category": "section",
-    "text": "Here we compute the first ten eigenvalues and eigenvectors of a tridiagonal sparse matrix.julia> using IRAM, LinearAlgebra, SparseArrays\njulia> A = spdiagm(\n           -1 => fill(-1.0, 99),\n            0 => fill(2.0, 100), \n            1 => fill(-1.0, 99)\n       );\njulia> decomp, prods, converged = partial_schur(A, nev=10, max=30, tol=1e-6, which=SR(), maxiter=100);\njulia> converged\ntrue\njulia> norm(A * decomp.Q - decomp.Q * decomp.R)\n6.723110275944552e-9\njulia> λs, X = schur_to_eigen(decomp);\njulia> norm(A * X - X * Diagonal(λs))\n6.7231102983472125e-9"
+    "text": "Here we compute the first ten eigenvalues and eigenvectors of a tridiagonal sparse matrix.julia> using IRAM, LinearAlgebra, SparseArrays\njulia> A = spdiagm(\n           -1 => fill(-1.0, 99),\n            0 => fill(2.0, 100), \n            1 => fill(-1.0, 99)\n       );\njulia> decomp, history = partial_schur(A, nev=10, tol=1e-6, which=SR());\njulia> history\nConverged after 178 matrix-vector products\njulia> norm(A * decomp.Q - decomp.Q * decomp.R)\n3.717314639756976e-8\njulia> λs, X = schur_to_eigen(decomp);\njulia> norm(A * X - X * Diagonal(λs))\n3.7173146389810755e-8"
 },
 
 {
@@ -173,7 +181,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Transformations",
     "title": "Shift-and-invert with LinearMaps.jl",
     "category": "section",
-    "text": "To find eigenvalues closest to the origin of A, one can find the eigenvalues of largest magnitude of A^-1. LinearMaps.jl  is a neat way to implement this.using IRAM, LinearAlgebra, LinearMaps\n\n# Define a matrix whose eigenvalues you want\nA = rand(100,100)\n\n# Factorizes A and builds a linear map that applies inv(A) to a vector.\nfunction construct_linear_map(A)\n    F = factorize(A)\n    LinearMap{eltype(A)}((y, x) -> ldiv!(y, F, x), size(A,1), ismutating=true)\nend\n\n# Target the largest eigenvalues of the inverted problem\ndecomp, = partial_schur(construct_linear_map(A), nev=4, tol=1e-5, maxiter=100, which=LM())\nλs_inv, X = schur_to_eigen(decomp)\n\n# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.\nλs = 1 ./ λs_inv\n \n# Show that Ax = xλ\n@show norm(A * X - X * Diagonal(λs)) # 7.38473677258669e-6"
+    "text": "To find eigenvalues closest to the origin of A, one can find the eigenvalues of largest magnitude of A^-1. LinearMaps.jl  is a neat way to implement this.using IRAM, LinearAlgebra, LinearMaps\n\n# Define a matrix whose eigenvalues you want\nA = rand(100,100)\n\n# Factorizes A and builds a linear map that applies inv(A) to a vector.\nfunction construct_linear_map(A)\n    F = factorize(A)\n    LinearMap{eltype(A)}((y, x) -> ldiv!(y, F, x), size(A,1), ismutating=true)\nend\n\n# Target the largest eigenvalues of the inverted problem\ndecomp, = partial_schur(construct_linear_map(A), nev=4, tol=1e-5, restarts=100, which=LM())\nλs_inv, X = schur_to_eigen(decomp)\n\n# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.\nλs = 1 ./ λs_inv\n \n# Show that Ax = xλ\n@show norm(A * X - X * Diagonal(λs)) # 7.38473677258669e-6"
 },
 
 {
@@ -181,7 +189,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Transformations",
     "title": "Smallest eigenvalues of generalized eigenvalue problem",
     "category": "section",
-    "text": "When targeting the eigenvalues closest to the origin of a generalized eigenvalue problem Ax = Bxlambda, one can apply the shift-and-invert trick, recasting  the problem to A^-1Bx = xtheta where lambda = 1  theta.using IRAM, LinearAlgebra, LinearMaps\n\n# Define the matrices of the generalized eigenvalue problem\nA, B = rand(100,100), rand(100,100)\n\nstruct ShiftAndInvert{TA,TB,TT}\n    A_lu::TA\n    B::TB\n    temp::TT\nend\n\nfunction (M::ShiftAndInvert)(y,x)\n    mul!(M.temp, M.B, x)\n    ldiv!(y, M.A_lu, M.temp)\nend\n\nfunction construct_linear_map(A,B)\n    a = ShiftAndInvert(factorize(A),B,Vector{eltype(A)}(undef, size(A,1)))\n    LinearMap{eltype(A)}(a, size(A,1), ismutating=true)\nend\n\n# Target the largest eigenvalues of the inverted problem\ndecomp,  = partial_schur(construct_linear_map(A, B), nev=4, tol=1e-5, maxiter=100, which=LM())\nλs_inv, X = schur_to_eigen(decomp)\n\n# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.\nλs = 1 ./ λs_inv\n\n# Show that Ax = Bxλ\n@show norm(A * X - B * X * Diagonal(λs)) # 2.8043149027575927e-6"
+    "text": "When targeting the eigenvalues closest to the origin of a generalized eigenvalue problem Ax = Bxlambda, one can apply the shift-and-invert trick, recasting  the problem to A^-1Bx = xtheta where lambda = 1  theta.using IRAM, LinearAlgebra, LinearMaps\n\n# Define the matrices of the generalized eigenvalue problem\nA, B = rand(100,100), rand(100,100)\n\nstruct ShiftAndInvert{TA,TB,TT}\n    A_lu::TA\n    B::TB\n    temp::TT\nend\n\nfunction (M::ShiftAndInvert)(y,x)\n    mul!(M.temp, M.B, x)\n    ldiv!(y, M.A_lu, M.temp)\nend\n\nfunction construct_linear_map(A,B)\n    a = ShiftAndInvert(factorize(A),B,Vector{eltype(A)}(undef, size(A,1)))\n    LinearMap{eltype(A)}(a, size(A,1), ismutating=true)\nend\n\n# Target the largest eigenvalues of the inverted problem\ndecomp,  = partial_schur(construct_linear_map(A, B), nev=4, tol=1e-5, restarts=100, which=LM())\nλs_inv, X = schur_to_eigen(decomp)\n\n# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.\nλs = 1 ./ λs_inv\n\n# Show that Ax = Bxλ\n@show norm(A * X - B * X * Diagonal(λs)) # 2.8043149027575927e-6"
 },
 
 ]}

@@ -11,7 +11,7 @@ function construct_linear_map(A)
 end
 
 # Target the largest eigenvalues of the inverted problem
-decomp, = partial_schur(construct_linear_map(A), nev=4, tol=1e-5, maxiter=100, which=LM())
+decomp, = partial_schur(construct_linear_map(A), nev=4, tol=1e-5, restarts=100, which=LM())
 λs_inv, X = schur_to_eigen(decomp)
 
 # Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.
@@ -40,7 +40,7 @@ function construct_linear_map(A,B)
 end
 
 # Target the largest eigenvalues of the inverted problem
-decomp,  = partial_schur(construct_linear_map(A, B), nev=4, tol=1e-5, maxiter=100, which=LM())
+decomp,  = partial_schur(construct_linear_map(A, B), nev=4, tol=1e-5, restarts=100, which=LM())
 λs_inv, X = schur_to_eigen(decomp)
 
 # Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.
