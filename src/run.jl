@@ -9,7 +9,7 @@ The matrix `A` can be any linear map that implements `mul!(y, A, x)`, `eltype`
 and `size`.
 
 The method will run iteratively until the eigenpairs are approximated to
-the prescribed tolerance or until `maxiter` iterations have passed.
+the prescribed tolerance or until `restarts` restarts have passed.
 
 ## Arguments
 
@@ -72,7 +72,7 @@ Further there are advanced keyword arguments for tuning the algorithm:
 | `max` | `Int` | `max(20, 2nev)` | Maximum Krylov dimension (> min) |
 | `restarts` | `Int` | `200` | Maximum number of restarts |
 
-When the algorithm does not converge, one can increase `maxiter`. When the 
+When the algorithm does not converge, one can increase `restarts`. When the 
 algorithm converges too slowly, one can play with `min` and `max`. It is 
 suggested to keep `min` equal to or slightly larger than `nev`, and `max` is 
 usually about two times min.

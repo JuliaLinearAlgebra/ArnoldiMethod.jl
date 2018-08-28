@@ -9,10 +9,10 @@ using Random
     ε = 1e-7
     minim, maxim = 10, 20
 
-    schur_decomp, prods, converged = partial_schur(A, min=minim, max=maxim, nev=minim, tol=ε, maxiter=100)
-    @test converged
+    decomp, history = partial_schur(A, min=minim, max=maxim, nev=minim, tol=ε, restarts=100)
+    @test history.converged
 
-    vals, vecs = schur_to_eigen(schur_decomp)
+    vals, vecs = schur_to_eigen(decomp)
 
     # This test seems a bit flaky sometimes -- have to dig into it.
     for i = 1 : minim
