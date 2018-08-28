@@ -1,9 +1,12 @@
-# Implicitly Restarted Arnoldi Method (IRAM) in Julia
+# ArnoldiMethod.jl
 
 [![Build Status](https://travis-ci.org/haampie/ArnoldiMethod.jl.svg?branch=master)](https://travis-ci.org/haampie/ArnoldiMethod.jl) [![codecov](https://codecov.io/gh/haampie/ArnoldiMethod.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/haampie/ArnoldiMethod.jl)
 
+
+The Implicitly Restarted Arnoldi Method, natively in Julia.
+
 ## Docs
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://haampie.github.io/ArnoldiMethod.jl/latest)
+[![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://haampie.github.io/ArnoldiMethod.jl/stable) [![Latest docs](https://img.shields.io/badge/docs-latest-gray.svg)](https://haampie.github.io/ArnoldiMethod.jl/latest)
 
 ## Goal
 Make `eigs` a native Julia function.
