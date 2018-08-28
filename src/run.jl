@@ -1,18 +1,90 @@
 """
-    partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(), maxiter = 20, which = LM()) -> PartialSchur, prods, converged
+```julia
+partial_schur(A; nev, which, tol, min, max, restarts) -> PartialSchur, History
+```
 
-Run IRAM until the eigenvectors are approximated to the prescribed tolerance or until 
-`maxiter` has been reached.
+Find `nev` approximate eigenpairs of `A` with eigenvalues near a specified target.
 
-Returns a partial Schur decomposition of A whenever `converged = true`. At the
-moment we do not handle the situation where things have only partially converged
-well.
+The matrix `A` can be any linear map that implements `mul!(y, A, x)`, `eltype`
+and `size`.
 
-The `prods` return value is the number of matrix-vector products that were
-necessary.
+The method will run iteratively until the eigenpairs are approximated to
+the prescribed tolerance or until `maxiter` iterations have passed.
+
+## Arguments
+
+The most important keyword arguments:
+
+| Keyword | Type | Default | Description |
+|------:|:-----|:----|:------|
+| `nev` | `Int` | `6` |Number of eigenvalues |
+| `which` | `Target` | `LM()` | One of `LM()`, `LR()`, `SR()`, `LI()`, `SI()`, see below. |
+| `tol` | `Real` | `√eps` | Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖ |
+
+The target `which` can be any of `subtypes(IRAM.Target)`:
+
+| Target | Description |
+|------:|:-----|
+| `LM()` | Largest magnitude: `abs(λ)` is largest |
+| `LR()` | Largest real part: `real(λ)` is largest |
+| `SR()` | Smallest real part: `real(λ)` is smallest |
+| `LI()` | Largest imaginary part: `imag(λ)` is largest|
+| `SI()` | Smallest imaginary part: `imag(λ)` is smallest|
+
+!!! note
+
+    The targets `LI()` and `SI()` only make sense in complex arithmetic. In real
+    arithmetic `λ` is an eigenvalue iff `conj(λ)` is an eigenvalue and this 
+    conjugate pair converges simultaneously.
+
+## Return values
+
+The function returns a tuple
+
+```julia
+decomp, history = partial_schur(A, ...)
+```
+
+where `decomp` is a `PartialSchur` struct which forms a partial Schur 
+decomposition of `A` to a prescribed tolerance:
+
+```julia
+> norm(A * decomp.Q - decomp.Q * decomp.R)
+```
+
+`history` is a `History` struct that holds some basic information about
+convergence of the method:
+
+```julia
+> history.converged
+true
+> @show history
+Converged after 359 matrix-vector products
+```
+
+## Advanced usage
+
+Further there are advanced keyword arguments for tuning the algorithm:
+
+| Keyword | Type | Default | Description |
+|------:|:-----|:---|:------|
+| `min` | `Int` | `max(10, nev)` | Minimum Krylov dimension (≥ nev) |
+| `max` | `Int` | `max(20, 2nev)` | Maximum Krylov dimension (> min) |
+| `restarts` | `Int` | `200` | Maximum number of restarts |
+
+When the algorithm does not converge, one can increase `maxiter`. When the 
+algorithm converges too slowly, one can play with `min` and `max`. It is 
+suggested to keep `min` equal to or slightly larger than `nev`, and `max` is 
+usually about two times min.
+
 """
-partial_schur(A; min = 5, max = 2min, nev = min, tol = eps(real(eltype(A))), maxiter = 20, which=LM()) =
-    _partial_schur(A, eltype(A), min, max, nev, tol, maxiter, which)
+partial_schur(A; nev::Int = 6,
+                 which::Target = LM(),
+                 tol::Real = sqrt(eps(real(eltype(A)))), 
+                 min::Int = max(10, nev),
+                 max::Int = max(20, 2nev),
+                 restarts::Int = 200) =
+    _partial_schur(A, eltype(A), min, max, nev, tol, restarts, which)
 
 """
     IsConverged(ritz, tol)
@@ -34,7 +106,12 @@ function (r::IsConverged)(i::Integer)
     end
 end
 
-function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, maxiter::Int, which::Target) where {T,Ttol<:Real}
+struct History
+    mvproducts::Int
+    converged::Bool
+end
+
+function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
@@ -69,7 +146,7 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
     # Ordering used in sort!
     ordering = get_order(ritz, which)
 
-    for restarts = 1 : maxiter
+    for iter = 1 : restarts
 
         # Expand Krylov subspace dimension from `k` to `max`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
@@ -115,7 +192,9 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         if converged ≥ nev
             implicit_restart!(arnoldi, Vtmp, ritz, converged, maxdim, active)
             transform_converged!(arnoldi, active, converged, Vtmp)
-            return PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged)), prods, true
+            hist = History(prods, true)
+            schur = PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged))
+            return schur, hist
         end
 
         # We will reduce the the size of the Krylov subspace from `max` to `k`
@@ -149,7 +228,9 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         active > nev && break
     end
 
-    return PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged)), prods, false
+    schur = PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged))
+    hist = History(prods, false)
+    return schur, hist
 end
 
 """
