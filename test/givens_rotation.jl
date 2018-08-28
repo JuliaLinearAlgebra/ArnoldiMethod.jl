@@ -2,7 +2,7 @@
 # the Given's rotation as a matrix explicitly.
 
 using Test, LinearAlgebra
-using IRAM: Hessenberg, Rotation2, Rotation3
+using ArnoldiMethod: Hessenberg, Rotation2, Rotation3
 
 @testset "Givens rotation" begin
     @testset "Single rotation" begin

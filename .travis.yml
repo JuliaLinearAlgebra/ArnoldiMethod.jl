@@ -7,5 +7,5 @@ notifications:
     email: false
 after_success:
   - julia -e 'using Pkg; Pkg.add(["Documenter", "Coverage"])'
-  - julia -e 'using Pkg, Coverage, IRAM; cd(joinpath(dirname(pathof(IRAM)), "..")); Codecov.submit(process_folder())'
-  - julia -e 'using Pkg, IRAM; cd(joinpath(dirname(pathof(IRAM)), "..")); include(joinpath("docs", "make.jl"))'
+  - julia -e 'using Pkg, Coverage, ArnoldiMethod; cd(joinpath(dirname(pathof(ArnoldiMethod)), "..")); Codecov.submit(process_folder())'
+  - julia -e 'using Pkg, ArnoldiMethod; cd(joinpath(dirname(pathof(ArnoldiMethod)), "..")); include(joinpath("docs", "make.jl"))'

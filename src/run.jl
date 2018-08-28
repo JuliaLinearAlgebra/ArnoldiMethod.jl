@@ -21,7 +21,7 @@ The most important keyword arguments:
 | `which` | `Target` | `LM()` | One of `LM()`, `LR()`, `SR()`, `LI()`, `SI()`, see below. |
 | `tol` | `Real` | `√eps` | Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖ |
 
-The target `which` can be any of `subtypes(IRAM.Target)`:
+The target `which` can be any of `subtypes(ArnoldiMethod.Target)`:
 
 | Target | Description |
 |------:|:-----|

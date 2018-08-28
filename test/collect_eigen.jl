@@ -1,6 +1,6 @@
 using Test
 
-using IRAM: collect_eigen!
+using ArnoldiMethod: collect_eigen!
 using LinearAlgebra
 
 @testset "Eigenvector upper triangular matrix" begin

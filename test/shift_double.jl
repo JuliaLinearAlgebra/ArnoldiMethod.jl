@@ -4,7 +4,7 @@
 # other eigenvalues should be retained (in exact arithmetic)
 
 using Test, LinearAlgebra
-using IRAM: exact_double_shift!
+using ArnoldiMethod: exact_double_shift!
 
 include("utils.jl")
 

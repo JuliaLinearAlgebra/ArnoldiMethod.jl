@@ -1,7 +1,7 @@
 using Test
 using LinearAlgebra
 
-using IRAM: partial_schur
+using ArnoldiMethod: partial_schur
 
 function matrix_with_three_clusters(T::Type, n = 100)
     A = triu(rand(T, n, n))

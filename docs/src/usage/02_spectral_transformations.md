@@ -1,13 +1,13 @@
 # Spectral transformations
 
-IRAM.jl by default only solves the standard-form eigenvalue problem 
+ArnoldiMethod.jl by default only solves the standard-form eigenvalue problem 
 $Ax = x\lambda$ for $\lambda$ close to the boundary of the convex hull of 
 eigenvalues.
 
 Whenever one targets eigenvalues close to a specific point in the complex plane,
 or whenever one solves generalized eigenvalue problems, spectral transformations
-will enable you to recast the problem into something that IRAM.jl can handle
-well. In this section we provide some examples.
+will enable you to recast the problem into something that ArnoldiMethod.jl can 
+handle well. In this section we provide some examples.
 
 ## Shift-and-invert with LinearMaps.jl
 To find eigenvalues closest to the origin of $A$, one can find the eigenvalues
@@ -15,7 +15,7 @@ of largest magnitude of $A^{-1}$. [LinearMaps.jl](https://github.com/Jutho/Linea
 is a neat way to implement this.
 
 ```julia
-using IRAM, LinearAlgebra, LinearMaps
+using ArnoldiMethod, LinearAlgebra, LinearMaps
 
 # Define a matrix whose eigenvalues you want
 A = rand(100,100)
@@ -43,7 +43,7 @@ problem $Ax = Bx\lambda$, one can apply the shift-and-invert trick, recasting
 the problem to $A^{-1}Bx = x\theta$ where $\lambda = 1 / \theta$.
 
 ```julia
-using IRAM, LinearAlgebra, LinearMaps
+using ArnoldiMethod, LinearAlgebra, LinearMaps
 
 # Define the matrices of the generalized eigenvalue problem
 A, B = rand(100,100), rand(100,100)
