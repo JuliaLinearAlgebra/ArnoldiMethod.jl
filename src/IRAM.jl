@@ -2,7 +2,7 @@ module IRAM
 
 using LinearAlgebra
 
-export partial_schur, LM, SR, LR, SI, LI, eigvalues, schur_to_eigen
+export partial_schur, LM, SR, LR, SI, LI, schur_to_eigen
 
 """
     Arnoldi(n, k) -> Arnoldi
@@ -64,6 +64,7 @@ include("factorization.jl")
 include("run.jl")
 include("eigvals.jl")
 include("eigenvector_uppertriangular.jl")
+include("show.jl")
 
 
 end
