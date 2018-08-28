@@ -1,7 +1,7 @@
 # [Standard-form eigenvalue problems](@id theory)
 
-The IRAM.jl is intended to find a few approximate solutions to the eigenvalue 
-problem
+ArnoldiMethod.jl is intended to find a few approximate solutions to the 
+eigenvalue problem
 
 ```math
 Ax = x \lambda
@@ -30,7 +30,8 @@ the matrix is symmetric, because in that case the Schur decomposition coincides
 with the eigendecomposition.
 
 ## Stopping criterion
-IRAM.jl considers an approximate eigenpair converged when the condition
+ArnoldiMethod.jl considers an approximate eigenpair converged when the 
+condition
 
 ```math
 \|Ax - x\lambda\|_2 < \texttt{tol}|\lambda|
@@ -58,7 +59,7 @@ This problem arises for instance in:
    and singular;
 3. Simple finite differences discretizations where typically $B = I.$
 
-Because IRAM.jl only deals with the standard form
+Because ArnoldiMethod.jl only deals with the standard form
 
 ```math
 Cx = x\lambda.
@@ -69,8 +70,8 @@ Secondly, to get fast convergence, one typically applies shift-and-invert
 techniques, which also requires a spectral transformation.
 
 ## Transformation to standard form for non-singular B
-If $B$ is nonsingular and easy to factorize, one can define the matrix $C = B^{-1}A$
-and apply IRAM to the eigenproblem
+If $B$ is nonsingular and easy to factorize, one can define the matrix 
+$C = B^{-1}A$ and apply the Arnoldi method to the eigenproblem
 
 ```math
 Cx = x\lambda
@@ -103,8 +104,9 @@ is to factorize $A - \sigma B$ up front.
 Note that this shift-and-invert strategy simplifies when $B = I,$ in which case
 the matrix in standard form is just $C = (A - \sigma I)^{-1}.$
 
-IRAM.jl does not transform the eigenvalues of $C$ back to the eigenvalues of
-$(A, B).$ However, the relation is simply $\lambda = \sigma + \theta^{-1}$.
+ArnoldiMethod.jl does not transform the eigenvalues of $C$ back to the 
+eigenvalues of $(A, B).$ However, the relation is simply 
+$\lambda = \sigma + \theta^{-1}$.
 
 ## Purification
 
@@ -115,8 +117,8 @@ or exactly zero. When transformed back, these values would corrspond to
 $\lambda = \infty.$ The process to remove these eigenvalues is called 
 purification.
 
-IRAM.jl does not yet support this purification idea, but it could in principle
-be put together along the following lines [^MLA]:
+ArnoldiMethod.jl does not yet support this purification idea, but it could in 
+principle be put together along the following lines [^MLA]:
 1. Start the Arnoldi method with $C$ times a random vector, such that the 
    initial vector has numerically no components in the null space of $C$.
 2. Expand the Krylov subspace with one additional vector and add a zero shift.

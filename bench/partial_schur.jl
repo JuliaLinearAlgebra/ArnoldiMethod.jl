@@ -1,6 +1,6 @@
 using BenchmarkTools
 
-using IRAM: partial_schur, SM, LM
+using ArnoldiMethod: partial_schur, SM, LM
 using LinearMaps
 using LinearAlgebra
 using SparseArrays

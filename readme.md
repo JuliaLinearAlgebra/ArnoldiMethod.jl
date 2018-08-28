@@ -1,9 +1,9 @@
 # Implicitly Restarted Arnoldi Method (IRAM) in Julia
 
-[![Build Status](https://travis-ci.org/haampie/IRAM.jl.svg?branch=master)](https://travis-ci.org/haampie/IRAM.jl) [![codecov](https://codecov.io/gh/haampie/IRAM.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/haampie/IRAM.jl)
+[![Build Status](https://travis-ci.org/haampie/ArnoldiMethod.jl.svg?branch=master)](https://travis-ci.org/haampie/ArnoldiMethod.jl) [![codecov](https://codecov.io/gh/haampie/ArnoldiMethod.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/haampie/ArnoldiMethod.jl)
 
 ## Docs
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://haampie.github.io/IRAM.jl/latest)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://haampie.github.io/ArnoldiMethod.jl/latest)
 
 ## Goal
 Make `eigs` a native Julia function.
@@ -13,13 +13,13 @@ Make `eigs` a native Julia function.
 Open the package manager in the REPL via `]` and run
 
 ```
-(v1.0) pkg> add git@github.com:haampie/IRAM.jl.git
+(v1.0) pkg> add git@github.com:haampie/ArnoldiMethod.jl.git
 ```
 
 ## Example
 
 ```julia
-julia> using IRAM, LinearAlgebra, SparseArrays
+julia> using ArnoldiMethod, LinearAlgebra, SparseArrays
 julia> A = spdiagm(
            -1 => fill(-1.0, 99),
             0 => fill(2.0, 100), 

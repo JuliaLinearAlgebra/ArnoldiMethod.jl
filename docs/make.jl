@@ -1,15 +1,15 @@
-using Documenter, IRAM
+using Documenter, ArnoldiMethod
 
 makedocs(
-	modules = [IRAM],
+	modules = [ArnoldiMethod],
 	format = :html,
 	doctest = false,
 	clean = true,
-	sitename = "IRAM.jl",
+	sitename = "ArnoldiMethod.jl",
 	pages = [
 		"Home" => "index.md",
 		"Theory" => "theory.md",
-		"Using IRAM.jl" => [
+		"Using ArnoldiMethod.jl" => [
 			"Getting started" => "usage/01_getting_started.md",
 			"Transformations" => "usage/02_spectral_transformations.md"
 		]
@@ -17,7 +17,7 @@ makedocs(
 )
 
 deploydocs(
-	repo = "github.com/haampie/IRAM.jl.git",
+	repo = "github.com/haampie/ArnoldiMethod.jl.git",
 	target = "build",
 	osname = "linux",
 	julia  = "0.7",

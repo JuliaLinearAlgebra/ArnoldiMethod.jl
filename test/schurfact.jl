@@ -2,7 +2,7 @@
 # Here we look at some edge cases.
 
 using Test, LinearAlgebra
-using IRAM: eigenvalues, local_schurfact!, is_offdiagonal_small
+using ArnoldiMethod: eigenvalues, local_schurfact!, is_offdiagonal_small
 
 include("utils.jl")
 

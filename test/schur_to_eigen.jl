@@ -1,6 +1,6 @@
 using Test
 using LinearAlgebra
-using IRAM: partial_schur, schur_to_eigen
+using ArnoldiMethod: partial_schur, schur_to_eigen
 using Random
 
 @testset "Schur to eigen $T take $i" for T in (Float64,ComplexF64), i in 1:10

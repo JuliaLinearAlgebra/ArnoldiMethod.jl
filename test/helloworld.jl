@@ -1,4 +1,4 @@
-using IRAM
+using ArnoldiMethod
 using SparseArrays, LinearAlgebra
 using Plots
 

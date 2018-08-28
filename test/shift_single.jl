@@ -4,7 +4,7 @@
 # Once it is shifted away, the other eigenvalues should be retained (in exact arithmetic)
 
 using Test, LinearAlgebra
-using IRAM: exact_single_shift!
+using ArnoldiMethod: exact_single_shift!
 
 include("utils.jl")
 

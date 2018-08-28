@@ -1,7 +1,7 @@
-# IRAM.jl
+# ArnoldiMethod.jl
 
-IRAM.jl provides an iterative method to find a few approximate solutions to the 
-eigenvalue problem in *standard form*:
+ArnoldiMethod.jl provides an iterative method to find a few approximate 
+solutions to the eigenvalue problem in *standard form*:
 
 ```math
 Ax = x\lambda,
@@ -14,9 +14,10 @@ or non-symmetric and either real or complex.
 The method is *matrix-free*, meaning that it only requires multiplication with 
 the matrix $A$.
 
-See **[Using IRAM.jl](@ref getting_started)** on how to use the package.
+See **[Using ArnoldiMethod.jl](@ref getting_started)** on how to use the 
+package.
 
-## What algorithm is IRAM.jl?
+## What algorithm is ArnoldiMethod.jl?
 
 The underlying algorithm is the Implicitly Restarted Arnoldi Method, which be 
 viewed as a mix between a subspace accelerated version of the power method and 

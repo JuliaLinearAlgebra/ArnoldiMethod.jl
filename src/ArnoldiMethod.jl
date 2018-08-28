@@ -1,4 +1,4 @@
-module IRAM
+module ArnoldiMethod
 
 using LinearAlgebra
 

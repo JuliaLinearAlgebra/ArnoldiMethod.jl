@@ -1,5 +1,5 @@
 using Test, LinearAlgebra, SparseArrays
-using IRAM: Arnoldi, RitzValues, implicit_restart!, reinitialize!, iterate_arnoldi!
+using ArnoldiMethod: Arnoldi, RitzValues, implicit_restart!, reinitialize!, iterate_arnoldi!
 
 @testset "Implicit restart" begin
 

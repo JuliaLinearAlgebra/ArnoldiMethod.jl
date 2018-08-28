@@ -1,6 +1,6 @@
 using Test
 
-using IRAM: eigvalues, local_schurfact!, backward_subst!, compute_shifts, initialize, iterate_arnoldi!
+using ArnoldiMethod: eigvalues, local_schurfact!, backward_subst!, compute_shifts, initialize, iterate_arnoldi!
 using LinearAlgebra
 
 @testset "Shift computation" begin

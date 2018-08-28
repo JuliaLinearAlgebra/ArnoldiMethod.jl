@@ -1,7 +1,7 @@
 # Tests the Arnoldi relation AV = VH when expanding the search subspace
 
 using Test, LinearAlgebra, SparseArrays
-using IRAM: reinitialize!, Arnoldi, iterate_arnoldi!
+using ArnoldiMethod: reinitialize!, Arnoldi, iterate_arnoldi!
 
 @testset "Initialization" begin
     arnoldi = Arnoldi{Float64}(5, 3)
