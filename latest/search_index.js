@@ -125,7 +125,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Getting started",
     "title": "Installing",
     "category": "section",
-    "text": "In Julia open the package manager in the REPL via ] and run:(v1.0) pkg> add git@github.com:haampie/ArnoldiMethod.jl.gitThen use the package.using ArnoldiMethod"
+    "text": "In Julia open the package manager in the REPL via ] and run:(v1.0) pkg> add ArnoldiMethodThen use the package.using ArnoldiMethod"
 },
 
 {
