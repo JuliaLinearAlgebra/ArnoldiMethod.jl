@@ -1,7 +1,7 @@
 using Test
 using LinearAlgebra
 
-using ArnoldiMethod: partial_schur
+using ArnoldiMethod: partialschur
 
 function matrix_with_three_clusters(T::Type, n = 100)
     A = triu(rand(T, n, n))
@@ -24,7 +24,7 @@ end
         ε = 1e-6
 
         # Get the partial Schur decomposition
-        schur_decomp, = partial_schur(A, mindim=min, maxdim=max, nev=min, tol=eps(real(T)), restarts=20)
+        schur_decomp, = partialschur(A, mindim=min, maxdim=max, nev=min, tol=eps(real(T)), restarts=20)
 
         R, Q = schur_decomp.R, schur_decomp.Q
         n = size(R,1)

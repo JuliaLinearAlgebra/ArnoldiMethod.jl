@@ -13,7 +13,7 @@ end
 
 """
 ```julia
-partial_schur(A; nev, which, tol, mindim, maxdim, restarts) -> PartialSchur, History
+partialschur(A; nev, which, tol, mindim, maxdim, restarts) -> PartialSchur, History
 ```
 
 Find `nev` approximate eigenpairs of `A` with eigenvalues near a specified target.
@@ -55,7 +55,7 @@ The target `which` can be any of `subtypes(ArnoldiMethod.Target)`:
 The function returns a tuple
 
 ```julia
-decomp, history = partial_schur(A, ...)
+decomp, history = partialschur(A, ...)
 ```
 
 where `decomp` is a `PartialSchur` struct which forms a partial Schur 
@@ -91,7 +91,7 @@ suggested to keep `mindim` equal to or slightly larger than `nev`, and `maxdim`
 is usually about two times `mindim`.
 
 """
-function partial_schur(A;
+function partialschur(A;
                        nev::Int = min(6, size(A, 1)),
                        which::Target = LM(),
                        tol::Real = sqrt(eps(real(vtype(A)))), 
@@ -100,7 +100,7 @@ function partial_schur(A;
                        restarts::Int = 200)
     s = checksquare(A)
     nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
-    _partial_schur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
+    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
 end
 
 """
@@ -132,7 +132,7 @@ struct History
     converged::Bool
 end
 
-function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
+function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
