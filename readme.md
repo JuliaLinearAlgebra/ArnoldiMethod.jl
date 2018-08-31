@@ -28,12 +28,12 @@ julia> A = spdiagm(
             0 => fill(2.0, 100), 
             1 => fill(-1.0, 99)
        );
-julia> decomp, history = partial_schur(A, nev=10, tol=1e-6, which=SR());
+julia> decomp, history = partialschur(A, nev=10, tol=1e-6, which=SR());
 julia> history
 Converged after 178 matrix-vector products
 julia> norm(A * decomp.Q - decomp.Q * decomp.R)
 3.717314639756976e-8
-julia> λs, X = schur_to_eigen(decomp);
+julia> λs, X = partialeigen(decomp);
 julia> norm(A * X - X * Diagonal(λs))
 3.7173146389810755e-8
 ```
