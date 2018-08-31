@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Transformations · ArnoldiMethod.jl</title><link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.2.0/normalize.min.css" rel="stylesheet" type="text/css"/><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/default.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.2.0/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link href="../assets/documenter.css" rel="stylesheet" type="text/css"/></head><body><nav class="toc"><h1>ArnoldiMethod.jl</h1><select id="version-selector" onChange="window.location.href=this.value" style="visibility: hidden"></select><form class="search" id="search-form" action="../search.html"><input id="search-query" name="q" type="text" placeholder="Search docs"/></form><ul><li><a class="toctext" href="../index.html">Home</a></li><li><a class="toctext" href="../theory.html">Theory</a></li><li><span class="toctext">Using ArnoldiMethod.jl</span><ul><li><a class="toctext" href="01_getting_started.html">Getting started</a></li><li class="current"><a class="toctext" href="02_spectral_transformations.html">Transformations</a><ul class="internal"><li><a class="toctext" href="#Shift-and-invert-with-LinearMaps.jl-1">Shift-and-invert with LinearMaps.jl</a></li><li class="toplevel"><a class="toctext" href="#generalized_shift_invert-1">Smallest eigenvalues of generalized eigenvalue problem</a></li></ul></li></ul></li></ul></nav><article id="docs"><header><nav><ul><li>Using ArnoldiMethod.jl</li><li><a href="02_spectral_transformations.html">Transformations</a></li></ul><a class="edit-page" href="https://github.com/haampie/ArnoldiMethod.jl/blob/master/docs/src/usage/02_spectral_transformations.md"><span class="fa"></span> Edit on GitHub</a></nav><hr/><div id="topbar"><span>Transformations</span><a class="fa fa-bars" href="#"></a></div></header><h1><a class="nav-anchor" id="Spectral-transformations-1" href="#Spectral-transformations-1">Spectral transformations</a></h1><p>ArnoldiMethod.jl by default only solves the standard-form eigenvalue problem  <span>$Ax = x\lambda$</span> for <span>$\lambda$</span> close to the boundary of the convex hull of  eigenvalues.</p><p>Whenever one targets eigenvalues close to a specific point in the complex plane, or whenever one solves generalized eigenvalue problems, spectral transformations will enable you to recast the problem into something that ArnoldiMethod.jl can  handle well. In this section we provide some examples.</p><h2><a class="nav-anchor" id="Shift-and-invert-with-LinearMaps.jl-1" href="#Shift-and-invert-with-LinearMaps.jl-1">Shift-and-invert with LinearMaps.jl</a></h2><p>To find eigenvalues closest to the origin of <span>$A$</span>, one can find the eigenvalues of largest magnitude of <span>$A^{-1}$</span>. <a href="https://github.com/Jutho/LinearMaps.jl">LinearMaps.jl</a>  is a neat way to implement this.</p><pre><code class="language-julia">using ArnoldiMethod, LinearAlgebra, LinearMaps
+
+# Define a matrix whose eigenvalues you want
+A = rand(100,100)
+
+# Factorizes A and builds a linear map that applies inv(A) to a vector.
+function construct_linear_map(A)
+    F = factorize(A)
+    LinearMap{eltype(A)}((y, x) -&gt; ldiv!(y, F, x), size(A,1), ismutating=true)
+end
+
+# Target the largest eigenvalues of the inverted problem
+decomp, = partial_schur(construct_linear_map(A), nev=4, tol=1e-5, restarts=100, which=LM())
+λs_inv, X = schur_to_eigen(decomp)
+
+# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.
+λs = 1 ./ λs_inv
+ 
+# Show that Ax = xλ
+@show norm(A * X - X * Diagonal(λs)) # 7.38473677258669e-6</code></pre><h1><a class="nav-anchor" id="generalized_shift_invert-1" href="#generalized_shift_invert-1">Smallest eigenvalues of generalized eigenvalue problem</a></h1><p>When targeting the eigenvalues closest to the origin of a generalized eigenvalue problem <span>$Ax = Bx\lambda$</span>, one can apply the shift-and-invert trick, recasting  the problem to <span>$A^{-1}Bx = x\theta$</span> where <span>$\lambda = 1 / \theta$</span>.</p><pre><code class="language-julia">using ArnoldiMethod, LinearAlgebra, LinearMaps
+
+# Define the matrices of the generalized eigenvalue problem
+A, B = rand(100,100), rand(100,100)
+
+struct ShiftAndInvert{TA,TB,TT}
+    A_lu::TA
+    B::TB
+    temp::TT
+end
+
+function (M::ShiftAndInvert)(y,x)
+    mul!(M.temp, M.B, x)
+    ldiv!(y, M.A_lu, M.temp)
+end
+
+function construct_linear_map(A,B)
+    a = ShiftAndInvert(factorize(A),B,Vector{eltype(A)}(undef, size(A,1)))
+    LinearMap{eltype(A)}(a, size(A,1), ismutating=true)
+end
+
+# Target the largest eigenvalues of the inverted problem
+decomp,  = partial_schur(construct_linear_map(A, B), nev=4, tol=1e-5, restarts=100, which=LM())
+λs_inv, X = schur_to_eigen(decomp)
+
+# Eigenvalues have to be inverted to find the smallest eigenvalues of the non-inverted problem.
+λs = 1 ./ λs_inv
+
+# Show that Ax = Bxλ
+@show norm(A * X - B * X * Diagonal(λs)) # 2.8043149027575927e-6</code></pre><footer><hr/><a class="previous" href="01_getting_started.html"><span class="direction">Previous</span><span class="title">Getting started</span></a></footer></article></body></html>
