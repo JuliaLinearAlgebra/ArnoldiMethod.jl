@@ -5,7 +5,7 @@
 In Julia open the package manager in the REPL via `]` and run:
 
 ```julia
-(v1.0) pkg> add git@github.com:haampie/ArnoldiMethod.jl.git
+(v1.0) pkg> add ArnoldiMethod
 ```
 
 Then use the package.
