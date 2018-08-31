@@ -16,7 +16,7 @@ using LinearAlgebra
     # Rank 3 matrix.
     B = A * A' 
 
-    schur, history = partial_schur(B, nev = 5, min = 5, max = 7, tol = eps())
+    schur, history = partial_schur(B, nev = 5, mindim = 5, maxdim = 7, tol = eps())
 
     @test history.converged
     @test history.mvproducts == 7
@@ -27,6 +27,23 @@ end
 
 @testset "Right number type" begin
     A = [rand(Bool) ? 1 : 0 for i=1:10, j=1:10]
-    @inferred partial_schur(A, nev = 2, min = 3, max = 5)
+    @inferred partial_schur(A, nev = 2, mindim = 3, maxdim = 5)
     @test vtype(A) == Float64
+end
+
+@testset "Find all eigenvalues of a small matrix" begin
+    A = rand(3, 3)
+    schur, history = partial_schur(A)
+    @test history.converged
+    @test history.mvproducts == 3
+end
+
+@testset "Incorrect input" begin
+    A = rand(6, 6)
+
+    @test_throws DimensionMismatch partial_schur(rand(4, 3))
+    @test_throws ArgumentError partial_schur(A, mindim = 5, maxdim = 3)
+    @test_throws ArgumentError partial_schur(A, nev = 5, mindim = 3)
+    @test_throws ArgumentError partial_schur(A, nev = 5, maxdim = 3)
+    @test_throws ArgumentError partial_schur(A, nev = 10)
 end
