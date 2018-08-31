@@ -90,19 +90,23 @@ partial_schur(A; nev::Int = 6,
     IsConverged(ritz, tol)
 
 Functor to test whether Ritz values satisfy the convergence criterion. Current
-convergence condition is ‖Ax - xλ‖₂ < tol * |λ|. This is supposed to be scale
-invariant: the matrix `B = αA` for some constant `α` has the same eigenvectors
-with eigenvalue λα, so this scaling with `α` cancels in the inequality.
+convergence condition is ‖Ax - xλ‖₂ < max(ε‖H‖, tol * |λ|). This is supposed to
+be scale invariant: the matrix `B = αA` for some constant `α` has the same 
+eigenvectors with eigenvalue λα, so this scaling with `α` cancels in the 
+inequality.
 """
 struct IsConverged{RV<:RitzValues,T}
     ritz::RV
     tol::T
+    H_frob_norm::RefValue{T}
+
+    IsConverged(ritz::R, tol::T) where {R<:RitzValues,T} = new{R,T}(ritz, tol, RefValue(zero(T)))
 end
 
-function (r::IsConverged)(i::Integer)
+function (r::IsConverged{RV,T})(i::Integer) where {RV,T}
     @inbounds begin
         idx = r.ritz.ord[i]
-        return r.ritz.rs[idx] < r.tol * abs(r.ritz.λs[idx])
+        return r.ritz.rs[idx] < max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[idx]))
     end
 end
 
@@ -176,13 +180,11 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
         # but this is what we observed)
         # Note that this means we might have converged Ritz values we don't want;
         # currently we do not remove these converged but unwanted Ritz values and vectors.
+        isconverged.H_frob_norm[] = norm(view(arnoldi.H, 1:maxdim, 1:maxdim))
         first_not_converged = partition!(isconverged, indices)
 
-        # This never happens, but now the compiler knows that as well
-        first_not_converged === nothing && break
-
         # Total number of converged Ritz values
-        converged = (active - 1) + (first_not_converged - 1)
+        converged = first_not_converged === nothing ? maxdim : (active - 1) + (first_not_converged - 1)
 
         # Ritz values are converged, but not all of them are deflated, so we still
         # have to bring the Hessenberg matrix to upper triangular form.
