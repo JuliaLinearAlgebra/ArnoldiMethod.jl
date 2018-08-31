@@ -39,7 +39,7 @@ part is 0.
 eigenvalues(A::AbstractMatrix{T}, tol = eps(real(T))) where {T} =
     copy_eigenvalues!(Vector{complex(T)}(undef, size(A, 1)), A, tol)
 
-function schur_to_eigen(P::PartialSchur)
+function partialeigen(P::PartialSchur)
     vals, vecs = eigen(P.R)
     return vals, P.Q*vecs
 end

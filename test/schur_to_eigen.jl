@@ -1,6 +1,6 @@
 using Test
 using LinearAlgebra
-using ArnoldiMethod: partial_schur, schur_to_eigen
+using ArnoldiMethod: partialschur, partialeigen
 using Random
 
 @testset "Schur to eigen $T take $i" for T in (Float64,ComplexF64), i in 1:10
@@ -9,10 +9,10 @@ using Random
     ε = 1e-7
     minim, maxim = 10, 20
 
-    decomp, history = partial_schur(A, mindim=minim, maxdim=maxim, nev=minim, tol=ε, restarts=100)
+    decomp, history = partialschur(A, mindim=minim, maxdim=maxim, nev=minim, tol=ε, restarts=100)
     @test history.converged
 
-    vals, vecs = schur_to_eigen(decomp)
+    vals, vecs = partialeigen(decomp)
 
     # This test seems a bit flaky sometimes -- have to dig into it.
     for i = 1 : minim
