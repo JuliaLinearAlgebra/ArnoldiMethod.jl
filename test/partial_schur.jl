@@ -1,6 +1,6 @@
 using Test
 
-using ArnoldiMethod
+using ArnoldiMethod: partial_schur, vtype
 using LinearAlgebra
 
 @testset "Zero eigenvalues & low-rank matrices" begin
@@ -23,4 +23,10 @@ using LinearAlgebra
     @test norm(schur.Q'schur.Q - I) < 100eps()
     @test norm(B * schur.Q - schur.Q * schur.R) < 100eps()
     @test norm(diag(schur.R)[4:7]) < 100eps()
+end
+
+@testset "Right number type" begin
+    A = [rand(Bool) ? 1 : 0 for i=1:10, j=1:10]
+    @inferred partial_schur(A, nev = 2, min = 3, max = 5)
+    @test vtype(A) == Float64
 end

@@ -1,4 +1,15 @@
 """
+    vtype(A) -> T
+
+Do some arithmetic to get a proper number type that a matrix A should operate
+on.
+"""
+function vtype(A)
+    T = eltype(A)
+    typeof(zero(T)/sqrt(one(T)))
+end
+
+"""
 ```julia
 partial_schur(A; nev, which, tol, min, max, restarts) -> PartialSchur, History
 ```
@@ -80,11 +91,11 @@ usually about two times min.
 """
 partial_schur(A; nev::Int = 6,
                  which::Target = LM(),
-                 tol::Real = sqrt(eps(real(eltype(A)))), 
+                 tol::Real = sqrt(eps(real(vtype(A)))), 
                  min::Int = max(10, nev),
                  max::Int = max(20, 2nev),
                  restarts::Int = 200) =
-    _partial_schur(A, eltype(A), min, max, nev, tol, restarts, which)
+    _partial_schur(A, vtype(A), min, max, nev, tol, restarts, which)
 
 """
     IsConverged(ritz, tol)
