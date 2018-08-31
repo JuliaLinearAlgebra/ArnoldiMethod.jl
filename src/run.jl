@@ -1,3 +1,5 @@
+using LinearAlgebra: checksquare
+
 """
     vtype(A) -> T
 
@@ -11,7 +13,7 @@ end
 
 """
 ```julia
-partial_schur(A; nev, which, tol, min, max, restarts) -> PartialSchur, History
+partial_schur(A; nev, which, tol, mindim, maxdim, restarts) -> PartialSchur, History
 ```
 
 Find `nev` approximate eigenpairs of `A` with eigenvalues near a specified target.
@@ -28,7 +30,7 @@ The most important keyword arguments:
 
 | Keyword | Type | Default | Description |
 |------:|:-----|:----|:------|
-| `nev` | `Int` | `6` |Number of eigenvalues |
+| `nev` | `Int` | `min(6, size(A, 1))` |Number of eigenvalues |
 | `which` | `Target` | `LM()` | One of `LM()`, `LR()`, `SR()`, `LI()`, `SI()`, see below. |
 | `tol` | `Real` | `√eps` | Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖ |
 
@@ -79,23 +81,27 @@ Further there are advanced keyword arguments for tuning the algorithm:
 
 | Keyword | Type | Default | Description |
 |------:|:-----|:---|:------|
-| `min` | `Int` | `max(10, nev)` | Minimum Krylov dimension (≥ nev) |
-| `max` | `Int` | `max(20, 2nev)` | Maximum Krylov dimension (> min) |
+| `mindim` | `Int` | `min(max(10, nev), size(A,1))` | Minimum Krylov dimension (≥ nev) |
+| `maxdim` | `Int` | `min(max(20, 2nev), size(A,1))` | Maximum Krylov dimension (≥ min) |
 | `restarts` | `Int` | `200` | Maximum number of restarts |
 
 When the algorithm does not converge, one can increase `restarts`. When the 
-algorithm converges too slowly, one can play with `min` and `max`. It is 
-suggested to keep `min` equal to or slightly larger than `nev`, and `max` is 
-usually about two times min.
+algorithm converges too slowly, one can play with `mindim` and `maxdim`. It is 
+suggested to keep `mindim` equal to or slightly larger than `nev`, and `maxdim`
+is usually about two times `mindim`.
 
 """
-partial_schur(A; nev::Int = 6,
-                 which::Target = LM(),
-                 tol::Real = sqrt(eps(real(vtype(A)))), 
-                 min::Int = max(10, nev),
-                 max::Int = max(20, 2nev),
-                 restarts::Int = 200) =
-    _partial_schur(A, vtype(A), min, max, nev, tol, restarts, which)
+function partial_schur(A;
+                       nev::Int = min(6, size(A, 1)),
+                       which::Target = LM(),
+                       tol::Real = sqrt(eps(real(vtype(A)))), 
+                       mindim::Int = min(max(10, nev), size(A, 1)),
+                       maxdim::Int = min(max(20, 2nev), size(A, 1)),
+                       restarts::Int = 200)
+    s = checksquare(A)
+    nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
+    _partial_schur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
+end
 
 """
     IsConverged(ritz, tol)
@@ -141,7 +147,7 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
     Htmp = Matrix{T}(undef, maxdim + 1, maxdim)
     Qtmp = Matrix{T}(undef, maxdim + 1, maxdim + 1)
 
-    # Initialize an Arnoldi relation of size `min`
+    # Initialize an Arnoldi relation of size `mindim`
     reinitialize!(arnoldi)
     iterate_arnoldi!(A, arnoldi, 1:mindim)
 
@@ -163,7 +169,7 @@ function _partial_schur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::T
 
     for iter = 1 : restarts
 
-        # Expand Krylov subspace dimension from `k` to `max`.
+        # Expand Krylov subspace dimension from `k` to `maxdim`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
         
         # Bookkeeping

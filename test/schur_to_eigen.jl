@@ -9,7 +9,7 @@ using Random
     ε = 1e-7
     minim, maxim = 10, 20
 
-    decomp, history = partial_schur(A, min=minim, max=maxim, nev=minim, tol=ε, restarts=100)
+    decomp, history = partial_schur(A, mindim=minim, maxdim=maxim, nev=minim, tol=ε, restarts=100)
     @test history.converged
 
     vals, vecs = schur_to_eigen(decomp)

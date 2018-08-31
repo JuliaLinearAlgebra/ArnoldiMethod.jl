@@ -39,6 +39,6 @@ function bencharnoldi()
     A = construct_linear_map(mymatrix(6000))
     target = LM()
 
-    @benchmark partial_schur(B, min=11, max=22, nev=10, tol=1e-10, restarts=100000, which=tar) setup = (B = $A; tar = $target)
+    @benchmark partial_schur(B, mindim=11, maxdim=22, nev=10, tol=1e-10, restarts=100000, which=tar) setup = (B = $A; tar = $target)
 
 end
