@@ -16,7 +16,7 @@ Make `eigs` a native Julia function.
 Open the package manager in the REPL via `]` and run
 
 ```
-(v1.0) pkg> add git@github.com:haampie/ArnoldiMethod.jl.git
+(v1.0) pkg> add ArnoldiMethod
 ```
 
 ## Example
