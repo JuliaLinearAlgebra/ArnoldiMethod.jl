@@ -2,6 +2,8 @@ module ArnoldiMethod
 
 using LinearAlgebra
 
+using Base: RefValue
+
 export partial_schur, LM, SR, LR, SI, LI, schur_to_eigen
 
 """
