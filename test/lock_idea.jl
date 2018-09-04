@@ -1,5 +1,6 @@
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 using Test
+using ArnoldiMethod: Rotation2, Arnoldi, iterate_arnoldi!, reinitialize!, local_schurfact!
 
 """
     rotate_to_eₖ(y) -> z, τ
@@ -71,4 +72,79 @@ function example(n = 10, ::Type{T} = ComplexF64) where {T<:Number}
     # drop the last term: AV(WQ) = V(WQ) + h v e'.
 
     return H₀, H, W₁, Q
+end
+
+function sometesting(n)
+    H = rand(ComplexF64, n + 1, n)
+    h = conj(H[end, :])
+    z, τ = rotate_to_eₖ(h, n)
+    Q = I - 2 * (z * z')
+    H *= Q
+    H[1:n, 1:n] .= Q * H[1:n,1:n]
+    return H
+end
+
+function H_with_conjugate(n)
+    while true
+        H = triu(randn(n, n), -1)
+        λs, xs = eigen(H)
+        i = findfirst(!iszero ∘ imag, λs)
+        if i !== nothing
+            return H, λs[i], xs[:, i]
+        end
+    end
+end
+
+function more_testing(n = 10)
+    H, λ, x = H_with_conjugate(n)
+    X = [real(x) imag(x)]
+    Q, R = qr(X)
+
+    Q' * H * Q, Q
+end
+
+function random_unitary_hessenberg_matrix(n::Int = 10, ::Type{T} = Float64) where {T}
+    H = Matrix{T}(I, n, n)
+
+    for i = n-1:-1:1
+        θ = 2π * rand()
+        lmul!(Rotation2(cos(θ), sin(θ), i), H, i, n)
+    end
+
+    H
+end
+
+function example_arnoldi_relation(n = 40, m = 10)
+    A = spdiagm(0 => [range(0.1, stop=5, length=n-3); 100:102])
+    A[n, n-1] = 1.0
+    A[n-1, n] = -1.0
+
+    arn = Arnoldi{Float64}(n, m)
+    reinitialize!(arn)
+    iterate_arnoldi!(A, arn, 1:m)
+
+    H = arn.H[1:m,1:m]
+    h = arn.H[m+1,m]
+
+    X = Matrix{Float64}(undef, m, 3)
+    θs, xs = eigen(H)
+    perm = partialsortperm(θs, 1:3, by = x->(real(x),imag(x)), rev = true)
+    let i = 1
+        while i ≤ 3
+            if iszero(imag(θs[perm[i]]))
+                copyto!(view(X, :, i), real(xs[:, perm[i]]))
+                i += 1
+            else
+                copyto!(view(X, :, i), real(xs[:, perm[i]]))
+                copyto!(view(X, :, i+1), imag(xs[:, perm[i]]))
+                i += 2
+            end
+        end
+    end
+
+    Q, R = qr(X)
+
+    return Q' * H * Q, H
+
+    # return , , Q, R, fullQ * Matrix(1.0I, m, m)
 end
