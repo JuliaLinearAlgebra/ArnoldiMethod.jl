@@ -115,36 +115,37 @@ function random_unitary_hessenberg_matrix(n::Int = 10, ::Type{T} = Float64) wher
 end
 
 function example_arnoldi_relation(n = 40, m = 10)
-    A = spdiagm(0 => [range(0.1, stop=5, length=n-3); 100:102])
-    A[n, n-1] = 1.0
-    A[n-1, n] = -1.0
+    # A = spdiagm(0 => [range(0.1, stop=5, length=n-3); 100:102])
+    # A[n,n-1] = 1.0
+    # A[n-1,n] = -1.0
+
+    A = rand(n, n)
 
     arn = Arnoldi{Float64}(n, m)
     reinitialize!(arn)
     iterate_arnoldi!(A, arn, 1:m)
+    V = arn.V
+    H = arn.H
+    
+    # Random unitary matrix
+    Q = random_unitary_hessenberg_matrix(m)
 
-    H = arn.H[1:m,1:m]
-    h = arn.H[m+1,m]
+    # Destroy the Schur decomp
+    Hnext = H * Q
+    Hnext[1:m,1:m] .= Q' * Hnext[1:m,1:m]
 
-    X = Matrix{Float64}(undef, m, 3)
-    θs, xs = eigen(H)
-    perm = partialsortperm(θs, 1:3, by = x->(real(x),imag(x)), rev = true)
-    let i = 1
-        while i ≤ 3
-            if iszero(imag(θs[perm[i]]))
-                copyto!(view(X, :, i), real(xs[:, perm[i]]))
-                i += 1
-            else
-                copyto!(view(X, :, i), real(xs[:, perm[i]]))
-                copyto!(view(X, :, i+1), imag(xs[:, perm[i]]))
-                i += 2
-            end
-        end
+    # Restore last row of H
+    for i = m:-1:2
+        z, = rotate_to_eₖ(conj(Hnext[i+1,1:i]), i)
+        W = Matrix{ComplexF64}(I, m, m)
+        W[1:i,1:i] .= I - 2 * (z * z')
+        Hnext .= Hnext * W
+        Hnext[1:m,1:m] .= W' * Hnext[1:m,1:m]
+        Q *= W
     end
 
-    Q, R = qr(X)
+    W = [V[:,1:m] * Q V[:,m+1]]
 
-    return Q' * H * Q, H
-
-    # return , , Q, R, fullQ * Matrix(1.0I, m, m)
+    @show opnorm(W' * W - I) opnorm(V' * V - I)
+    @show opnorm(A * W[:,1:m] - W * Hnext) opnorm(A * V[:,1:m] - V * H)
 end
