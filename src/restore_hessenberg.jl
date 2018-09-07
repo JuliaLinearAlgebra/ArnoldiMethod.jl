@@ -24,7 +24,7 @@ A[VQ₁ VQ₂] = [VQ₁ VQ₂][R₁₁ R₁₂; + hv[. eₖᵀQ₂]
 
 Column VQ₂ has column indices from:to
 """
-function restore_hessenberg!(H::AbstractMatrix{T}, from, to, Q) where {T}
+function restore_hessenberg!(H::AbstractMatrix{T}, from, to, Q, oldH) where {T}
     n, m = size(H)
     
     z₁, = rotate_to_eₖ(view(Q, m, from:to), length(from:to))
@@ -34,17 +34,20 @@ function restore_hessenberg!(H::AbstractMatrix{T}, from, to, Q) where {T}
     Q .= Q * W₁
     H[1:m,1:m] .= W₁ * H[1:m,1:m] * W₁
 
+    @show Q[end,1:to]
+
     for i = to:-1:from+2
         z₂, = rotate_to_eₖ(view(H, i, from:i-1), length(from:i-1))
         W₂ = Matrix{T}(I, m, m)
         W₂[from:i-1,from:i-1] .= I - 2 * (z₂ * z₂')
         Q .= Q * W₂
         H[1:m,1:m] .= W₂ * H[1:m,1:m] * W₂
+        @show Q[end,1:to]
     end
 
     for j = 1 : n, i = j + 2 : m
         H[i, j] = zero(T)
     end
 
-    H[to+1,to] = H[n,m] * Q[m,to]
+    H[to+1,to] = H[n,m] * Q[end,to]
 end

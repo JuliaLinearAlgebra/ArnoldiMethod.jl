@@ -208,8 +208,10 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         effective_nev = include_conjugate_pair(T, ritz, nev)
         first_not_converged = partition!(isconverged, potentials)
         
-        # Everything has converged ⸺ great! SHOULD STILL BASIS HERE!
+        # Everything has converged ⸺ great! SHOULD STILL CHANGE BASIS HERE!
         first_not_converged === nothing && break
+
+        display(H)
 
         # Lock the converged Ritz values for once and for all
         lock!(H, Q, active, view(potentials, 1:first_not_converged-1))
@@ -232,16 +234,15 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         truncate!(H, Q, maxdim, view(ritz.ord, k+1:maxdim))
 
         # Restore a length `k` Arnoldi relation via Householder reflections.
-        restore_hessenberg!(H, new_active, k, Q)
+        restore_hessenberg!(H, new_active, k, Q, oldH)
 
         # Change of basis.
         mul!(view(Vtmp, :, active:k), view(V, :, active:maxdim), view(Q, active:maxdim, active:k))
+        copyto!(view(V, :, active:k), view(Vtmp, :, active:k))
         copyto!(view(V, :, k + 1), view(V, :, maxdim))
 
-        display(H)
-        display(Q)
         @show norm(V[:, 1:k]' * A * V[:, 1:k] - H[1:k,1:k])
-        @show norm(A * V[:, 1:k] - V[:, 1:k+1] * H[1:k+1,1:k])
+        display((A * V[:, k] - V[:, 1:k] * H[1:k,k]) ./ (V[:, k+1]))
 
         active = new_active
 
