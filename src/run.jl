@@ -127,6 +127,10 @@ function (r::IsConverged{RV,T})(i::Integer) where {RV,T}
     end
 end
 
+"""
+History gives some general information about how much matrix-vector product were necessary
+to converged, plus the number of converged eigenvalues.
+"""
 struct History
     mvproducts::Int
     converged::Bool
@@ -138,34 +142,36 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     # Pre-allocated Arnoldi decomp
     arnoldi = Arnoldi{T}(n, maxdim)
 
+    # Unpack for convenience
+    H = arnoldi.H
+    V = arnoldi.V
+
+    # For a change of basis we have Vtmp as working space
+    Vtmp = Matrix{T}(undef, n, maxdim)
+
+    # Unitary matrix used for change of basis of V.
+    Q = Matrix{T}(undef, maxdim, maxdim)
+
     # Approximate residual norms for all Ritz values, and Ritz values
     ritz = RitzValues{T}(maxdim)
     isconverged = IsConverged(ritz, tol)
+    ordering = get_order(ritz, which)
 
-    # Some temporaries
-    Vtmp = Matrix{T}(undef, n, maxdim)
-    Htmp = Matrix{T}(undef, maxdim + 1, maxdim)
-    Qtmp = Matrix{T}(undef, maxdim + 1, maxdim + 1)
-
-    # Initialize an Arnoldi relation of size `mindim`
-    reinitialize!(arnoldi)
-    iterate_arnoldi!(A, arnoldi, 1:mindim)
-
-    # First index of non-locked basis vector in V.
-    # This just means it is the first index for which H[active + 1, active] != 0
+    # V[:, 1:active-1] = locked vectors / approximately invariant subspace
+    # V[:, active:maxdim] = active part of decomposition.
+    # V[:, active:k] = smallest size of Arnoldi relation; k will increase over time, we
+    # keep length(active:k) ≈ mindim, but we should also retain space to add new directions
+    # to the Krylov subspace, so length(k+1:maxdim) should not be too small either.
     active = 1
-
-    # Number of converged eigenvalues (not necessarily deflated!)
-    converged = 0
+    k = mindim
+    effective_nev = nev
 
     # Bookkeeping for number of mv-products
     prods = mindim
 
-    # Effective smallest size of the Arnoldi decomp.
-    k = mindim
-
-    # Ordering used in sort!
-    ordering = get_order(ritz, which)
+    # Initialize an Arnoldi relation of size `mindim`
+    reinitialize!(arnoldi)
+    iterate_arnoldi!(A, arnoldi, 1:mindim)
 
     for iter = 1 : restarts
 
@@ -175,46 +181,42 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Bookkeeping
         prods += length(k+1:maxdim)
 
-        # Compute the Ritz values and residuals
-        # E.g. we compute the eigenvalues of H[active:max,active:max]
-        H_active = view(Htmp, active:maxdim, active:maxdim)
-        Q_active = view(Qtmp, active:maxdim, active:maxdim)
-        copyto!(H_active, view(arnoldi.H, active:maxdim, active:maxdim))
-        copyto!(Q_active, I)
+        # Q accumulates the changes of basis via relfectors; initially it's just I.
+        copyto!(Q, one(T) * I)
 
-        # Construct Schur decomp of inplace
-        local_schurfact!(H_active, Q_active)
+        oldH = copy(H[1:maxdim,1:maxdim])
+
+        # Construct Schur decomposition of H[active:maxdim,active:maxdim] in-place
+        local_schurfact!(view(H, 1:maxdim, 1:maxdim), active, maxdim, Q)
         
         # Update the Ritz values
-        indices = view(ritz.ord, active:maxdim)
-        copy_eigenvalues!(view(ritz.λs, active:maxdim), H_active)
-        copy_residuals!(view(ritz.rs, active:maxdim), H_active, Q_active, @inbounds arnoldi.H[maxdim+1,maxdim])
-        copyto!(indices, active:maxdim)
+        copyto!(view(ritz.ord, active:maxdim), active:maxdim)
+        copy_eigenvalues!(ritz.λs, H)
+        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim])
 
-        # Partition the Ritz values in converged & not converged
-        # We never shift a converged Ritz value because the Arnoldi relation might lose
-        # as many digits as the converged Ritz value had (there's probably theory on this,
-        # but this is what we observed)
-        # Note that this means we might have converged Ritz values we don't want;
-        # currently we do not remove these converged but unwanted Ritz values and vectors.
+        # Sort the Ritz values from most wanted to least wanted in the active part of the
+        # factorization. TODO: use quicksort and let ordering induce stability by itself.
+        sort!(ritz.ord, active, maxdim, MergeSort, ordering)
+
+        # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(view(arnoldi.H, 1:maxdim, 1:maxdim))
-        first_not_converged = partition!(isconverged, indices)
 
-        # Total number of converged Ritz values
-        converged = first_not_converged === nothing ? maxdim : (active - 1) + (first_not_converged - 1)
+        # From the potentialy converged Ritz values in active:nev+{0,1} we partition 
+        # them in converged and not converged. Note: we partition the permutation, not the
+        # Ritz values themselves, so we're still good.
+        potentials = view(ritz.ord, active:effective_nev)
+        effective_nev = include_conjugate_pair(T, ritz, nev)
+        first_not_converged = partition!(isconverged, potentials)
+        
+        # Everything has converged ⸺ great! SHOULD STILL BASIS HERE!
+        first_not_converged === nothing && break
 
-        # Ritz values are converged, but not all of them are deflated, so we still
-        # have to bring the Hessenberg matrix to upper triangular form.
-        # For now just shift away those Ritz values that have not converged
-        # and then act like H[converged+1,converged] = 0, so that V[:,1:converged]
-        # spans an invariant subspace for A.
-        if converged ≥ nev
-            implicit_restart!(arnoldi, Vtmp, ritz, converged, maxdim, active)
-            transform_converged!(arnoldi, active, converged, Vtmp)
-            hist = History(prods, true)
-            schur = PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged))
-            return schur, hist
-        end
+        # Lock the converged Ritz values for once and for all
+        lock!(H, Q, active, view(potentials, 1:first_not_converged-1))
+
+        # We have locked first_not_converged - 1 Ritz vectors, so the active factorization
+        # active:maxdim shrinks in length.
+        new_active = active + first_not_converged - 1
 
         # We will reduce the the size of the Krylov subspace from `max` to `k`
         # and in the special case of a conjugate pair sometimes to `k+1`
@@ -225,40 +227,118 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # of `mindim` excluding converged eigenvectors.
         # However, we must also keep some room for improving the subspace, so in the end
         # we don't allow the minimum dimension to grow beyond halfway `mindim` and `maxdim`.
-        k = min(mindim + converged, (mindim + maxdim) ÷ 2)
-        
-        # Now determine `maxdim - k` exact shifts.
-        # TODO: worry about the order of the exact shifts -- maybe there is value in
-        # a particular order such as from worst converged to best converged. Would not be
-        # surprised if ARPACK did this.
-        sort!(ritz.ord, converged + 1, maxdim, MergeSort, ordering)
+        k = include_conjugate_pair(T, ritz, min(mindim + new_active - 1, (mindim + maxdim) ÷ 2))
 
-        # Shrink the subspace. Note that implicit_restart! returns the effective size of
-        # the shrunken Krylov subspace. In complex arithmetic it will always be the old `k`
-        # but in real arithmetic a conjugate pair make `k ← k + 1`.
-        k = implicit_restart!(arnoldi, Vtmp, ritz, k, maxdim, active)
-        
-        # Check whether some off-diagonal value is small enough and if so, bring the new 
-        # locked part of H into upper triangular form.
-        new_active = max(active, detect_convergence!(arnoldi.H, tol)) # max is superfluous here...
-        transform_converged!(arnoldi, active, new_active-1, Vtmp)
+        truncate!(H, Q, maxdim, view(ritz.ord, k+1:maxdim))
+
+        # Restore a length `k` Arnoldi relation via Householder reflections.
+        restore_hessenberg!(H, new_active, k, Q)
+
+        # Change of basis.
+        mul!(view(Vtmp, :, active:k), view(V, :, active:maxdim), view(Q, active:maxdim, active:k))
+        copyto!(view(V, :, k + 1), view(V, :, maxdim))
+
+        display(H)
+        display(Q)
+        @show norm(V[:, 1:k]' * A * V[:, 1:k] - H[1:k,1:k])
+        @show norm(A * V[:, 1:k] - V[:, 1:k+1] * H[1:k+1,1:k])
+
         active = new_active
 
-        active > nev && break
+        return;
     end
 
-    schur = PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged))
-    hist = History(prods, false)
-    return schur, hist
+    # schur = PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged))
+    # hist = History(prods, false)
+    # return schur, hist
 end
 
 """
-    update_residual_norms!(rs, H, Q, hₖ₊₁ₖ) -> rs
+    include_conjugate_pair(T, ritz, i) → {i, i + 1}
+
+Returns i or i + 1 depending on whether Ritz value i and i + 1 form a conjugate pair
+together
+"""
+@inline function include_conjugate_pair(::Type{<:Real}, ritz::RitzValues, i)
+    @inbounds λ1 = ritz.λs[ritz.ord[i+0]]
+    @inbounds λ2 = ritz.λs[ritz.ord[i+1]]
+    return imag(λ1) != 0 && λ1' == λ2 ? i + 1 : i
+end
+
+@inline include_conjugate_pair(::Type{T}, ritz::RitzValues, i) where {T} = i
+
+@inline function lock!(R, Q, from::Integer, list::AbstractVector{<:Integer})
+    sort!(list, QuickSort, Base.Order.Forward)
+    @inbounds for idx in list
+        rotate_right!(R, from, idx, Q)
+        from += 1
+    end
+
+    nothing
+end
+
+@inline function lock!(R::AbstractMatrix{<:Real}, Q, from::Integer, list::AbstractVector{<:Integer})
+    # We assume `from` points to the start of a block
+    sort!(list, MergeSort, Base.Order.Forward)
+    i = 1
+    @inbounds while i ≤ length(list)
+        idx = list[i]
+        is11 = is_start_of_11_block(R, idx)
+        rotate_right!(R, from, idx, Q)
+        if is11
+            from += 1
+            i += 1
+        else
+            from += 2
+            i += 2
+        end
+    end
+end
+
+"""
+    truncate!(R, Q, to, list) → nothing
+
+Rotate eigenvalues occuring in `list` to the end of the Schur decomp
+"""
+function truncate!(R, Q, to::Integer, list::AbstractVector{<:Integer})
+    sort!(list, QuickSort, Base.Order.Backward)
+    @inbounds for idx in list
+        rotate_left!(R, idx, to, Q)
+        to -= 1
+    end
+
+    nothing
+end
+
+# Real case, some edge cases with conjugate pairs etc etc
+function truncate!(R::AbstractMatrix{<:Real}, Q, to::Integer, list::AbstractVector{<:Integer})
+    # VERY convoluted, should really be refactored
+    sort!(list, MergeSort, Base.Order.Forward)
+    i = length(list)
+    @inbounds while i > 0
+        idx = list[i]
+        isfrom11 = is_end_of_11_block(R, idx)
+        isto11 = is_end_of_11_block(R, to)
+        rotate_left!(R, isfrom11 ? idx : idx - 1, isto11 ? to : to - 1, Q)
+        if isfrom11
+            to -= 1
+            i -= 1
+        else
+            to -= 2
+            i -= 2
+        end
+    end
+
+    nothing
+end
+
+"""
+    update_residual_norms!(rs, H, Q, hₖ₊₁ₖ) → rs
 
 Computes the Ritz residuals ‖Ax - λx‖₂ = |yₖ| * |hₖ₊₁ₖ| for each eigenvalue
 """
 function copy_residuals!(rs::AbstractVector{T}, H, Q, hₖ₊₁ₖ) where {T<:Real}
-    m = size(H, 1)
+    m = size(H, 2)
     x = zeros(complex(T), m)
     @inbounds for i = 1:m
         fill!(x, zero(T))
@@ -272,44 +352,3 @@ function copy_residuals!(rs::AbstractVector{T}, H, Q, hₖ₊₁ₖ) where {T<:R
 
     rs
 end
-
-"""
-    transform_converged!(arnoldi, from, to, Vtmp) -> nothing
-
-Whenever we have found an invariant subspace V[:, 1:to], we want to bring V[:, 1:to]
-and H[1:to, 1:to] to partial Schur form, in the sense that H[1:to,1:to] is upper triangular
-and A * V[:, 1:to] = V[:, 1:to] * H[1:to,1:to].
-
-In this function we assume (V[:, 1:from-1], H[1:from-1,1:from-1]) is already in partial
-Schur form, and we only have to touch V[:, from:to] and the blocks H[from:to, from:to],
-H[1:from-1,from:to] and H[from:to,to+1:end].
-
-If only one vector has converged (i.e. from == to), then we don't have to do any work!
-"""
-function transform_converged!(arnoldi::Arnoldi{T}, from::Int, to::Int, Vtmp) where {T}
-
-    # Nothing to transform
-    to ≤ from && return nothing
-    
-    # H = Q R Q'
-
-    # A V = V H
-    # A V = V Q R Q'
-    # A (V Q) = (V Q) R
-    
-    # V <- V Q
-    # H_right <- Q' H_right
-    # H_lock <- Q' H_lock Q
-    # H_above <- H_above Q
-
-    Q_large = Matrix{T}(I, to, to)
-    Q_small = view(Q_large, from:to, from:to)
-    V_locked = view(arnoldi.V, :, from:to)
-
-    local_schurfact!(arnoldi.H, from, to, Q_large)
-    mul!(view(Vtmp, :, from:to), V_locked, Q_small)
-    copyto!(V_locked, view(Vtmp, :, from:to))
-
-    return nothing
-end
-

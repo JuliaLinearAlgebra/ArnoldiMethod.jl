@@ -1,6 +1,7 @@
 module ArnoldiMethod
 
 using LinearAlgebra
+using StaticArrays
 
 using Base: RefValue
 
@@ -60,9 +61,9 @@ end
 include("targets.jl")
 include("partition.jl")
 include("schurfact.jl")
+include("schursort.jl")
+include("restore_hessenberg.jl")
 include("expansion.jl")
-include("implicit_restart.jl")
-include("factorization.jl")
 include("run.jl")
 include("eigvals.jl")
 include("eigenvector_uppertriangular.jl")
