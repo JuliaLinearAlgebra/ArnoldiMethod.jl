@@ -195,7 +195,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         # Sort the Ritz values from most wanted to least wanted in the active part of the
         # factorization. TODO: use quicksort and let ordering induce stability by itself.
-        sort!(ritz.ord, active, maxdim, MergeSort, ordering)
+        sort!(ritz.ord, active, maxdim, QuickSort, ordering)
 
         # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(view(arnoldi.H, 1:maxdim, 1:maxdim))
@@ -212,7 +212,9 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         nconv_this_iteration = first_not_converged === nothing ? length(active:effective_nev) : first_not_converged - 1
 
         # Rotate the converged Ritz values to first entries of the diagonal of H
-        lock!(H, Q, active, view(potentials, 1:nconv_this_iteration))
+        converged_indices = view(potentials, 1:nconv_this_iteration)
+        sort!(converged_indices, QuickSort, Forward)
+        lock!(H, Q, active, converged_indices)
 
         # Total number of converged Ritz values
         total_converged = active - 1 + nconv_this_iteration
@@ -241,7 +243,9 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         k = include_conjugate_pair(T, ritz, min(mindim + new_active - 1, (mindim + maxdim) ÷ 2))
 
         # Rotate the unwantend Ritz values to the end of the diagonal of H
-        truncate!(H, Q, maxdim, view(ritz.ord, k+1:maxdim))
+        unwanted_indices = view(ritz.ord, k+1:maxdim)
+        sort!(unwanted, QuickSort, Forward)
+        truncate!(H, Q, maxdim, unwanted_indices)
 
         # Restore the Hessenberg matrix via Householder reflections.
         restore_hessenberg!(H, new_active, k, Q)
@@ -271,8 +275,17 @@ end
 
 @inline include_conjugate_pair(::Type{T}, ritz::RitzValues, i) where {T} = i
 
+"""
+    lock!(R, Q, from, list) → nothing
+
+Update R and Q such that the Schur form is reordered with the indices in the list are up 
+front: R[1,1] = R[list[1], list[1]], ... R[k,k] = R[list[k],list[k]].
+
+Assumes `list` is sorted in forward order. In the real case, complex conjugate eigenvalues
+should occur consecutively in `list`, where the first index refers to the start of the 2×2
+block.
+"""
 @inline function lock!(R, Q, from::Integer, list::AbstractVector{<:Integer})
-    sort!(list, QuickSort, Base.Order.Forward)
     @inbounds for idx in list
         rotate_right!(R, from, idx, Q)
         from += 1
@@ -282,9 +295,25 @@ end
 end
 
 @inline function lock!(R::AbstractMatrix{<:Real}, Q, from::Integer, list::AbstractVector{<:Integer})
-    # We assume `from` points to the start of a block
-    sort!(list, MergeSort, Base.Order.Forward)
+    # Example of how this works:
+
+    # Initial diagonal of R:
+    # |..|.|.|..|.|..|
+    #  ^           ^
+    # from      list[i]
+
+    # After the rotation:
+    # |..|..|.|.|..|.|
+    #  ^
+    #  from 
+
+    # Then increment `from` according to the size of the block that just moved in:
+    # |..|..|.|.|..|.|
+    #     ^
+    #     from
+
     i = 1
+
     @inbounds while i ≤ length(list)
         idx = list[i]
         is11 = is_start_of_11_block(R, idx)
@@ -300,12 +329,16 @@ end
 end
 
 """
-    truncate!(R, Q, to, list) → nothing
+    truncate!(R, Q, from, list) → nothing
 
-Rotate eigenvalues occuring in `list` to the end of the Schur decomp
+Update R and Q such that the Schur form is reordered with the indices in the list at the
+end: R[end,end] = R[list[end], list[end]], ... R[end-k,end-k] = R[list[end-k],list[end-k]].
+
+Assumes `list` is sorted in forward order. In the real case, complex conjugate eigenvalues
+should occur consecutively in `list`, where the first index refers to the start of the 2×2
+block.
 """
 function truncate!(R, Q, to::Integer, list::AbstractVector{<:Integer})
-    sort!(list, QuickSort, Base.Order.Backward)
     @inbounds for idx in list
         rotate_left!(R, idx, to, Q)
         to -= 1
@@ -314,10 +347,26 @@ function truncate!(R, Q, to::Integer, list::AbstractVector{<:Integer})
     nothing
 end
 
-# Real case, some edge cases with conjugate pairs etc etc
 function truncate!(R::AbstractMatrix{<:Real}, Q, to::Integer, list::AbstractVector{<:Integer})
-    # VERY convoluted, should really be refactored
-    sort!(list, MergeSort, Base.Order.Forward)
+    # We go from the end to the list to the front, so when we hit a complex conjugate pair
+    # of eigenvalues, the index will be at the end of the 2×2 block.
+    # Also, `to` might point to the end of a 2×2 block! Example of how this works:
+
+    # Initial diagonal of R:
+    # |..|.|.|..|..|.|
+    #   ^           ^
+    # list[i]       to
+
+    # After the rotation:
+    # |.|.|..|..|.|..|
+    #               ^
+    #               to
+
+    # Then decrement `to` according to the size of the block that just moved in:
+    # |.|.|..|..|.|..|
+    #            ^
+    #            to
+
     i = length(list)
     @inbounds while i > 0
         idx = list[i]

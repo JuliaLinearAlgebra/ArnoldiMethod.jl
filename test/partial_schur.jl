@@ -22,7 +22,7 @@ using LinearAlgebra
     @test history.mvproducts == 7
     @test norm(schur.Q'schur.Q - I) < 100eps()
     @test norm(B * schur.Q - schur.Q * schur.R) < 100eps()
-    @test norm(diag(schur.R)[4:7]) < 100eps()
+    @test norm(diag(schur.R)[4:5]) < 100eps()
 end
 
 @testset "Right number type" begin
