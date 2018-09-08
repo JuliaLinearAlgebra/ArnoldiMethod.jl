@@ -19,7 +19,7 @@ function partition!(predicate, v::AbstractVector, range::AbstractRange = 1 : len
 
         idx > to && return nothing
 
-        for j = idx+1:length(v)
+        for j = idx+1:to
             if predicate(v[j])
                 v[idx], v[j] = v[j], v[idx]
                 idx += 1
