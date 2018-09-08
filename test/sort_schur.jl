@@ -11,11 +11,11 @@ function helloworld(n = 40, nev = 4)
     A[n,n-1] = 10.0
     A[n-1,n] = -10.0
 
-    S, hist = partialschur(A, nev=nev, which = LR())
+    S, hist = partialschur(A, nev=nev, which = SR())
 
     @show norm(A * S.Q - S.Q * S.R)
 
-    @show hist
+    println(hist)
 
     @show eigvals(S.R)
 end

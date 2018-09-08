@@ -129,7 +129,9 @@ to converged, plus the number of converged eigenvalues.
 """
 struct History
     mvproducts::Int
+    nconverged::Int
     converged::Bool
+    nev::Int
 end
 
 function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
@@ -258,10 +260,10 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # The active part 
         active = nlock + 1
 
-        nlock ≥ nev && return PartialSchur(V[:, 1:nlock], H[1:nlock,1:nlock]), History(prods, true)
+        @views nlock ≥ nev && return PartialSchur(V[:, 1:nlock], H[1:nlock,1:nlock]), History(prods, nlock, true, nev)
     end
 
-    return PartialSchur(V[:, 1:active-1], H[1:active-1,1:active-1]), History(prods, false)
+    @views return PartialSchur(V[:, 1:active-1], H[1:active-1,1:active-1]), History(prods, active-1, false, nev)
 end
 
 function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
