@@ -1,21 +1,21 @@
-using ArnoldiMethod: Arnoldi, iterate_arnoldi!, reinitialize!, partialschur,
-                     Reflector, reflector!, restore_hessenberg!, SR, LR
+using ArnoldiMethod
 using SparseArrays
 using Base: OneTo
 using LinearAlgebra
 using Random
 using BenchmarkTools
+using Plots
+using Arpack
 
 function helloworld(n = 40, nev = 4)
-    A = spdiagm(0 => [range(0.1, stop=5, length=n-3); 100:102])
-    A[n,n-1] = 10.0
-    A[n-1,n] = -10.0
-
-    S, hist = partialschur(A, nev=nev, which = SR())
-
+    A = randn(n, n)
+    @time S, hist = partialschur(A, nev=nev, which = LR(), tol = 1e-6)
+    @time eigs(A, nev=nev, which = :LR, tol = 1e-6)
     @show norm(A * S.Q - S.Q * S.R)
-
     println(hist)
+    θs = eigvals(S.R)
+    @time λs = eigvals(A)
 
-    @show eigvals(S.R)
+    scatter(real(λs), imag(λs), aspect_ratio = :equal)
+    scatter!(real(θs), imag(θs), mark = :+)
 end
