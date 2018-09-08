@@ -208,12 +208,23 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         effective_nev = include_conjugate_pair(T, ritz, nev)
         first_not_converged = partition!(isconverged, potentials)
         
-        # Everything has converged ⸺ great!
-        # TODO: this edge case still requires change of basis.
-        first_not_converged === nothing && break
+        # Count how many have converged
+        nconv_this_iteration = first_not_converged === nothing ? length(active:effective_nev) : first_not_converged - 1
 
         # Rotate the converged Ritz values to first entries of the diagonal of H
-        lock!(H, Q, active, view(potentials, 1:first_not_converged-1))
+        lock!(H, Q, active, view(potentials, 1:nconv_this_iteration))
+
+        # Total number of converged Ritz values
+        total_converged = active - 1 + nconv_this_iteration
+
+        # We are done :)
+        if total_converged ≥ nev 
+            # But still do the change of basis.
+            @views mul!(Vtmp[:,active:total_converged], V[:,active:maxdim], Q[active:maxdim,active:total_converged])
+            @views copyto!(V[:,active:total_converged], Vtmp[:,active:total_converged])
+            return PartialSchur(V[:,1:total_converged], H[1:total_converged,1:total_converged]), History(prods, true)
+        end
+
 
         # We have locked `first_not_converged - 1` Ritz vectors, so the active factorization
         # active:maxdim shrinks in length.
@@ -243,9 +254,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         active = new_active
     end
 
-    schur = PartialSchur(V, H)
-    hist = History(prods, false)
-    return schur, hist
+    return PartialSchur(V, H), History(prods, false)
 end
 
 """
