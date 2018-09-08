@@ -120,12 +120,8 @@ struct IsConverged{RV<:RitzValues,T}
     IsConverged(ritz::R, tol::T) where {R<:RitzValues,T} = new{R,T}(ritz, tol, RefValue(zero(T)))
 end
 
-function (r::IsConverged{RV,T})(i::Integer) where {RV,T}
-    @inbounds begin
-        idx = r.ritz.ord[i]
-        return r.ritz.rs[idx] < max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[idx]))
-    end
-end
+(r::IsConverged{RV,T})(i::Integer) where {RV,T} =
+    @inbounds return r.ritz.rs[i] < max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
 
 """
 History gives some general information about how much matrix-vector product were necessary
@@ -156,6 +152,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     ritz = RitzValues{T}(maxdim)
     isconverged = IsConverged(ritz, tol)
     ordering = get_order(ritz, which)
+    groups = zeros(Int, maxdim)
 
     # V[:,1:active-1   ] ⸺ Locked vectors / approximately invariant subspace
     # V[:,active:maxdim] ⸺ Active part of decomposition.
@@ -189,50 +186,39 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         local_schurfact!(view(H, 1:maxdim, 1:maxdim), active, maxdim, Q)
         
         # Update the Ritz values
-        copyto!(view(ritz.ord, active:maxdim), active:maxdim)
+        # TODO: only compute residual of *active* eigenvalues
+        copyto!(ritz.ord, 1:maxdim)
         copy_eigenvalues!(ritz.λs, H)
         copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim])
 
         # Sort the Ritz values from most wanted to least wanted in the active part of the
-        # factorization. TODO: use quicksort and let ordering induce stability by itself.
+        # factorization.
         sort!(ritz.ord, active, maxdim, QuickSort, ordering)
 
         # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(view(arnoldi.H, 1:maxdim, 1:maxdim))
 
-        ### LOCKING: fixing the converged Ritz values in the front of H
+        ### PARTITIONING OF SCHUR FORM IN [LOCKED | RETAINED | PURGED]
 
-        # From the potentialy converged Ritz values in active:nev+{0,1} we partition 
-        # them in converged and not converged. Note: we partition the permutation.
-        potentials = view(ritz.ord, active:effective_nev)
+        # Plan de campagne: reorder the permutation `ritz.ord` such that
+        # ritz.ord[1:nlock] gives the indices of the locked ritz values
+        # ritz.ord[nlock+1:k] is the indices of the ritz values we wanna retain
+        # ritz.ord[k+1:maxdim] is the indices of the ritz values we wanna truncate
+        # Then we make ritz.groups[i] = {1,2,3} by iterating over them.
+
+        # We keep at most `nev` or `nev+1` eigenvalues, depending on the split being
+        # halfway a conjugate pair.
         effective_nev = include_conjugate_pair(T, ritz, nev)
-        first_not_converged = partition!(isconverged, potentials)
-        
-        # Count how many have converged
-        nconv_this_iteration = first_not_converged === nothing ? length(active:effective_nev) : first_not_converged - 1
 
-        # Rotate the converged Ritz values to first entries of the diagonal of H
-        converged_indices = view(potentials, 1:nconv_this_iteration)
-        sort!(converged_indices, QuickSort, Forward)
-        lock!(H, Q, active, converged_indices)
+        # Partition in converged & not converged.
+        first_not_conv_idx = partition!(isconverged, ritz.ord, active:effective_nev)
 
-        # Total number of converged Ritz values
-        total_converged = active - 1 + nconv_this_iteration
+        # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
+        # nlock ≤ effective_nev, so it's really just these that we are after!
+        nlock = first_not_conv_idx === nothing ? effective_nev : first_not_conv_idx - 1
 
-        # We are done :)
-        if total_converged ≥ nev 
-            # But still do the change of basis.
-            @views mul!(Vtmp[:,active:total_converged], V[:,active:maxdim], Q[active:maxdim,active:total_converged])
-            @views copyto!(V[:,active:total_converged], Vtmp[:,active:total_converged])
-            return PartialSchur(V[:,1:total_converged], H[1:total_converged,1:total_converged]), History(prods, true)
-        end
-
-
-        # We have locked `first_not_converged - 1` Ritz vectors, so the active factorization
-        # active:maxdim shrinks in length.
-        new_active = active + first_not_converged - 1
-
-        ### RESTART: truncation of the unwanted Ritz values
+        # Next, purge the converged eigenvalues we do not want by moving them to the back.
+        partition!(i -> !isconverged(i), ritz.ord, nlock+1:maxdim)
 
         # Determine the new length `k` of the truncated Krylov subspace:
         # 1. The dimension of the active part should be roughly `mindim`; so `k` will be 
@@ -240,25 +226,106 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # 2. But `k` can't be so large that the expansion would barely give new information;
         #    hence we meet in the middle: `k` is at most halfway `mindim` and `maxdim`.
         # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
-        k = include_conjugate_pair(T, ritz, min(mindim + new_active - 1, (mindim + maxdim) ÷ 2))
+        k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
 
-        # Rotate the unwantend Ritz values to the end of the diagonal of H
-        unwanted_indices = view(ritz.ord, k+1:maxdim)
-        sort!(unwanted, QuickSort, Forward)
-        truncate!(H, Q, maxdim, unwanted_indices)
+        # Locked ritz values
+        @inbounds for i = 1:nlock
+            groups[ritz.ord[i]] = 1
+        end
+
+        # Retained ritz values
+        @inbounds for i = nlock+1:k
+            groups[ritz.ord[i]] = 2
+        end
+
+        # Truncated ritz values
+        @inbounds for i = k+1:maxdim
+            groups[ritz.ord[i]] = 3
+        end
+
+        partition_schur_three_way!(H, Q, groups)
 
         # Restore the Hessenberg matrix via Householder reflections.
-        restore_hessenberg!(H, new_active, k, Q)
+        # Note that we restore the new active part only -- Q[end, 1:nlock] is small enough
+        # by convergence criterion.
+        restore_hessenberg!(H, nlock + 1, k, Q)
 
         # Finally do the change of basis to get the length `k` Arnoldi relation.
         @views mul!(Vtmp[:,active:k], V[:,active:maxdim], Q[active:maxdim,active:k])
         @views copyto!(V[:,active:k], Vtmp[:,active:k])
         @views copyto!(V[:,k+1], V[:,maxdim+1])
 
-        active = new_active
+        # The active part 
+        active = nlock + 1
+
+        nlock ≥ nev && return PartialSchur(V[:, 1:effective_nev], H[1:effective_nev,1:effective_nev]), History(prods, true)
     end
 
     return PartialSchur(V, H), History(prods, false)
+end
+
+function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
+    # Partitioning goes like this:
+    # |2|33|1|2|33|2|1|
+    #  h
+    #  m
+    #  l
+
+    # |2|33|1|2|33|2|1|  -> |2|33|1|2|33|2|1| 
+    #    h               ->       h             
+    #  m                 ->    m             
+    #  l                 ->  l               
+
+    # |2|33|1|2|33|2|1|  -> |1|2|33|2|33|2|1| 
+    #       h            ->         h              
+    #    m               ->      m
+    #  l                 ->    l                   
+    
+    # |1|2|33|2|33|2|1|  -> |1|2|2|33|33|2|1| 
+    #         h          ->           h        
+    #      m             ->        m         
+    #    l               ->    l             
+
+    # |1|2|2|33|33|2|1|  -> |1|2|2|33|33|2|1| 
+    #           h        ->              h              
+    #        m           ->        m          
+    #    l               ->    l                   
+
+    # |1|2|2|33|33|2|1|  -> |1|2|2|2|33|33|1| 
+    #              h     ->                h   
+    #        m           ->          m       
+    #    l               ->    l             
+        
+    
+    # |1|2|2|2|33|33|1|  -> |1|1|2|2|2|33|33|
+    #                h   ->                  h             
+    #          m         ->            m       
+    #    l               ->      l                  
+     
+
+    hi = 1
+    mi = 1
+    lo = 1
+
+    while hi ≤ length(groups)
+        group = groups[hi]
+        blocksize = is_start_of_11_block(R, hi) ? 1 : 2
+
+        if group == 3
+            hi += blocksize
+        elseif group == 2
+            rotate_right!(R, mi, hi, Q)
+            hi += blocksize
+            mi += blocksize
+        else # group == 1
+            rotate_right!(R, lo, hi, Q)
+            hi += blocksize
+            mi += blocksize
+            lo += blocksize
+        end
+    end
+
+    nothing
 end
 
 """
@@ -274,116 +341,6 @@ together
 end
 
 @inline include_conjugate_pair(::Type{T}, ritz::RitzValues, i) where {T} = i
-
-"""
-    lock!(R, Q, from, list) → nothing
-
-Update R and Q such that the Schur form is reordered with the indices in the list are up 
-front: R[1,1] = R[list[1], list[1]], ... R[k,k] = R[list[k],list[k]].
-
-Assumes `list` is sorted in forward order. In the real case, complex conjugate eigenvalues
-should occur consecutively in `list`, where the first index refers to the start of the 2×2
-block.
-"""
-@inline function lock!(R, Q, from::Integer, list::AbstractVector{<:Integer})
-    @inbounds for idx in list
-        rotate_right!(R, from, idx, Q)
-        from += 1
-    end
-
-    nothing
-end
-
-@inline function lock!(R::AbstractMatrix{<:Real}, Q, from::Integer, list::AbstractVector{<:Integer})
-    # Example of how this works:
-
-    # Initial diagonal of R:
-    # |..|.|.|..|.|..|
-    #  ^           ^
-    # from      list[i]
-
-    # After the rotation:
-    # |..|..|.|.|..|.|
-    #  ^
-    #  from 
-
-    # Then increment `from` according to the size of the block that just moved in:
-    # |..|..|.|.|..|.|
-    #     ^
-    #     from
-
-    i = 1
-
-    @inbounds while i ≤ length(list)
-        idx = list[i]
-        is11 = is_start_of_11_block(R, idx)
-        rotate_right!(R, from, idx, Q)
-        if is11
-            from += 1
-            i += 1
-        else
-            from += 2
-            i += 2
-        end
-    end
-end
-
-"""
-    truncate!(R, Q, from, list) → nothing
-
-Update R and Q such that the Schur form is reordered with the indices in the list at the
-end: R[end,end] = R[list[end], list[end]], ... R[end-k,end-k] = R[list[end-k],list[end-k]].
-
-Assumes `list` is sorted in forward order. In the real case, complex conjugate eigenvalues
-should occur consecutively in `list`, where the first index refers to the start of the 2×2
-block.
-"""
-function truncate!(R, Q, to::Integer, list::AbstractVector{<:Integer})
-    @inbounds for idx in list
-        rotate_left!(R, idx, to, Q)
-        to -= 1
-    end
-
-    nothing
-end
-
-function truncate!(R::AbstractMatrix{<:Real}, Q, to::Integer, list::AbstractVector{<:Integer})
-    # We go from the end to the list to the front, so when we hit a complex conjugate pair
-    # of eigenvalues, the index will be at the end of the 2×2 block.
-    # Also, `to` might point to the end of a 2×2 block! Example of how this works:
-
-    # Initial diagonal of R:
-    # |..|.|.|..|..|.|
-    #   ^           ^
-    # list[i]       to
-
-    # After the rotation:
-    # |.|.|..|..|.|..|
-    #               ^
-    #               to
-
-    # Then decrement `to` according to the size of the block that just moved in:
-    # |.|.|..|..|.|..|
-    #            ^
-    #            to
-
-    i = length(list)
-    @inbounds while i > 0
-        idx = list[i]
-        isfrom11 = is_end_of_11_block(R, idx)
-        isto11 = is_end_of_11_block(R, to)
-        rotate_left!(R, isfrom11 ? idx : idx - 1, isto11 ? to : to - 1, Q)
-        if isfrom11
-            to -= 1
-            i -= 1
-        else
-            to -= 2
-            i -= 2
-        end
-    end
-
-    nothing
-end
 
 """
     update_residual_norms!(rs, H, Q, hₖ₊₁ₖ) → rs
