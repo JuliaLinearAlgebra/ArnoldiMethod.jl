@@ -157,11 +157,12 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     isconverged = IsConverged(ritz, tol)
     ordering = get_order(ritz, which)
 
-    # V[:, 1:active-1] = locked vectors / approximately invariant subspace
-    # V[:, active:maxdim] = active part of decomposition.
-    # V[:, active:k] = smallest size of Arnoldi relation; k will increase over time, we
-    # keep length(active:k) ≈ mindim, but we should also retain space to add new directions
-    # to the Krylov subspace, so length(k+1:maxdim) should not be too small either.
+    # V[:,1:active-1   ] ⸺ Locked vectors / approximately invariant subspace
+    # V[:,active:maxdim] ⸺ Active part of decomposition.
+    # V[:,active:k     ] ⸺ Smallest size of Arnoldi relation; k will increase over time.
+    #                        We keep length(active:k) ≈ mindim, but we should also retain
+    #                        space to add new directions to the Krylov subspace, so 
+    #                        length(k+1:maxdim) should not be too small either.
     active = 1
     k = mindim
     effective_nev = nev
@@ -184,8 +185,6 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Q accumulates the changes of basis via relfectors; initially it's just I.
         copyto!(Q, one(T) * I)
 
-        oldH = copy(H[1:maxdim,1:maxdim])
-
         # Construct Schur decomposition of H[active:maxdim,active:maxdim] in-place
         local_schurfact!(view(H, 1:maxdim, 1:maxdim), active, maxdim, Q)
         
@@ -201,57 +200,52 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(view(arnoldi.H, 1:maxdim, 1:maxdim))
 
+        ### LOCKING: fixing the converged Ritz values in the front of H
+
         # From the potentialy converged Ritz values in active:nev+{0,1} we partition 
-        # them in converged and not converged. Note: we partition the permutation, not the
-        # Ritz values themselves, so we're still good.
+        # them in converged and not converged. Note: we partition the permutation.
         potentials = view(ritz.ord, active:effective_nev)
         effective_nev = include_conjugate_pair(T, ritz, nev)
         first_not_converged = partition!(isconverged, potentials)
         
-        # Everything has converged ⸺ great! SHOULD STILL CHANGE BASIS HERE!
+        # Everything has converged ⸺ great!
+        # TODO: this edge case still requires change of basis.
         first_not_converged === nothing && break
 
-        display(H)
-
-        # Lock the converged Ritz values for once and for all
+        # Rotate the converged Ritz values to first entries of the diagonal of H
         lock!(H, Q, active, view(potentials, 1:first_not_converged-1))
 
-        # We have locked first_not_converged - 1 Ritz vectors, so the active factorization
+        # We have locked `first_not_converged - 1` Ritz vectors, so the active factorization
         # active:maxdim shrinks in length.
         new_active = active + first_not_converged - 1
 
-        # We will reduce the the size of the Krylov subspace from `max` to `k`
-        # and in the special case of a conjugate pair sometimes to `k+1`
-        # We allow `k` to be larger than `mindim` whenever Ritz values have converged;
-        # It's basically heuristics, but once one eigenvector is converged, the effective
-        # size of the Krylov subspace can be seen as one less, so the quality of the 
-        # subspace might be worse. So we compensate by keeping an effective Krylov subspace 
-        # of `mindim` excluding converged eigenvectors.
-        # However, we must also keep some room for improving the subspace, so in the end
-        # we don't allow the minimum dimension to grow beyond halfway `mindim` and `maxdim`.
+        ### RESTART: truncation of the unwanted Ritz values
+
+        # Determine the new length `k` of the truncated Krylov subspace:
+        # 1. The dimension of the active part should be roughly `mindim`; so `k` will be 
+        #    larger than `mindim` when converged Ritz vectors have been locked.
+        # 2. But `k` can't be so large that the expansion would barely give new information;
+        #    hence we meet in the middle: `k` is at most halfway `mindim` and `maxdim`.
+        # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
         k = include_conjugate_pair(T, ritz, min(mindim + new_active - 1, (mindim + maxdim) ÷ 2))
 
+        # Rotate the unwantend Ritz values to the end of the diagonal of H
         truncate!(H, Q, maxdim, view(ritz.ord, k+1:maxdim))
 
-        # Restore a length `k` Arnoldi relation via Householder reflections.
-        restore_hessenberg!(H, new_active, k, Q, oldH)
+        # Restore the Hessenberg matrix via Householder reflections.
+        restore_hessenberg!(H, new_active, k, Q)
 
-        # Change of basis.
-        mul!(view(Vtmp, :, active:k), view(V, :, active:maxdim), view(Q, active:maxdim, active:k))
-        copyto!(view(V, :, active:k), view(Vtmp, :, active:k))
-        copyto!(view(V, :, k + 1), view(V, :, maxdim))
-
-        @show norm(V[:, 1:k]' * A * V[:, 1:k] - H[1:k,1:k])
-        display((A * V[:, k] - V[:, 1:k] * H[1:k,k]) ./ (V[:, k+1]))
+        # Finally do the change of basis to get the length `k` Arnoldi relation.
+        @views mul!(Vtmp[:,active:k], V[:,active:maxdim], Q[active:maxdim,active:k])
+        @views copyto!(V[:,active:k], Vtmp[:,active:k])
+        @views copyto!(V[:,k+1], V[:,maxdim+1])
 
         active = new_active
-
-        return;
     end
 
-    # schur = PartialSchur(view(arnoldi.V, :, 1:converged), view(arnoldi.H, 1:converged, 1:converged))
-    # hist = History(prods, false)
-    # return schur, hist
+    schur = PartialSchur(V, H)
+    hist = History(prods, false)
+    return schur, hist
 end
 
 """
