@@ -95,7 +95,7 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(R * Q - Q * R_after) < 10eps()
+    @test opnorm(R - Q * R_after * Q', 1) < 10eps() * opnorm(R, 1)
 
     # Test orthonormality of Q
     @test norm(Q'Q - I) < 10eps()
@@ -122,7 +122,7 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(Q' * R * Q - R_after) < 10eps() * opnorm(R)
+    @test opnorm(R - Q * R_after * Q', 1) < 10eps() * opnorm(R, 1)
 
     # Test orthonormality of Q
     @test norm(Q'Q - I) < 10eps()
@@ -153,7 +153,7 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(R * Q - Q * R_after) < 10eps() * opnorm(R)
+    @test opnorm(R - Q * R_after * Q', 1) < 10eps() * opnorm(R, 1)
 
     # Test orthonormality of Q
     @test norm(Q'Q - I) < 10eps()
@@ -187,10 +187,10 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(R * Q - Q * R_after) < 10eps() * opnorm(R)
+    @test opnorm(R - Q * R_after * Q', 1) < 10eps() * opnorm(R, 1)
 
     # Test orthonormality of Q
-    @test norm(Q'Q - I) < 10eps()
+    @test opnorm(Q'Q - I, 1) < 10 * eps()
 
     # First eigenvalue should be exactly equal
     @test λ_before[1] == λ_after[1]
