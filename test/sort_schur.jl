@@ -1,4 +1,5 @@
 using Test
+using LinearAlgebra
 using ArnoldiMethod: swap11!, swap12!, swap21!, swap22!, rotate_right!, eigenvalues
 
 # These tests are only necessary in real arithmetic, but why not do complex for completeness
@@ -121,7 +122,7 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(R * Q - Q * R_after) < 10eps()
+    @test norm(Q' * R * Q - R_after) < 10eps() * opnorm(R)
 
     # Test orthonormality of Q
     @test norm(Q'Q - I) < 10eps()
@@ -152,7 +153,7 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(R * Q - Q * R_after) < 10eps()
+    @test norm(R * Q - Q * R_after) < 10eps() * opnorm(R)
 
     # Test orthonormality of Q
     @test norm(Q'Q - I) < 10eps()
@@ -186,7 +187,7 @@ end
     λ_after = eigenvalues(R_after)
 
     # Test whether Q is more or less a similarity transform
-    @test norm(R * Q - Q * R_after) < 10eps()
+    @test norm(R * Q - Q * R_after) < 10eps() * opnorm(R)
 
     # Test orthonormality of Q
     @test norm(Q'Q - I) < 10eps()
