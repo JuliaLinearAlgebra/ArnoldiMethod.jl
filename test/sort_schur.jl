@@ -1,6 +1,8 @@
 using Test
 using LinearAlgebra
-using ArnoldiMethod: swap11!, swap12!, swap21!, swap22!, rotate_right!, eigenvalues
+using StaticArrays
+using ArnoldiMethod: swap11!, swap12!, swap21!, swap22!, rotate_right!, eigenvalues,
+                     sylvsystem, CompletePivoting
 
 # These tests are only necessary in real arithmetic, but why not do complex for completeness
 
@@ -205,4 +207,48 @@ end
         @test λ_before[i] == λ_after[i]
     end
 
+end
+
+# Stewart's example in Bai & Demmel's article
+# This basically shows that a direct method is preferred over QR iterations, because of
+# forward instabilities of the QR method -- also the reason why I switched away from
+# Sorensen's implicit restart and convoluted locking + purging strategies that were 
+# necessary exactly because of this.
+@testset "Stewart's example" begin
+    A(τ) = [7.0010 -87.0000  39.4000τ  22.2000τ;
+            5.0000   7.0010 -12.2000τ  36.0000τ;
+            0.0000   0.0000   7.0100  -11.7567 ;
+            0.0000   0.0000   37.0000    7.0100 ]
+    
+    for τ in (1, 10, 100)
+        B = A(τ)
+
+        # Eigenvalues do not depend on τ, but we just compute them here for ease.
+        λs_before = eigenvalues(B)
+        swap22!(B, 1)
+        λs_after = eigenvalues(B)
+
+        # Test swapping is approximately equal
+        @test abs(λs_before[1]) ≈ abs(λs_after[3])
+        @test abs(λs_before[3]) ≈ abs(λs_after[1])
+    end
+end
+
+# Example taken from Bai & Demmel
+@testset "Small eigenvalue separation" begin
+    # This should result in a very ill-conditioned Sylvester equation.
+    A = [ 1.00 -100.0   400.000 -1000.000;
+          0.01    1.0  1200.000   -10.000;
+          0.00    0.0     1.0+eps()    -0.010;
+          0.00    0.0   100.000     1.0+eps()]
+
+    A′ = copy(A)
+    Q = Matrix(1.0I, 4, 4)
+    λs_before = eigenvalues(A)
+    swap22!(A′, 1, Q)
+    λs_after = eigenvalues(A)
+    @test abs(λs_before[1]) ≈ abs(λs_after[3])
+    @test abs(λs_before[3]) ≈ abs(λs_after[1])
+    @test opnorm(I - Q'Q, 1) < 10eps() # we should be able to get rid of this prefactor?
+    @test opnorm(A * Q - Q * A′, 1) < opnorm(A, 1) * eps()
 end

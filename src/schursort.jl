@@ -143,6 +143,20 @@ function (\)(LU::CompletelyPivotedLU{T,N}, b::SVector{N}) where {T,N}
     SVector(x)
 end
 
+@inline sylvsystem(A::SMatrix{1,1,T}, B::SMatrix{2,2,T}) where {T} =
+    @SMatrix [A[1,1]-B[1,1] -B[2,1]       ;
+              -B[1,2]        A[1,1]-B[2,2]]
+
+@inline sylvsystem(A::SMatrix{2,2,T}, B::SMatrix{1,1,T}) where {T} = 
+    @SMatrix [A[1,1]-B[1,1] A[1,2]       ;
+              A[2,1]        A[2,2]-B[1,1]]
+
+@inline sylvsystem(A::SMatrix{2,2,T}, B::SMatrix{2,2,T}) where {T} =
+    @SMatrix [A[1,1]-B[1,1] A[1,2]        -B[2,1]       T(0)         ;
+              A[2,1]        A[2,2]-B[1,1] T(0)          -B[2,1]      ;
+              -B[1,2]       T(0)          A[1,1]-B[2,2] A[1,2]       ;
+              T(0)          -B[1,2]       A[2,1]        A[2,2]-B[2,2]]
+
 """
     sylv(A, B, C) -> X
 
@@ -152,28 +166,14 @@ It works by recasting the Sylvester equation to a linear system
 (I ⊗ A + Bᵀ ⊗ I) vec(X) = vec(C) of size 2 or 4, which is then solved by
 Gaussian elimination with complete pivoting.
 """
-function sylv(A::SMatrix{1,1,T}, B::SMatrix{2,2,T}, C::SMatrix{1,2,T}) where {T}
-    D = @SMatrix [A[1,1]-B[1,1] -B[2,1]       ;
-                  -B[1,2]        A[1,1]-B[2,2]]
+@inline sylv(A::SMatrix{1,1,T}, B::SMatrix{2,2,T}, C::SMatrix{1,2,T}) where {T} =
+    SMatrix{1,2,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{2,T}(C))
 
-    SMatrix{1,2}(lu(D, CompletePivoting) \ SVector{2}(C))
-end
+@inline sylv(A::SMatrix{2,2,T}, B::SMatrix{1,1,T}, C::SMatrix{2,1,T}) where {T} = 
+    SMatrix{2,1,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{2,T}(C))
 
-function sylv(A::SMatrix{2,2,T}, B::SMatrix{1,1,T}, C::SMatrix{2,1,T}) where {T}
-    D = @SMatrix [A[1,1]-B[1,1] A[1,2]       ;
-                  A[2,1]        A[2,2]-B[1,1]]
-
-    SMatrix{2,1}(lu(D, CompletePivoting) \ SVector{2}(C))
-end
-
-function sylv(A::SMatrix{2,2,T}, B::SMatrix{2,2,T}, C::SMatrix{2,2,T}) where {T}
-    D = @SMatrix [A[1,1]-B[1,1] A[1,2]        -B[2,1]       T(0)         ;
-                  A[2,1]        A[2,2]-B[1,1] T(0)          -B[2,1]      ;
-                  -B[1,2]       T(0)          A[1,1]-B[2,2] A[1,2]       ;
-                  T(0)          -B[1,2]       A[2,1]        A[2,2]-B[2,2]]
-
-    SMatrix{2,2}(lu(D, CompletePivoting) \ SVector{4}(C))
-end
+@inline sylv(A::SMatrix{2,2,T}, B::SMatrix{2,2,T}, C::SMatrix{2,2,T}) where {T} =
+    SMatrix{2,2,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{4,T}(C))
 
 """
     swap22_rotations(X) -> c₁, s₁, c₂, s₂, c₃, s₃, c₄, s₄
