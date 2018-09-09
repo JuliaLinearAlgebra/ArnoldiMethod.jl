@@ -75,6 +75,8 @@ function restore_hessenberg!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q
         # Size of the initial reflector
         len = length(from:to)
 
+        len <= 2 && return nothing
+
         # Allocate a reflector of maximum length `len`; it will get smaller and smaller :)
         G = Reflector{T}(len)
         G.offset[] = from

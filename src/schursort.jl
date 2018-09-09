@@ -80,7 +80,7 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
     # Maybe I should consider doing this recursively.
     for k = OneTo(N - 1)
         # Find max value in sub-part.
-        m, n, maxval = 1, 1, zero(T)
+        m, n, maxval = 1, 1, zero(real(T))
         for j = k:N, i = k:N
             if abs(A[i,j]) > maxval
                 m, n, maxval = i, j, abs(A[i,j])
@@ -200,9 +200,9 @@ function swap22_rotations(X::SMatrix{2,2,T}) where {T}
 
     # Apply the Givens rotations to the second column of X
     X22 = c₁ * -X[2,2] # + s₁ * 0
-    X32 = -s₁ * -X[2,2] # + c₁ * 0
+    X32 = -s₁' * -X[2,2] # + c₁ * 0
     # X12 = c₂ * -X[1,2] + s₂ * X22 # aint gonna need it!
-    X22 = -s₂ * -X[1,2] + c₂ * X22
+    X22 = -s₂' * -X[1,2] + c₂ * X22
 
     # Upper triangularize the second column of X
     c₃, s₃, nrm₃ = givensAlgorithm(X32, T(1))
@@ -233,7 +233,7 @@ function swap12_rotations(X::SMatrix{1,2,T}) where {T}
 
     # Apply the Givens rotations to the second column of X
     # X12 = c₁₁ * -X[1,2] # + s₁₁ * 0 # ain't gonna need it!
-    X22 = -s₁ * -X[1,2] # + c₁₁ * 0
+    X22 = -s₁' * -X[1,2] # + c₁₁ * 0
 
     # Upper triangularize the second column of X
     c₂, s₂, nrm₁₂ = givensAlgorithm(X22, T(1))

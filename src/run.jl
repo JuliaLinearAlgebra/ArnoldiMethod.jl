@@ -177,6 +177,8 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         # Expand Krylov subspace dimension from `k` to `maxdim`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
+
+        @show norm(A * V[:, 1:maxdim] - V * H)
         
         # Bookkeeping
         prods += length(k+1:maxdim)
@@ -198,7 +200,9 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         sort!(ritz.ord, active, maxdim, QuickSort, ordering)
 
         # Compute the Frobenius norm of H for the stopping criterion
-        isconverged.H_frob_norm[] = norm(view(arnoldi.H, 1:maxdim, 1:maxdim))
+        isconverged.H_frob_norm[] = norm(H)
+
+        @show isconverged.H_frob_norm[]
 
         ### PARTITIONING OF SCHUR FORM IN [LOCKED | RETAINED | PURGED]
 
@@ -230,6 +234,8 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
         k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
 
+        nlock = 0
+
         # Locked ritz values
         @inbounds for i = 1:nlock
             groups[ritz.ord[i]] = 1
@@ -246,6 +252,8 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         end
 
         partition_schur_three_way!(H, Q, groups)
+
+        display(H[1:nlock,1:nlock])
 
         # Restore the Hessenberg matrix via Householder reflections.
         # Note that we restore the new active part only -- Q[end, 1:nlock] is small enough
@@ -264,6 +272,19 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     end
 
     @views return PartialSchur(V[:, 1:active-1], H[1:active-1,1:active-1]), History(prods, active-1, false, nev)
+end
+
+function compute_actual_residual(A, V, H::AbstractMatrix{T}, Q, indices) where {T}
+    m = size(H, 2)
+    @inbounds for idx in indices
+        z = zeros(complex(T), m)
+        collect_eigen!(z, H, idx)
+        y = Q * z
+        x = view(V, :, 1 : m) * y
+        @show norm(x)
+        @show θ = x' * A * x
+        @show norm(A * x - x * θ)
+    end
 end
 
 function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
@@ -337,6 +358,7 @@ Returns i or i + 1 depending on whether Ritz value i and i + 1 form a conjugate 
 together
 """
 @inline function include_conjugate_pair(::Type{<:Real}, ritz::RitzValues, i)
+    i >= length(ritz.ord) && return i
     @inbounds λ1 = ritz.λs[ritz.ord[i+0]]
     @inbounds λ2 = ritz.λs[ritz.ord[i+1]]
     return imag(λ1) != 0 && λ1' == λ2 ? i + 1 : i
