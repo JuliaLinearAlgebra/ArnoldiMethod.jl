@@ -316,7 +316,9 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
     @inbounds while true
         iter += 1
 
-        iter > maxiter && return false
+        if iter > maxiter
+            throw("QR algorithm did not converge") 
+        end
 
         # Indexing
         # `to` points to the column where the off-diagonal value was last zero.

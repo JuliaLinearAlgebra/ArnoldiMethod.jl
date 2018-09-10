@@ -1,6 +1,6 @@
 using Test
 
-using ArnoldiMethod: partialschur, vtype
+using ArnoldiMethod: partialschur, vtype, eigenvalues, SR
 using LinearAlgebra
 
 @testset "Zero eigenvalues & low-rank matrices" begin
@@ -22,12 +22,12 @@ using LinearAlgebra
     @test history.mvproducts == 7
     @test norm(schur.Q'schur.Q - I) < 100eps()
     @test norm(B * schur.Q - schur.Q * schur.R) < 100eps()
-    @test norm(diag(schur.R)[4:7]) < 100eps()
+    @test norm(diag(schur.R)[4:5]) < 100eps()
 end
 
 @testset "Right number type" begin
     A = [rand(Bool) ? 1 : 0 for i=1:10, j=1:10]
-    @inferred partialschur(A, nev = 2, mindim = 3, maxdim = 5)
+    @inferred partialschur(A, nev = 2, mindim = 3, maxdim = 8)
     @test vtype(A) == Float64
 end
 
@@ -46,4 +46,11 @@ end
     @test_throws ArgumentError partialschur(A, nev = 5, mindim = 3)
     @test_throws ArgumentError partialschur(A, nev = 5, maxdim = 3)
     @test_throws ArgumentError partialschur(A, nev = 10)
+end
+
+@testset "Target non-dominant eigenvalues" begin
+    # Dominant eigenvalues 50, 51, 52, 53, but we target the smallest real part
+    A = Diagonal([1:0.1:10; 50:53])
+    S, hist = partialschur(A, which = SR())
+    @test all(x -> real(x) ≤ 10, eigenvalues(S.R))
 end
