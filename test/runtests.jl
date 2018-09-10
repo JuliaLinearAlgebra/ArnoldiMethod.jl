@@ -14,4 +14,4 @@ include("collect_eigen.jl")
 
 include("partial_schur.jl")
 # include("locked_restart.jl")
-# include("schur_to_eigen.jl")
+include("schur_to_eigen.jl")

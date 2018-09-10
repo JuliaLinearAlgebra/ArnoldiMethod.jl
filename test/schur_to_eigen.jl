@@ -1,15 +1,15 @@
 using Test
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 using ArnoldiMethod: partialschur, partialeigen
 using Random
 
 @testset "Schur to eigen $T take $i" for T in (Float64,ComplexF64), i in 1:10
     Random.seed!(i)
-    A = randn(T, 100, 100)
+    A = spdiagm(0 => 1:100) + sprand(100, 100, 0.01)
     ε = 1e-7
     minim, maxim = 10, 20
 
-    decomp, history = partialschur(A, mindim=minim, maxdim=maxim, nev=minim, tol=ε, restarts=100)
+    decomp, history = partialschur(A, nev=minim, tol=ε, restarts=200)
     @test history.converged
 
     vals, vecs = partialeigen(decomp)
