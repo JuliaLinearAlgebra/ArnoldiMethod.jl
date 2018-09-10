@@ -1,7 +1,7 @@
 name = "ArnoldiMethod"
 uuid = "3ad52dbc-8794-42d5-ba69-10f868172940"
 author = ["Harmen Stoppels <me@harmenstoppels.nl>", "Lauri Nyman"]
-version = "0.1.0"
+version = "0.0.2"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
