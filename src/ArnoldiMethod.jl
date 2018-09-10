@@ -3,7 +3,7 @@ module ArnoldiMethod
 using LinearAlgebra
 using StaticArrays
 
-using Base: RefValue
+using Base: RefValue, OneTo
 
 export partialschur, LM, SR, LR, SI, LI, partialeigen
 
@@ -53,9 +53,10 @@ struct RitzValues{Tv,Tr}
     end
 end
 
-struct PartialSchur{TQ,TR}
+struct PartialSchur{TQ,TR,Tλ}
     Q::TQ
     R::TR
+    eigenvalues::Tλ
 end
 
 include("targets.jl")

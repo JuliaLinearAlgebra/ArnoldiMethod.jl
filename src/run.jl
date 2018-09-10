@@ -150,10 +150,16 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     # Unitary matrix used for change of basis of V.
     Q = Matrix{T}(undef, maxdim, maxdim)
 
+    # We only need to store one eignvector of the Hessenberg matrix
+    x = zeros(complex(T), maxdim)
+
+    # And we store the reflector to transform H back to Hessenberg separately
+    G = Reflector{T}(maxdim)
+
     # Approximate residual norms for all Ritz values, and Ritz values
     ritz = RitzValues{T}(maxdim)
     isconverged = IsConverged(ritz, tol)
-    ordering = get_order(ritz, which)
+    ordering = get_order(which)
     groups = zeros(Int, maxdim)
 
     # V[:,1:active-1   ] ⸺ Locked vectors / approximately invariant subspace
@@ -177,32 +183,26 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         # Expand Krylov subspace dimension from `k` to `maxdim`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
-
-        @show norm(A * V[:, 1:maxdim] - V * H)
         
         # Bookkeeping
         prods += length(k+1:maxdim)
 
         # Q accumulates the changes of basis via relfectors; initially it's just I.
-        copyto!(Q, one(T) * I)
+        copyto!(Q, I)
 
         # Construct Schur decomposition of H[active:maxdim,active:maxdim] in-place
-        local_schurfact!(view(H, 1:maxdim, 1:maxdim), active, maxdim, Q)
+        local_schurfact!(view(H, OneTo(maxdim), :), active, maxdim, Q)
         
         # Update the Ritz values
-        # TODO: only compute residual of *active* eigenvalues
-        copyto!(ritz.ord, 1:maxdim)
+        copyto!(ritz.ord, OneTo(maxdim))
         copy_eigenvalues!(ritz.λs, H)
-        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim])
+        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
 
-        # Sort the Ritz values from most wanted to least wanted in the active part of the
-        # factorization.
-        sort!(ritz.ord, active, maxdim, QuickSort, ordering)
+        # Create a permutation that sorts Ritz values from most wanted to least wanted
+        sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
 
         # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(H)
-
-        @show isconverged.H_frob_norm[]
 
         ### PARTITIONING OF SCHUR FORM IN [LOCKED | RETAINED | PURGED]
 
@@ -234,8 +234,6 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
         k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
 
-        nlock = 0
-
         # Locked ritz values
         @inbounds for i = 1:nlock
             groups[ritz.ord[i]] = 1
@@ -253,12 +251,10 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         partition_schur_three_way!(H, Q, groups)
 
-        display(H[1:nlock,1:nlock])
-
         # Restore the Hessenberg matrix via Householder reflections.
         # Note that we restore the new active part only -- Q[end, 1:nlock] is small enough
         # by convergence criterion.
-        restore_hessenberg!(H, nlock + 1, k, Q)
+        restore_arnoldi!(H, nlock + 1, k, Q, G)
 
         # Finally do the change of basis to get the length `k` Arnoldi relation.
         @views mul!(Vtmp[:,active:k], V[:,active:maxdim], Q[active:maxdim,active:k])
@@ -268,23 +264,28 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # The active part 
         active = nlock + 1
 
-        @views nlock ≥ nev && return PartialSchur(V[:, 1:nlock], H[1:nlock,1:nlock]), History(prods, nlock, true, nev)
+        active > nev && break
     end
 
-    @views return PartialSchur(V[:, 1:active-1], H[1:active-1,1:active-1]), History(prods, active-1, false, nev)
-end
+    nconverged = active - 1
 
-function compute_actual_residual(A, V, H::AbstractMatrix{T}, Q, indices) where {T}
-    m = size(H, 2)
-    @inbounds for idx in indices
-        z = zeros(complex(T), m)
-        collect_eigen!(z, H, idx)
-        y = Q * z
-        x = view(V, :, 1 : m) * y
-        @show norm(x)
-        @show θ = x' * A * x
-        @show norm(A * x - x * θ)
-    end
+    @views Vconverged = V[:,1:nconverged]
+    @views Hconverged = H[1:nconverged,1:nconverged]
+
+    # Sort the converged eigenvalues like the user wants them
+    sortschur!(H, copyto!(Q, I), nconverged, ordering)
+
+    # Change of basis
+    @views mul!(Vtmp[:,1:nconverged], Vconverged, Q[1:nconverged,1:nconverged])
+    @views copyto!(Vconverged, Vtmp[:,1:nconverged])
+
+    # Copy the eigenvalues just one more time
+    copy_eigenvalues!(ritz.λs, H, OneTo(nconverged))
+
+    history = History(prods, nconverged, nconverged ≥ nev, nev)
+    schur = PartialSchur(Vconverged, Hconverged, ritz.λs[1:nconverged])
+
+    return schur, history
 end
 
 function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
@@ -352,6 +353,51 @@ function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
 end
 
 """
+    sortschur!(R, Q, to::Int, ordering::Ordering)
+
+Reorder the elements on the diagonal of R as indicates by `ordering`.
+Eigenvalues are computed from R.
+"""
+function sortschur!(R, Q, to::Int, ordering::Ordering)
+    # Some convoluted insertion sort algorithm
+    # `next` is the index of the eigenvalue to be put in position
+    # `curr` is the eigenvalue as it is being moved to the front of R
+    # `prev` is the index of the block prior to `curr`.
+
+    to ≤ 1 && return
+
+    next_idx = 1
+
+    while next_idx ≤ to
+        # Points to the start of the block we're swapping
+        curr_idx = next_idx
+
+        # Get the current eigenvalue and remember whether we're on a block
+        # so that we skip either 1 or 2 steps.
+        curr_size = is_start_of_11_block(R, curr_idx) ? 1 : 2
+        curr_λ = eigenvalue(R, curr_idx)
+        
+        # Insertion part of the sort
+        while curr_idx > 1
+
+            # Identify previous block size (1x1 or 2x2)
+            prev_size = is_end_of_11_block(R, curr_idx - 1) ? 1 : 2
+            prev_idx = curr_idx - prev_size
+            prev_λ = eigenvalue(R, prev_idx)
+
+            # Maybe we're done.
+            lt(ordering, curr_λ, prev_λ) === false && break
+
+            # Maybe swap.
+            swap!(R, prev_idx, prev_size == 1, curr_size == 1, Q)
+            curr_idx -= prev_size
+        end
+
+        next_idx += curr_size
+    end
+end
+
+"""
     include_conjugate_pair(T, ritz, i) → {i, i + 1}
 
 Returns i or i + 1 depending on whether Ritz value i and i + 1 form a conjugate pair
@@ -371,10 +417,10 @@ end
 
 Computes the Ritz residuals ‖Ax - λx‖₂ = |yₖ| * |hₖ₊₁ₖ| for each eigenvalue
 """
-function copy_residuals!(rs::AbstractVector{T}, H, Q, hₖ₊₁ₖ) where {T<:Real}
+function copy_residuals!(rs::AbstractVector{T}, H, Q, hₖ₊₁ₖ, x::AbstractVector, range::AbstractRange) where {T<:Real}
+    fill!(rs, 0)
     m = size(H, 2)
-    x = zeros(complex(T), m)
-    @inbounds for i = 1:m
+    @inbounds for i = range
         fill!(x, zero(T))
         len = collect_eigen!(x, H, i)
         tmp = zero(complex(T))

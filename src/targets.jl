@@ -68,8 +68,8 @@ end
 
 
 # Helper functions
-get_order(ritz::RitzValues, which::LM) = OrderPerm(ritz.λs, OrderReverse(OrderBy(abs)))
-get_order(ritz::RitzValues, which::LR) = OrderPerm(ritz.λs, OrderReverse(OrderBy(real)))
-get_order(ritz::RitzValues, which::SR) = OrderPerm(ritz.λs, OrderBy(real))
-get_order(ritz::RitzValues, which::LI) = OrderPerm(ritz.λs, OrderReverse(OrderBy(imag)))
-get_order(ritz::RitzValues, which::SI) = OrderPerm(ritz.λs, OrderBy(imag))
+get_order(which::LM) = OrderReverse(OrderBy(abs))
+get_order(which::LR) = OrderReverse(OrderBy(real))
+get_order(which::SR) = OrderBy(real)
+get_order(which::LI) = OrderReverse(OrderBy(imag))
+get_order(which::SI) = OrderBy(imag)

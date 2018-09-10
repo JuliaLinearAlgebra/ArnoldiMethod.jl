@@ -12,6 +12,6 @@ include("sylvester.jl")
 include("sort_schur.jl")
 include("collect_eigen.jl")
 
-# include("partial_schur.jl")
+include("partial_schur.jl")
 # include("locked_restart.jl")
 # include("schur_to_eigen.jl")

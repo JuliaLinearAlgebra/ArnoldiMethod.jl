@@ -1,44 +1,46 @@
-function localnorm(y::AbstractVector{T}, range) where {T}
-    nrm = zero(real(T))
-    @inbounds @simd for idx in range
-        nrm += abs2(y[idx])
-    end
-    √nrm
-end
-
 """
-    reflector!(y, k) -> τ‖y‖
+    reflector!(y, k) → τ
 
-Computes z such that (I - 2zz') y = eₖν where ν = ‖y‖τ for some |τ| = 1. Updates y ← z 
-in-place.
+Implicit representation of a Householder reflection H = I - τ [v; 1] [vᵀ 1]
+such that H*y = eₖβ, 1 ≤ real(τ) ≤ 2 and abs(τ - 1) ≤ 1. Updates `y` in-place,
+in the sense that: `v := y[1:k-1]` and y[k] = β.
 
-Based on Mezzadri, Francesco. "How to generate random matrices from the 
-classical compact groups." arXiv preprint math-ph/0609050 (2006).
+In the edge case iszero(y[1:k-1]) and iszero(imag(y[k])) then τ = 0.
+
+Based on LAPACK 3.8 clarfg.
+
+Another nice reference is Mezzadri, Francesco. "How to generate
+random matrices from the classical compact groups." arXiv preprint 
+math-ph/0609050 (2006).
 """
 function reflector!(y::AbstractVector{T}, k::Integer) where {T}
     @inbounds begin
-        # The sign: |τ| = 1.
-        τ = y[k] / abs(y[k])
-        
+        k ≤ 0 || k > length(y) && return zero(T)
+
         # Norm except the last entry.
-        xnrm = localnorm(y, OneTo(k-1))
-
-        # Total norm
-        ynrm = hypot(xnrm, abs(y[k]))
-        ν = τ * ynrm
-
-        # y ← y + eₖ ‖y‖τ
-        y[k] += ν
-
-        # New y-norm
-        yrnm_inv = inv(hypot(xnrm, abs(y[k])))
-        
-        # Rescale
-        @simd for i = OneTo(k)
-            y[i] *= yrnm_inv
+        xnrm = zero(real(T))
+        @simd for idx in OneTo(k-1)
+            xnrm += abs2(y[idx])
         end
 
-        return -ν
+        α = y[k]
+
+        iszero(xnrm) && iszero(imag(α)) && return zero(T)
+
+        xnrm = √xnrm
+
+        β = -copysign(hypot(α, xnrm), real(α))
+        τ = (β - α) / β
+        α = inv(α - β)
+       
+        # Rescale
+        @simd for i = OneTo(k-1)
+            y[i] *= α
+        end
+
+        y[k] = β
+
+        return τ'
     end
 end
 
@@ -46,17 +48,20 @@ struct Reflector{T}
     vec::Vector{T}
     offset::RefValue{Int}
     len::RefValue{Int}
+    τ::RefValue{T}
 
     Reflector{T}(max_len::Int) where {T} = new{T}(
         Vector{T}(undef, max_len),
         Base.RefValue(1),
-        Base.RefValue(0)
+        Base.RefValue(0),
+        Base.RefValue(zero(T))
     )
 end
 
 function reflector!(z::Reflector, k::Integer)
     z.len[] = k
-    return reflector!(z.vec, k)
+    z.τ[] = reflector!(z.vec, k)
+    return z.τ[];
 end
 
 """
@@ -67,7 +72,7 @@ A[VQ₁ VQ₂] = [VQ₁ VQ₂][R₁₁ R₁₂; + hv[. eₖᵀQ₂]
 
 Column VQ₂ has column indices from:to
 """
-function restore_hessenberg!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q) where {T}
+function restore_arnoldi!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q, G::Reflector{T}) where {T}
     m, n = size(H)
 
     @inbounds begin
@@ -75,10 +80,8 @@ function restore_hessenberg!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q
         # Size of the initial reflector
         len = length(from:to)
 
-        len <= 2 && return nothing
+        len ≤ 2 && return nothing
 
-        # Allocate a reflector of maximum length `len`; it will get smaller and smaller :)
-        G = Reflector{T}(len)
         G.offset[] = from
 
         # Copy over the last row of Q
@@ -96,7 +99,7 @@ function restore_hessenberg!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q
         @simd for i = from:to-1
             Q[n,i] = zero(T)
         end
-        Q[n,to] = τ₁
+        Q[n,to] = G.vec[len]'
 
         # Then apply to H from both sides.
         rmul!(H, G, 1, to)
@@ -115,13 +118,13 @@ function restore_hessenberg!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q
             τ₂ = reflector!(G, i)
 
             # Apply it to the right to H
-            rmul!(H, G, 1, row)
+            rmul!(H, G, 1, row-1)
 
             # Zero out things by hand
             @simd for j = OneTo(i - 1)
                 H[row,j+from-1] = zero(T)
             end
-            H[row, i-1+from] = τ₂
+            H[row, i-1+from] = G.vec[i]'
 
             # Apply if from the left.
             lmul!(G, H, from, to)
@@ -139,34 +142,50 @@ function restore_hessenberg!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q
     nothing
 end
 
+# Implementations are terrible here :(
+
 function lmul!(G::Reflector, H::AbstractMatrix{T}, from::Int, to::Int) where {T}
+
+    len = G.len[]
+    offset = G.offset[]
+    z = G.vec
+    τ = G.τ[]
+
+    iszero(τ) && return nothing
+
     @inbounds for col = from:to
-        # H[i:j,col] ← H[i:j,col] - 2dot(G.vec[1:G.len], H[i:j,col]) G.vec[1:G.len]
-
         dot = zero(T)
-        @simd for i = 1:G.len[]
-            dot += G.vec[i]' * H[i+G.offset[]-1,col]
+        @simd for i = 1 : len - 1
+            dot += z[i]' * H[i + offset - 1, col]
         end
-        dot *= 2
-
-        @simd for i = 1:G.len[]
-            H[i+G.offset[]-1,col] -= dot * G.vec[i]
+        dot += H[len + offset - 1, col]
+        dot *= τ
+        @simd for i = 1 : len - 1
+            H[i + offset - 1, col] -= dot * z[i]
         end
+        H[len + offset - 1, col] -= dot
     end
 end
 
 function rmul!(H::AbstractMatrix{T}, G::Reflector, from::Int, to::Int) where {T}
+
+    len = G.len[]
+    offset = G.offset[]
+    z = G.vec
+    τ = G.τ[]
+
+    iszero(τ) && return nothing
+
     @inbounds for row = from:to
-        # H[row,i:j] ← H[row,i:j] - (2H[row,i:j]ᵀ G.vec[1:G.len]) G.vec[1:G.len]'
-
         dot = zero(T)
-        @simd for i = 1:G.len[]
-            dot += H[row,i+G.offset[]-1] * G.vec[i]
+        @simd for i = 1:len-1
+            dot += H[row, i + offset - 1] * z[i]
         end
-        dot *= 2
-
-        @simd for i = 1:G.len[]
-            H[row,i+G.offset[]-1] -= dot * G.vec[i]'
+        dot += H[row, offset + len - 1]
+        dot *= τ'
+        @simd for i = 1 : len - 1
+            H[row,i+offset-1] -= dot * z[i]'
         end
+        H[row, offset + len - 1] -= dot
     end
 end
