@@ -3,7 +3,7 @@ using LinearAlgebra
 using LinearAlgebra.BLAS: gemv!
 
 """
-    reinitialize!(a::Arnoldi, j::Int = 0) -> a
+    reinitialize!(a::Arnoldi, j::Int = 0) → a
 
 Generate a random `j+1`th column orthonormal against V[:,1:j]
 
@@ -56,7 +56,7 @@ function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
 end
 
 """
-    orthogonalize!(arnoldi, j) -> Bool
+    orthogonalize!(arnoldi, j) → Bool
 
 Orthogonalize arnoldi.V[:, j+1] against arnoldi.V[:, 1:j].
 
@@ -106,7 +106,7 @@ function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
 end
 
 """
-    iterate_arnoldi!(A, arnoldi, from:to) -> arnoldi
+    iterate_arnoldi!(A, arnoldi, from:to) → arnoldi
 
 Perform Arnoldi from `from` to `to`.
 """

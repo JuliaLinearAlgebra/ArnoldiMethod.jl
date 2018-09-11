@@ -1,7 +1,7 @@
 using LinearAlgebra: checksquare
 
 """
-    vtype(A) -> T
+    vtype(A) → T
 
 Do some arithmetic to get a proper number type that a matrix A should operate
 on.
@@ -13,7 +13,7 @@ end
 
 """
 ```julia
-partialschur(A; nev, which, tol, mindim, maxdim, restarts) -> PartialSchur, History
+partialschur(A; nev, which, tol, mindim, maxdim, restarts) → PartialSchur, History
 ```
 
 Find `nev` approximate eigenpairs of `A` with eigenvalues near a specified target.
@@ -58,14 +58,14 @@ The function returns a tuple
 decomp, history = partialschur(A, ...)
 ```
 
-where `decomp` is a `PartialSchur` struct which forms a partial Schur 
-decomposition of `A` to a prescribed tolerance:
+where `decomp` is a [`PartialSchur`](@ref) struct which 
+forms a partial Schur decomposition of `A` to a prescribed tolerance:
 
 ```julia
 > norm(A * decomp.Q - decomp.Q * decomp.R)
 ```
 
-`history` is a `History` struct that holds some basic information about
+`history` is a [`History`](@ref) struct that holds some basic information about
 convergence of the method:
 
 ```julia
@@ -124,8 +124,10 @@ end
     @inbounds return r.ritz.rs[i] < max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
 
 """
-History gives some general information about how much matrix-vector product were necessary
-to converged, plus the number of converged eigenvalues.
+    History(mvproducts, nconverged, converged, nev)
+
+History shows whether the method has converged (when `nconverged` ≥ `nev`) and
+how many matrix-vector products were necessary to do so.
 """
 struct History
     mvproducts::Int

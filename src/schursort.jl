@@ -7,7 +7,7 @@ using LinearAlgebra: givensAlgorithm
 
 
 """
-    rotate_right!(R, from, to, Q) -> nothing
+    rotate_right!(R, from, to, Q) → nothing
 
 Rotates the diagonal elements between R[from:to,from:to]
 such that the eigenvalue at R[to,to] → R[from,from]
@@ -32,7 +32,7 @@ function rotate_right!(R, from::Integer, to::Integer, Q = NotWanted())
 end
 
 """
-    rotate_left!(R, from, to, Q) -> nothing
+    rotate_left!(R, from, to, Q) → nothing
 
 Rotates the diagonal elements between R[from:to,from:to]
 such that the eigenvalue at R[from,from] → R[to,to]
@@ -67,7 +67,7 @@ end
 struct CompletePivoting end
 
 """
-    lu(A, CompletePivoting) -> CompletelyPivotedLU(B, p, q)
+    lu(A, CompletePivoting) → CompletelyPivotedLU(B, p, q)
 
 Computes the LU factorization of A using complete pivoting.
 """
@@ -158,7 +158,7 @@ end
               T(0)          -B[1,2]       A[2,1]        A[2,2]-B[2,2]]
 
 """
-    sylv(A, B, C) -> X
+    sylv(A, B, C) → X
 
 Solve A * X - X * B = C for X, where A and B are 1×1 or 2×2 matrices.
 
@@ -176,7 +176,7 @@ Gaussian elimination with complete pivoting.
     SMatrix{2,2,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{4,T}(C))
 
 """
-    swap22_rotations(X) -> c₁, s₁, c₂, s₂, c₃, s₃, c₄, s₄
+    swap22_rotations(X) → c₁, s₁, c₂, s₂, c₃, s₃, c₄, s₄
 
 Construct two sets of two Given's rotations that transform
 ```
@@ -212,7 +212,7 @@ function swap22_rotations(X::SMatrix{2,2,T}) where {T}
 end
 
 """
-    swap12_rotations(X) -> c₁, s₁, c₂, s₂
+    swap12_rotations(X) → c₁, s₁, c₂, s₂
 
 Construct two Given's rotations that transform
 ```
@@ -243,7 +243,7 @@ end
 
 
 """
-    swap21_rotations(X) -> c₁, s₁, c₂, s₂
+    swap21_rotations(X) → c₁, s₁, c₂, s₂
 
 Construct two Given's rotations that transform
 ```
@@ -265,7 +265,7 @@ function swap21_rotations(X::SMatrix{2,1,T}) where {T}
 end
 
 """
-    swap22!(R, i) -> R
+    swap22!(R, i) → R
 
 Swap a 2×2 block with a 2×2 block in R[i:i+4,i:i+4] via unitary transformations.
 ```
@@ -317,7 +317,7 @@ function swap22!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
 end
 
 """
-    swap21!(R, i) -> R
+    swap21!(R, i) → R
 
 Swap a 1×1 block with a 2×2 block in R[i:i+3,i:i+3] via unitary transformations
 ```
@@ -362,7 +362,7 @@ function swap21!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
 end
 
 """
-    swap12!(R, i) -> R
+    swap12!(R, i) → R
 
 Swap a 1×1 block with a 2×2 block in R[i:i+3,i:i+3] via unitary transformations
 ```
@@ -414,7 +414,7 @@ function swap12!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
 end
 
 """
-    swap11!(R, i) -> R
+    swap11!(R, i) → R
 
 Swap a 1×1 block with a 1×1 block in R[i:i+1,i:i+1] via unitary transformations
     i
@@ -447,7 +447,7 @@ function swap11!(R::AbstractMatrix, i::Integer, Q = NotWanted())
 end
 
 """
-    swap!(R, i, curr_11, next_11, Q) -> nothing
+    swap!(R, i, curr_11, next_11, Q) → nothing
 
 Swap the two consecutive blocks of the Schur form starting at index i.
 """

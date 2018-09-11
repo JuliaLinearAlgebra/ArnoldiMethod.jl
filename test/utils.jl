@@ -33,14 +33,14 @@ function normal_hessenberg_matrix(T::Type{<:Real}, vals::AbstractVector{<:Comple
 end
 
 """
-    realimag(1 + 3im) -> (1, 3)
+    realimag(1 + 3im) → (1, 3)
 
 Split imaginary number into a tuple of real and imaginary part
 """
 realimag(x) = (real(x), imag(x))
 
 """
-    is_hessenberg(H) -> bool
+    is_hessenberg(H) → bool
 
 Test whether the sub-subdiagonals of H are zero.
 """

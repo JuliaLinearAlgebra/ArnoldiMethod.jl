@@ -1,6 +1,6 @@
 
 """
-    partition!(predicate, v::AbstractVector, r::AbstractRange) -> Union{Nothing,Int}
+    partition!(predicate, v::AbstractVector, r::AbstractRange) → Union{Nothing,Int}
 
 Calling `k = partition!(f, v)` reorders `v` such that `all(f, v[k:end])` and
 `all(x -> !f(x), v[1:k-1]` are true. If there is no element in `v` for which the
