@@ -8,7 +8,7 @@ using Base: RefValue, OneTo
 export partialschur, LM, SR, LR, SI, LI, partialeigen
 
 """
-    Arnoldi(n, k) -> Arnoldi
+    Arnoldi(n, k) → Arnoldi
 
 Pre-allocated Arnoldi relation of the Vₖ₊₁ and Hₖ matrices that satisfy
 A * Vₖ = Vₖ₊₁ * Hₖ, where Vₖ₊₁ is orthonormal of size n × (k+1) and Hₖ upper 
@@ -29,7 +29,7 @@ struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
 end
 
 """
-    RitzValues(maxdim) -> RitzValues
+    RitzValues(maxdim) → RitzValues
 
 Convenience wrapper for Ritz values + residual norms and some permutation of 
 these values. The Ritz values are computed from the active part of the 
@@ -53,10 +53,23 @@ struct RitzValues{Tv,Tr}
     end
 end
 
-struct PartialSchur{TQ,TR,Tλ}
+"""
+    PartialSchur(Q, R, eigenvalues)
+
+Holds an orthonormal basis `Q` and a (quasi) upper triangular matrix `R`.
+
+For convenience the eigenvalues that appear on the diagonal of `R` are also 
+listed as `eigenvalues`, which is in particular useful in the case of real 
+matrices with complex eigenvalues. Note that the eigenvalues are always a 
+complex, even when the matrix `R` is real.
+"""
+struct PartialSchur{TQ,TR,Tλ<:Complex}
+    "Orthonormal matrix"
     Q::TQ
+    "Quasi upper triangular matrix"
     R::TR
-    eigenvalues::Tλ
+    "Complex-valued vector of eigenvalues"
+    eigenvalues::Vector{Tλ}
 end
 
 include("targets.jl")

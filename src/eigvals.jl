@@ -1,5 +1,5 @@
 """
-    copy_eigenvalues!(λs, A) -> λs
+    copy_eigenvalues!(λs, A) → λs
 
 Puts the eigenvalues of a quasi-upper triangular matrix A in the λs vector.
 """
@@ -51,7 +51,7 @@ function eigenvalue(R, i)
 end
 
 """
-    eigenvalues(A::AbstractMatrix{T}) -> Vector{complex(T)}
+    eigenvalues(A::AbstractMatrix{T}) → Vector{complex(T)}
 
 Computes the eigenvalues of the matrix A. Assumes that A is quasi-upper triangular.
 The eigenvalues are returned in complex arithmetic, even if their imaginary
@@ -60,6 +60,27 @@ part is 0.
 eigenvalues(A::AbstractMatrix{T}, tol = eps(real(T))) where {T} =
     copy_eigenvalues!(Vector{complex(T)}(undef, size(A, 2)), A, OneTo(size(A, 2)), tol)
 
+"""
+    partialeigen(P::PartialSchur) → (Vector{<:Union{Real,Complex}}, Matrix{<:Union{Real,Complex}})
+
+Transforms a partial Schur decomposition into an eigendecomposition.
+
+!!! note
+
+    For real-symmetric and Hermitian matrices the Schur vectors coincide with 
+    the eigenvectors, and hence it is not necessary to call this function in 
+    that case.
+
+The method still relies on LAPACK to compute the eigenvectors of the (quasi)
+upper triangular matrix `R` from the partial Schur decomposition.
+
+!!! note
+
+    This method is currently type unstable for real matrices, since we have not
+    yet decided how to deal with complex conjugate pairs of eigenvalues. E.g.
+    if almost all eigenvalues are real, but there are just a few conjugate 
+    pairs, should all eigenvectors be complex-valued?
+"""
 function partialeigen(P::PartialSchur)
     vals, vecs = eigen(P.R)
     return vals, P.Q*vecs

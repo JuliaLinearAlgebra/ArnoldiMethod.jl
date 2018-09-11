@@ -27,13 +27,9 @@ partialschur
 The eigenvalues and eigenvectors are obtained from the Schur form with the 
 `partialeigen` function that is exported by ArnoldiMethod.jl:
 
-```julia
-λs, X = partialeigen(decomp::PartialSchur)
+```@docs
+partialeigen
 ```
-
-Note that whenever the matrix `A` is real-symmetric or Hermitian, the partial 
-Schur decomposition coincides with the partial eigendecomposition, so in that 
-case there is no need for the transformation.
 
 ## Example
 
@@ -69,4 +65,13 @@ julia> norm(A * decomp.Q - decomp.Q * decomp.R)
 julia> λs, X = partialeigen(decomp);
 julia> norm(A * X - X * Diagonal(λs))
 2.503582040967213e-7
+```
+
+## The PartialSchur and History structs
+
+For completeness, the return values of the [`partialschur`](@ref) function:
+
+```@docs
+ArnoldiMethod.PartialSchur
+ArnoldiMethod.History
 ```
