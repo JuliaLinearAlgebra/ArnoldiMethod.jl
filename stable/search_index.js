@@ -13,7 +13,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "ArnoldiMethod.jl",
     "category": "section",
-    "text": "ArnoldiMethod.jl provides an iterative method to find a few approximate  solutions to the eigenvalue problem in standard form:Ax = xlambdawhere A is a general matrix of size n times n; and x in mathbbC^n and lambda in mathbbC are eigenvectors and eigenvalues respectively. By  general matrix we mean that A has no special structure. It can be symmetric or non-symmetric and either real or complex.The method is matrix-free, meaning that it only requires multiplication with  the matrix A.See Using ArnoldiMethod.jl on how to use the  package."
+    "text": "ArnoldiMethod.jl provides an iterative method to find a few approximate  solutions to the eigenvalue problem in standard form:Ax = xlambdawhere A is a general matrix of size n times n; and x in mathbbC^n and lambda in mathbbC are eigenvectors and eigenvalues respectively. By  general matrix we mean that A has no special structure. It can be symmetric or non-symmetric and either real or complex.The method is matrix-free, meaning that it only requires multiplication with  the matrix A.The package exports just two functions:partialschur to compute a stable basis for an eigenspace;\npartialeigen to compute an eigendecomposition from a partial Schur decomposition.See Using ArnoldiMethod.jl  on how to use these  functions."
 },
 
 {
@@ -21,7 +21,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "What algorithm is ArnoldiMethod.jl?",
     "category": "section",
-    "text": "The underlying algorithm is the Implicitly Restarted Arnoldi Method, which be  viewed as a mix between a subspace accelerated version of the power method and  a truncated version of the dense QR algorithm."
+    "text": "The underlying algorithm is the restarted Arnoldi method, which be viewed as a mix between a subspace accelerated version of the power method and a truncated  version of the dense QR algorithm.Initially the method was based on the Implicitly Restarted Arnoldi Method (or IRAM for short), which is the algorithm implemented by ARPACK. This method has a very elegant restarting scheme based on exact QR iterations, but is  unfortunately susceptible to forward instabilities of the QR algorithm.For this reason the Krylov-Schur method is currently embraced in this package, which is mathematically equivalent to IRAM, but has better stability by  replacing exact QR iterations with a direct method that reorders the Schur form. In fact we see Krylov-Schur just as an implementation detail of the Arnoldi  method."
 },
 
 {
@@ -37,7 +37,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Goal of this package: a pure Julia implementation",
     "category": "section",
-    "text": "The algorithm is a pure Julia implementation of the implicitly restarted  Arnoldi method and is loosely based on ARPACK. It is not our goal to make an  exact copy of ARPACK. With \"pure Julia\" we mean that we do not rely on LAPACK  for linear algebra routines. This allows us to use any number type. In some  occasions we do rely on BLAS.When this project started, ARPACK was still a dependency of the Julia language,  and the main goal was to get rid of this. Currently ARPACK has moved to a  separate repository called  Arpack.jl, but still it  would be great to have a native Julia implementation of this algorithm."
+    "text": "This project started with two goals:Having a native Julia implementation of the eigs function that performs as well as ARPACK. With native we mean that its implementation should be generic and support any number type. Currently the partialschur function  does not depend on LAPACK, and removing the last remnants of direct calls to  BLAS is in the pipeline.\nRemoving the dependency of the Julia language on ARPACK. This goal was already achieved before the package was stable enough, since ARPACK moved to a  separate repository  Arpack.jl."
 },
 
 {
@@ -45,7 +45,23 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Status",
     "category": "section",
-    "text": "Currently features:An efficient dense QR algorithm natively in Julia, used to do implicit restarts and to compute the low-dimensional dense eigenproblem involving the Hessenberg matrix. It is based on implicit shifts and handles real arithmetic efficiently;\nTransforming converged Ritz values to a partial Schur form.Work in progress:Native transformation of real Schur vectors to eigenvectors.\nUsing a matrix-induced inner product in the case of generalized eigenvalue problems.\nEfficient implementation of symmetric problems with Lanczos."
+    "text": "An overview of what we have, how it\'s done and what we\'re missing."
+},
+
+{
+    "location": "index.html#Implementation-details-1",
+    "page": "Home",
+    "title": "Implementation details",
+    "category": "section",
+    "text": "The method does not make assumptions about the type of the matrix; it is  matrix-free.\nConverged Ritz vectors are locked (or deflated).\nImportant matrices and vectors are pre-allocated and operations on the  Hessenberg matrix are in-place; Julia\'s garbage collector can sit back.\nKrylov basis vectors are orthogonalized with repeated classical Gram-Schmidt to ensure they are orthogonal up to machine precision; this is a BLAS-2 operation.\nTo compute the Schur decomposition of the Hessenberg matrix we use a dense  QR algorithm written natively in Julia. It is based on implicit (or Francis)  shifts and handles real arithmetic efficiently.\nLocking and purging of Ritz vectors is done by reordering the Schur form,  which is also implemented natively in Julia. In the real case it is done by casting tiny Sylvester equations to linear systems and solving them with  complete pivoting.\nShrinking the size of the Krylov subspace and changing its basis is done by accumulating all rotations and reflections in a unitary matrix Q, and then simply computing the matrix-matrix product V := V * Q, where V is the  original orthonormal basis. This is not in-place in V, but with good reason:  the dense matrix-matrix product is not memory-bound."
+},
+
+{
+    "location": "index.html#Not-implemented-(yet)-and-future-ideas-1",
+    "page": "Home",
+    "title": "Not implemented (yet) and future ideas",
+    "category": "section",
+    "text": "Being able to kickstart the method from a given Arnoldi relation. This also captures:\nMaking an initial guess by providing a known approximate eigenvector;\nDeflating some subspace by starting the Arnoldi method with a given partial Schur decomposition.\nMatrix-induced inner product for generalized eigenvalue problems.\nEfficient implementation of symmetric problems with Lanczos.On my wish list is to allow custom vector or matrix types, so that we can  delegate expensive but trivial work to hardware that can do it faster  (distributed memory / GPU). The basic concept would be: The core Arnoldi method performs tedious linear algebra on the projected,  low-dimensional problem, but finally just outputs a change of basis in the form of a unitary matrix Q.\nAppropriate hardware does the change of basis V := V * Q.Similar things should happen for expansion of the subspace and  orthogonalization."
 },
 
 {
@@ -133,7 +149,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Getting started",
     "title": "ArnoldiMethod.partialschur",
     "category": "function",
-    "text": "partialschur(A; nev, which, tol, mindim, maxdim, restarts) -> PartialSchur, History\n\nFind nev approximate eigenpairs of A with eigenvalues near a specified target.\n\nThe matrix A can be any linear map that implements mul!(y, A, x), eltype and size.\n\nThe method will run iteratively until the eigenpairs are approximated to the prescribed tolerance or until restarts restarts have passed.\n\nArguments\n\nThe most important keyword arguments:\n\nKeyword Type Default Description\nnev Int min(6, size(A, 1)) Number of eigenvalues\nwhich Target LM() One of LM(), LR(), SR(), LI(), SI(), see below.\ntol Real √eps Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖\n\nThe target which can be any of subtypes(ArnoldiMethod.Target):\n\nTarget Description\nLM() Largest magnitude: abs(λ) is largest\nLR() Largest real part: real(λ) is largest\nSR() Smallest real part: real(λ) is smallest\nLI() Largest imaginary part: imag(λ) is largest\nSI() Smallest imaginary part: imag(λ) is smallest\n\nnote: Note\nThe targets LI() and SI() only make sense in complex arithmetic. In real arithmetic λ is an eigenvalue iff conj(λ) is an eigenvalue and this  conjugate pair converges simultaneously.\n\nReturn values\n\nThe function returns a tuple\n\ndecomp, history = partialschur(A, ...)\n\nwhere decomp is a PartialSchur struct which forms a partial Schur  decomposition of A to a prescribed tolerance:\n\n> norm(A * decomp.Q - decomp.Q * decomp.R)\n\nhistory is a History struct that holds some basic information about convergence of the method:\n\n> history.converged\ntrue\n> @show history\nConverged after 359 matrix-vector products\n\nAdvanced usage\n\nFurther there are advanced keyword arguments for tuning the algorithm:\n\nKeyword Type Default Description\nmindim Int min(max(10, nev), size(A,1)) Minimum Krylov dimension (≥ nev)\nmaxdim Int min(max(20, 2nev), size(A,1)) Maximum Krylov dimension (≥ min)\nrestarts Int 200 Maximum number of restarts\n\nWhen the algorithm does not converge, one can increase restarts. When the  algorithm converges too slowly, one can play with mindim and maxdim. It is  suggested to keep mindim equal to or slightly larger than nev, and maxdim is usually about two times mindim.\n\n\n\n\n\n"
+    "text": "partialschur(A; nev, which, tol, mindim, maxdim, restarts) → PartialSchur, History\n\nFind nev approximate eigenpairs of A with eigenvalues near a specified target.\n\nThe matrix A can be any linear map that implements mul!(y, A, x), eltype and size.\n\nThe method will run iteratively until the eigenpairs are approximated to the prescribed tolerance or until restarts restarts have passed.\n\nArguments\n\nThe most important keyword arguments:\n\nKeyword Type Default Description\nnev Int min(6, size(A, 1)) Number of eigenvalues\nwhich Target LM() One of LM(), LR(), SR(), LI(), SI(), see below.\ntol Real √eps Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖\n\nThe target which can be any of subtypes(ArnoldiMethod.Target):\n\nTarget Description\nLM() Largest magnitude: abs(λ) is largest\nLR() Largest real part: real(λ) is largest\nSR() Smallest real part: real(λ) is smallest\nLI() Largest imaginary part: imag(λ) is largest\nSI() Smallest imaginary part: imag(λ) is smallest\n\nnote: Note\nThe targets LI() and SI() only make sense in complex arithmetic. In real arithmetic λ is an eigenvalue iff conj(λ) is an eigenvalue and this  conjugate pair converges simultaneously.\n\nReturn values\n\nThe function returns a tuple\n\ndecomp, history = partialschur(A, ...)\n\nwhere decomp is a PartialSchur struct which  forms a partial Schur decomposition of A to a prescribed tolerance:\n\n> norm(A * decomp.Q - decomp.Q * decomp.R)\n\nhistory is a History struct that holds some basic information about convergence of the method:\n\n> history.converged\ntrue\n> @show history\nConverged after 359 matrix-vector products\n\nAdvanced usage\n\nFurther there are advanced keyword arguments for tuning the algorithm:\n\nKeyword Type Default Description\nmindim Int min(max(10, nev), size(A,1)) Minimum Krylov dimension (≥ nev)\nmaxdim Int min(max(20, 2nev), size(A,1)) Maximum Krylov dimension (≥ min)\nrestarts Int 200 Maximum number of restarts\n\nWhen the algorithm does not converge, one can increase restarts. When the  algorithm converges too slowly, one can play with mindim and maxdim. It is  suggested to keep mindim equal to or slightly larger than nev, and maxdim is usually about two times mindim.\n\n\n\n\n\n"
 },
 
 {
@@ -145,11 +161,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "usage/01_getting_started.html#ArnoldiMethod.partialeigen",
+    "page": "Getting started",
+    "title": "ArnoldiMethod.partialeigen",
+    "category": "function",
+    "text": "partialeigen(P::PartialSchur) → (Vector{<:Union{Real,Complex}}, Matrix{<:Union{Real,Complex}})\n\nTransforms a partial Schur decomposition into an eigendecomposition.\n\nnote: Note\nFor real-symmetric and Hermitian matrices the Schur vectors coincide with  the eigenvectors, and hence it is not necessary to call this function in  that case.\n\nThe method still relies on LAPACK to compute the eigenvectors of the (quasi) upper triangular matrix R from the partial Schur decomposition.\n\nnote: Note\nThis method is currently type unstable for real matrices, since we have not yet decided how to deal with complex conjugate pairs of eigenvalues. E.g. if almost all eigenvalues are real, but there are just a few conjugate  pairs, should all eigenvectors be complex-valued?\n\n\n\n\n\n"
+},
+
+{
     "location": "usage/01_getting_started.html#From-a-Schur-decomposition-to-an-eigendecomposition-1",
     "page": "Getting started",
     "title": "From a Schur decomposition to an eigendecomposition",
     "category": "section",
-    "text": "The eigenvalues and eigenvectors are obtained from the Schur form with the  partialeigen function that is exported by ArnoldiMethod.jl:λs, X = partialeigen(decomp::PartialSchur)Note that whenever the matrix A is real-symmetric or Hermitian, the partial  Schur decomposition coincides with the partial eigendecomposition, so in that  case there is no need for the transformation."
+    "text": "The eigenvalues and eigenvectors are obtained from the Schur form with the  partialeigen function that is exported by ArnoldiMethod.jl:partialeigen"
 },
 
 {
@@ -158,6 +182,30 @@ var documenterSearchIndex = {"docs": [
     "title": "Example",
     "category": "section",
     "text": "Here we compute the first ten eigenvalues and eigenvectors of a tridiagonal sparse matrix.julia> using ArnoldiMethod, LinearAlgebra, SparseArrays\njulia> A = spdiagm(\n           -1 => fill(-1.0, 99),\n            0 => fill(2.0, 100), \n            1 => fill(-1.0, 99)\n       );\njulia> decomp, history = partialschur(A, nev=10, tol=1e-6, which=SR());\njulia> decomp\nPartialSchur decomposition (Float64) of dimension 10\neigenvalues:\n10-element Array{Complex{Float64},1}:\n 0.000967435416023798 + 0.0im\n 0.003868805732811847 + 0.0im\n 0.008701304061962362 + 0.0im\n 0.015460255273447325 + 0.0im\n  0.02413912051848671 + 0.0im\n   0.0347295035555462 + 0.0im\n 0.047221158872786585 + 0.0im\n 0.061602001600669004 + 0.0im\n  0.07785811920255274 + 0.0im\n    3.918903416103043 + 0.0im\njulia> history\nConverged: 10 of 10 eigenvalues in 171 matrix-vector products\njulia> norm(A * decomp.Q - decomp.Q * decomp.R)\n2.503582041203943e-7\njulia> λs, X = partialeigen(decomp);\njulia> norm(A * X - X * Diagonal(λs))\n2.503582040967213e-7"
+},
+
+{
+    "location": "usage/01_getting_started.html#ArnoldiMethod.PartialSchur",
+    "page": "Getting started",
+    "title": "ArnoldiMethod.PartialSchur",
+    "category": "type",
+    "text": "PartialSchur(Q, R, eigenvalues)\n\nHolds an orthonormal basis Q and a (quasi) upper triangular matrix R.\n\nFor convenience the eigenvalues that appear on the diagonal of R are also  listed as eigenvalues, which is in particular useful in the case of real  matrices with complex eigenvalues. Note that the eigenvalues are always a  complex, even when the matrix R is real.\n\n\n\n\n\n"
+},
+
+{
+    "location": "usage/01_getting_started.html#ArnoldiMethod.History",
+    "page": "Getting started",
+    "title": "ArnoldiMethod.History",
+    "category": "type",
+    "text": "History(mvproducts, nconverged, converged, nev)\n\nHistory shows whether the method has converged (when nconverged ≥ nev) and how many matrix-vector products were necessary to do so.\n\n\n\n\n\n"
+},
+
+{
+    "location": "usage/01_getting_started.html#The-PartialSchur-and-History-structs-1",
+    "page": "Getting started",
+    "title": "The PartialSchur and History structs",
+    "category": "section",
+    "text": "For completeness, the return values of the partialschur function:ArnoldiMethod.PartialSchur\nArnoldiMethod.History"
 },
 
 {
