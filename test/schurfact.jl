@@ -2,7 +2,8 @@
 # Here we look at some edge cases.
 
 using Test, LinearAlgebra
-using ArnoldiMethod: eigenvalues, local_schurfact!, is_offdiagonal_small
+using ArnoldiMethod: eigenvalues, local_schurfact!, is_offdiagonal_small,
+                     NotWanted
 
 include("utils.jl")
 
@@ -108,6 +109,16 @@ include("utils.jl")
             # Test that the eigenvalues of H are the same before and after transformation
             @test sort!(eigvals(H), by=realimag) ≈ sort!(eigvals(H′), by=realimag)
         end
-
     end
+end
+
+@testset "Schur with nearly repeated eigenvalues" begin
+    # Matrix with nearly repeated eigenpair could converge very slowly or
+    # stagnate completely when there's a tiny perturbation in the computed
+    # shift.
+    mat(ε) = [2   0    0  ;
+              5ε  1-ε  2ε ;
+              0   3ε   1+ε]
+
+    @test local_schurfact!(mat(eps()))
 end

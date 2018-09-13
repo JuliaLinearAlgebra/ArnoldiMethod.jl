@@ -252,3 +252,18 @@ end
     @test opnorm(I - Q'Q, 1) < 10eps() # we should be able to get rid of this prefactor?
     @test opnorm(A * Q - Q * A′, 1) < opnorm(A, 1) * eps()
 end
+
+@testset "Identical eigenvalues should not blow up" begin
+    A = [1.0 2.0 3.0 4.0;
+         0.0 1.0 5.0 6.0;
+         0.0 0.0 1.0 7.0;
+         0.0 0.0 0.0 1.0]
+         
+    A′ = copy(A)
+    swap22!(A′, 1)
+    @test A == A′
+    swap12!(A′, 1)
+    @test A == A′
+    swap21!(A′, 1)
+    @test A == A′
+end
