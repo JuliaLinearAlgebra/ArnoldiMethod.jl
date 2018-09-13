@@ -5,7 +5,7 @@ import LinearAlgebra: lmul!, rmul!
 import Base: Matrix
 
 @propagate_inbounds is_offdiagonal_small(H::AbstractMatrix{T}, i::Int, tol = eps(real(T))) where {T} = 
-    abs(H[i+1,i]) < tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
+    abs(H[i+1,i]) ≤ tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
 
 
 abstract type SmallRotation end
@@ -352,7 +352,7 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
             H[from,from-1] = zero(T)
             to -= 1
         else
-            # Now we are sure we can work with a 2x2 block H[to-1:to,to-1:to]
+            # Now we are sure we can work with a 2×2 block H[to-1:to,to-1:to]
             # We check if this block has a conjugate eigenpair, which might mean we have
             # converged w.r.t. this block if from + 1 == to. 
             # Otherwise, if from + 1 < to, we do either a single or double shift, based on
@@ -361,22 +361,30 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
             H₁₁, H₁₂ = H[to-1,to-1], H[to-1,to]
             H₂₁, H₂₂ = H[to  ,to-1], H[to  ,to]
 
-            # Matrix determinant and trace
-            d = H₁₁ * H₂₂ - H₂₁ * H₁₂
-            t = H₁₁ + H₂₂
-            discriminant = t * t - 4d
+            # Scaling to avoid losing precision in the case where we have nearly
+            # repeated eigenvalues.
+            scale = abs(H₁₁) + abs(H₁₂) + abs(H₂₁) + abs(H₂₂)
+            H₁₁ /= scale; H₁₂ /= scale; H₂₁ /= scale; H₂₂ /= scale
 
-            if discriminant ≥ zero(T)
+            # Trace and discriminant of small eigenvalue problem.
+            t = (H₁₁ + H₂₂) / 2
+            d = (H₁₁ - t) * (H₂₂ - t) - H₁₂ * H₂₁
+            sqrt_discr = sqrt(abs(d))
+
+            # Very important to have a strict comparison here!
+            if d < zero(T)
                 # Real eigenvalues.
                 # Note that if from + 1 == to in this case, then just one additional
                 # iteration is necessary, since the Wilkinson shift will do an exact shift.
 
                 # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
                 # near H[to,to]
-                sqr = sqrt(discriminant)
-                λ₁ = (t + sqr) / 2
-                λ₂ = (t - sqr) / 2
+                
+                λ₁ = t + sqrt_discr
+                λ₂ = t - sqrt_discr
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
+                λ *= scale
+
                 # Run a bulge chase
                 single_shift_schur!(H, from, to, λ, Q)
             else
@@ -389,8 +397,8 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
                     to -= 2
                 else
                     # Otherwise we do a double shift!
-                    sqr = sqrt(complex(discriminant))
-                    double_shift_schur!(H, from, to, (t + sqr) / 2, Q)
+                    complex_shift = scale * (t + sqrt_discr * im)
+                    double_shift_schur!(H, from, to, complex_shift, Q)
                 end
             end
         end
