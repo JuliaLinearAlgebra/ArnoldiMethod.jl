@@ -1,6 +1,6 @@
 using Test
 
-using ArnoldiMethod: collect_eigen!
+using ArnoldiMethod: collect_eigen!, copy_eigenvalues!
 using LinearAlgebra
 
 @testset "Eigenvector upper triangular matrix" begin
@@ -51,5 +51,16 @@ rot(θ) = [cos(θ) sin(θ); -sin(θ) cos(θ)]
 
         @test norm(x) ≈ 1
         @test abs.(x) ≈ abs.(xs[:, i])
+    end
+end
+
+@testset "Extract partial" begin
+    n = 20
+    R = triu(rand(n, n))
+    R[1:2,1:2] .= rot(1.0) + I
+    for range = (1:3, 1:4)
+        λs = eigvals(R[range, range])
+        θs = copy_eigenvalues!(rand(ComplexF64, length(range)), R, range)
+        @test sort!(λs, by = reim) ≈ sort!(θs, by = reim)
     end
 end

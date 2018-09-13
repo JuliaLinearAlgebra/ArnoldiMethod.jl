@@ -48,23 +48,23 @@ julia> decomp
 PartialSchur decomposition (Float64) of dimension 10
 eigenvalues:
 10-element Array{Complex{Float64},1}:
- 0.000967435416023798 + 0.0im
- 0.003868805732811847 + 0.0im
- 0.008701304061962362 + 0.0im
- 0.015460255273447325 + 0.0im
-  0.02413912051848671 + 0.0im
-   0.0347295035555462 + 0.0im
- 0.047221158872786585 + 0.0im
- 0.061602001600669004 + 0.0im
-  0.07785811920255274 + 0.0im
-    3.918903416103043 + 0.0im
+ 0.0009674354160236865 + 0.0im
+  0.003868805732811139 + 0.0im
+  0.008701304061962657 + 0.0im
+   0.01546025527344699 + 0.0im
+  0.024139120518486677 + 0.0im
+    0.0347295035554728 + 0.0im
+   0.04722115887278571 + 0.0im
+   0.06160200160067088 + 0.0im
+    0.0778581192025522 + 0.0im
+   0.09597378493453936 + 0.0im
 julia> history
-Converged: 10 of 10 eigenvalues in 171 matrix-vector products
+Converged: 10 of 10 eigenvalues in 174 matrix-vector products
 julia> norm(A * decomp.Q - decomp.Q * decomp.R)
-2.503582041203943e-7
+6.39386920955869e-8
 julia> λs, X = partialeigen(decomp);
 julia> norm(A * X - X * Diagonal(λs))
-2.503582040967213e-7
+6.393869211477937e-8
 ```
 
 ## The PartialSchur and History structs
