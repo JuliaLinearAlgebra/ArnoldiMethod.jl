@@ -333,6 +333,7 @@ function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
     mi = 1
     lo = 1
 
+    # Be very scared whenever eigenvalues are too close!
     while hi ≤ length(groups)
         group = groups[hi]
         blocksize = is_start_of_11_block(R, hi) ? 1 : 2

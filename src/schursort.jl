@@ -62,6 +62,7 @@ struct CompletelyPivotedLU{T,N,TA<:SMatrix{N,N,T},TP}
     A::TA
     p::TP
     q::TP
+    singular::Bool
 end
 
 struct CompletePivoting end
@@ -76,6 +77,7 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
     A = MMatrix(A)
     p = @MVector fill(N, N)
     q = @MVector fill(N, N)
+    singular = false
 
     # Maybe I should consider doing this recursively.
     for k = OneTo(N - 1)
@@ -102,6 +104,12 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
 
         Akk = A[k,k]
 
+        # It has actually happened :(
+        if iszero(Akk)
+            singular = true
+            break
+        end
+
         for i = k+1:N
             A[i, k] /= Akk
         end
@@ -115,8 +123,12 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
         end
     end
 
+    if iszero(A[N,N])
+        singular = true
+    end
+
     # Back to immutable land!
-    return CompletelyPivotedLU(SMatrix(A), SVector(p), SVector(q))
+    return CompletelyPivotedLU(SMatrix(A), SVector(p), SVector(q), singular)
 end
 
 function (\)(LU::CompletelyPivotedLU{T,N}, b::SVector{N}) where {T,N}
@@ -158,22 +170,21 @@ end
               T(0)          -B[1,2]       A[2,1]        A[2,2]-B[2,2]]
 
 """
-    sylv(A, B, C) → X
+    sylv(A, B, C) → X, singular
 
 Solve A * X - X * B = C for X, where A and B are 1×1 or 2×2 matrices.
 
 It works by recasting the Sylvester equation to a linear system 
 (I ⊗ A + Bᵀ ⊗ I) vec(X) = vec(C) of size 2 or 4, which is then solved by
 Gaussian elimination with complete pivoting.
+
+If the eigenvalues of A and B are equal, then `singular = true`.
 """
-@inline sylv(A::SMatrix{1,1,T}, B::SMatrix{2,2,T}, C::SMatrix{1,2,T}) where {T} =
-    SMatrix{1,2,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{2,T}(C))
-
-@inline sylv(A::SMatrix{2,2,T}, B::SMatrix{1,1,T}, C::SMatrix{2,1,T}) where {T} = 
-    SMatrix{2,1,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{2,T}(C))
-
-@inline sylv(A::SMatrix{2,2,T}, B::SMatrix{2,2,T}, C::SMatrix{2,2,T}) where {T} =
-    SMatrix{2,2,T}(lu(sylvsystem(A, B), CompletePivoting) \ SVector{4,T}(C))
+@inline function sylv(A::SMatrix{N,N,T}, B::SMatrix{M,M,T}, C::SMatrix{N,M,T}) where {T,N,M}
+    fact = lu(sylvsystem(A, B), CompletePivoting)
+    rhs = SVector{N*M,T}(C)
+    SMatrix{N,M,T}(fact \ rhs), fact.singular
+end
 
 """
     swap22_rotations(X) → c₁, s₁, c₂, s₂, c₃, s₃, c₄, s₄
@@ -289,7 +300,10 @@ function swap22!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
         C = @SMatrix [R[i+0,i+2] R[i+0,i+3]; R[i+1,i+2] R[i+1,i+3]]
 
         # A * X - X * B = C
-        X = sylv(A, B, C)
+        X, singular = sylv(A, B, C)
+
+        # No need to swap if eigenvalues are indistinguishable
+        singular && return R
 
         # Rotations that upper triangularize X
         c₁,s₁, c₂,s₂, c₃,s₃, c₄,s₄ = swap22_rotations(X)
@@ -340,7 +354,10 @@ function swap21!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
         C = @SMatrix [R[i+0,i+2]; R[i+1,i+2]]
 
         # A * X - X * B = C
-        X = sylv(A, B, C)
+        X, singular = sylv(A, B, C)
+
+        # No need to swap if eigenvalues are indistinguishable
+        singular && return R
 
         # Rotations that upper triangularize X
         c₁,s₁, c₂,s₂ = swap21_rotations(X)
@@ -388,7 +405,10 @@ function swap12!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
         C = @SMatrix [R[i+0,i+1] R[i+0,i+2]]
 
         # A * X - X * B = C
-        X = sylv(A, B, C)
+        X, singular = sylv(A, B, C)
+
+        # No need to swap if eigenvalues are indistinguishable
+        singular && return R
 
         # Rotations that upper triangularize X
         c₁,s₁, c₂,s₂ = swap12_rotations(X)
