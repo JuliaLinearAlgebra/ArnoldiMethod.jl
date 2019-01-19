@@ -136,8 +136,13 @@ function partialschur(A;
                        restarts::Int = 200,
                        history_level::Type{T}  = GeneralHistory) where {T<:History}
     s = checksquare(A)
+    arithm_type=vtype(A);
+    if (!((arithm_type<:Real) && issymmetric(A)))
+        arithm_type=complex(arithm_type)
+    end
+
     nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
-    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which, history_level)
+    _partialschur(A, arithm_type, mindim, maxdim, nev, tol, restarts, which, history_level)
 end
 
 """
@@ -180,13 +185,14 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     Q = Matrix{T}(undef, maxdim, maxdim)
 
     # We only need to store one eignvector of the Hessenberg matrix
-    x = zeros(complex(T), maxdim)
+    x = zeros(T, maxdim)
 
     # And we store the reflector to transform H back to Hessenberg separately
     G = Reflector{T}(maxdim)
 
     # Approximate residual norms for all Ritz values, and Ritz values
     ritz = RitzValues{T}(maxdim)
+
     isconverged = IsConverged(ritz, tol)
     ordering = get_order(which)
     groups = zeros(Int, maxdim)
@@ -208,12 +214,12 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     reinitialize!(arnoldi)
     iterate_arnoldi!(A, arnoldi, 1:mindim)
 
-    ritzval_history=Vector{Vector{complex(T)}}(undef,0);
+    ritzval_history=Vector{Vector{T}}(undef,0);
     ritzval_lock_history=Vector{Vector{Int}}(undef,0);
     ritzval_want_history=Vector{Vector{Int}}(undef,0);
     ritzval_unwant_history=Vector{Vector{Int}}(undef,0);
-    hessenberg_history=Vector{Matrix{complex(T)}}(undef,0);
-    hessenberg_restart_history=Vector{Matrix{complex(T)}}(undef,0);
+    hessenberg_history=Vector{Matrix{T}}(undef,0);
+    hessenberg_restart_history=Vector{Matrix{T}}(undef,0);
     for iter = 1 : restarts
 
         # Expand Krylov subspace dimension from `k` to `maxdim`.
@@ -485,7 +491,7 @@ function copy_residuals!(rs::AbstractVector{T}, H, Q, hₖ₊₁ₖ, x::Abstract
     @inbounds for i = range
         fill!(x, zero(T))
         len = collect_eigen!(x, H, i)
-        tmp = zero(complex(T))
+        tmp = zero(T)
         for j = 1 : len
             tmp += Q[m, j] * x[j]
         end

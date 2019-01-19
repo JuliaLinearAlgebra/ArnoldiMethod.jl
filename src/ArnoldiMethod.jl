@@ -47,10 +47,10 @@ struct RitzValues{Tv,Tr}
     ord::Vector{Int}
 
     function RitzValues{T}(maxdim::Int) where {T}
-        λs = Vector{complex(T)}(undef, maxdim)
+        λs = Vector{T}(undef, maxdim)
         rs = Vector{real(T)}(undef, maxdim)
         ord = Vector{Int}(undef, maxdim)
-        return new{complex(T),real(T)}(λs, rs, ord)
+        return new{T,real(T)}(λs, rs, ord)
     end
 end
 
@@ -64,7 +64,7 @@ listed as `eigenvalues`, which is in particular useful in the case of real
 matrices with complex eigenvalues. Note that the eigenvalues are always a
 complex, even when the matrix `R` is real.
 """
-struct PartialSchur{TQ,TR,Tλ<:Complex}
+struct PartialSchur{TQ,TR,Tλ<:Number}
     "Orthonormal matrix"
     Q::TQ
     "Quasi upper triangular matrix"
