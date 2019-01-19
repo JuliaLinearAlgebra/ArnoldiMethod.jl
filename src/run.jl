@@ -1,5 +1,7 @@
 using LinearAlgebra: checksquare
 
+
+
 """
     vtype(A) → T
 
@@ -10,6 +12,40 @@ function vtype(A)
     T = eltype(A)
     typeof(zero(T)/sqrt(one(T)))
 end
+
+abstract type History end
+
+struct GeneralHistory <: History
+    mvproducts::Int
+    nconverged::Int
+    converged::Bool
+    nev::Int
+end
+
+struct DetailedHistory <: History
+    mvproducts::Int
+    nconverged::Int
+    converged::Bool
+    nev::Int
+    ritzval_history::Vector
+    # Separation of different Ritz values
+    ritzval_lock_history::Vector
+    ritzval_want_history::Vector
+    ritzval_unwant_history::Vector
+    hessenberg_history::Vector;          # Hessenberg after arnoldi_iterate!
+    hessenberg_restart_history::Vector;  # Hessenberg we use for restart
+end
+
+"""
+    History(mvproducts, nconverged, converged, nev)
+
+History shows whether the method has converged (when `nconverged` ≥ `nev`) and
+how many matrix-vector products were necessary to do so.
+"""
+function History(mvproducts, nconverged, converged, nev)
+    return GeneralHistory(mvproducts, nconverged, converged, nev)
+end
+
 
 """
 ```julia
@@ -98,7 +134,7 @@ function partialschur(A;
                        mindim::Int = min(max(10, nev), size(A, 1)),
                        maxdim::Int = min(max(20, 2nev), size(A, 1)),
                        restarts::Int = 200,
-                       history_level::Int = 0)
+                       history_level::Type{T}  = GeneralHistory) where {T<:History}
     s = checksquare(A)
     nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
     _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which, history_level)
@@ -126,40 +162,8 @@ end
 
 
 
-abstract type History end
 
-struct GeneralHistory <: History
-    mvproducts::Int
-    nconverged::Int
-    converged::Bool
-    nev::Int
-end
-
-struct DetailedHistory <: History
-    mvproducts::Int
-    nconverged::Int
-    converged::Bool
-    nev::Int
-    ritzval_history::Vector
-    # Separation of different Ritz values
-    ritzval_lock_history::Vector
-    ritzval_want_history::Vector
-    ritzval_unwant_history::Vector
-    hessenberg_history::Vector;          # Hessenberg after arnoldi_iterate!
-    hessenberg_restart_history::Vector;  # Hessenberg we use for restart
-end
-
-"""
-    History(mvproducts, nconverged, converged, nev)
-
-History shows whether the method has converged (when `nconverged` ≥ `nev`) and
-how many matrix-vector products were necessary to do so.
-"""
-function History(mvproducts, nconverged, converged, nev)
-    return GeneralHistory(mvproducts, nconverged, converged, nev)
-end
-
-function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target, history_level::Int) where {T,Ttol<:Real}
+function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target, history_level::Type{Thist}) where {T,Ttol<:Real,Thist<:History}
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
@@ -215,7 +219,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Expand Krylov subspace dimension from `k` to `maxdim`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
 
-        if (history_level>0)
+        if history_level==DetailedHistory
             push!(hessenberg_history,arnoldi.H)
         end
 
@@ -233,7 +237,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         copy_eigenvalues!(ritz.λs, H)
         copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
 
-        if (history_level>0)
+        if history_level==DetailedHistory
             push!(ritzval_history,ritz.λs);
         end
 
@@ -265,7 +269,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Next, purge the converged eigenvalues we do not want by moving them to the back.
         partition!(i -> !isconverged(i), ritz.ord, nlock+1:maxdim)
 
-        if (history_level>0)
+        if history_level==DetailedHistory
             push!(ritzval_lock_history,ritz.ord[1:nlock])
             push!(ritzval_want_history,ritz.ord[nlock+1:k])
             push!(ritzval_unwant_history,ritz.ord[k+1:end])
@@ -311,7 +315,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         active > nev && break
 
-        if (history_level>0)
+        if history_level==DetailedHistory
             push!(hessenberg_restart_history,arnoldi.H)
         end
 
@@ -334,10 +338,10 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
 
     local history::History
-    if (history_level == 0)
-        history = History(prods, nconverged, nconverged ≥ nev, nev)
-    else
+    if history_level==DetailedHistory
         history = DetailedHistory(prods, nconverged, nconverged ≥ nev, nev, ritzval_history, ritzval_lock_history, ritzval_want_history, ritzval_unwant_history,hessenberg_history,hessenberg_restart_history)
+    else
+        history = History(prods, nconverged, nconverged ≥ nev, nev)
     end
 
     schur = PartialSchur(Vconverged, Hconverged, ritz.λs[1:nconverged])
