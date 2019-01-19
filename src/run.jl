@@ -47,7 +47,7 @@ The target `which` can be any of `subtypes(ArnoldiMethod.Target)`:
 !!! note
 
     The targets `LI()` and `SI()` only make sense in complex arithmetic. In real
-    arithmetic `λ` is an eigenvalue iff `conj(λ)` is an eigenvalue and this 
+    arithmetic `λ` is an eigenvalue iff `conj(λ)` is an eigenvalue and this
     conjugate pair converges simultaneously.
 
 ## Return values
@@ -58,7 +58,7 @@ The function returns a tuple
 decomp, history = partialschur(A, ...)
 ```
 
-where `decomp` is a [`PartialSchur`](@ref) struct which 
+where `decomp` is a [`PartialSchur`](@ref) struct which
 forms a partial Schur decomposition of `A` to a prescribed tolerance:
 
 ```julia
@@ -85,8 +85,8 @@ Further there are advanced keyword arguments for tuning the algorithm:
 | `maxdim` | `Int` | `min(max(20, 2nev), size(A,1))` | Maximum Krylov dimension (≥ min) |
 | `restarts` | `Int` | `200` | Maximum number of restarts |
 
-When the algorithm does not converge, one can increase `restarts`. When the 
-algorithm converges too slowly, one can play with `mindim` and `maxdim`. It is 
+When the algorithm does not converge, one can increase `restarts`. When the
+algorithm converges too slowly, one can play with `mindim` and `maxdim`. It is
 suggested to keep `mindim` equal to or slightly larger than `nev`, and `maxdim`
 is usually about two times `mindim`.
 
@@ -94,13 +94,14 @@ is usually about two times `mindim`.
 function partialschur(A;
                        nev::Int = min(6, size(A, 1)),
                        which::Target = LM(),
-                       tol::Real = sqrt(eps(real(vtype(A)))), 
+                       tol::Real = sqrt(eps(real(vtype(A)))),
                        mindim::Int = min(max(10, nev), size(A, 1)),
                        maxdim::Int = min(max(20, 2nev), size(A, 1)),
-                       restarts::Int = 200)
+                       restarts::Int = 200,
+                       history_level::Int = 0)
     s = checksquare(A)
     nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
-    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
+    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which, history_level)
 end
 
 """
@@ -108,8 +109,8 @@ end
 
 Functor to test whether Ritz values satisfy the convergence criterion. Current
 convergence condition is ‖Ax - xλ‖₂ < max(ε‖H‖, tol * |λ|). This is supposed to
-be scale invariant: the matrix `B = αA` for some constant `α` has the same 
-eigenvectors with eigenvalue λα, so this scaling with `α` cancels in the 
+be scale invariant: the matrix `B = αA` for some constant `α` has the same
+eigenvectors with eigenvalue λα, so this scaling with `α` cancels in the
 inequality.
 """
 struct IsConverged{RV<:RitzValues,T}
@@ -123,20 +124,42 @@ end
 (r::IsConverged{RV,T})(i::Integer) where {RV,T} =
     @inbounds return r.ritz.rs[i] < max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
 
-"""
-    History(mvproducts, nconverged, converged, nev)
 
-History shows whether the method has converged (when `nconverged` ≥ `nev`) and
-how many matrix-vector products were necessary to do so.
-"""
-struct History
+
+abstract type History end
+
+struct GeneralHistory <: History
     mvproducts::Int
     nconverged::Int
     converged::Bool
     nev::Int
 end
 
-function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
+struct DetailedHistory <: History
+    mvproducts::Int
+    nconverged::Int
+    converged::Bool
+    nev::Int
+    ritzval_history::Vector
+    # Separation of different Ritz values
+    ritzval_lock_history::Vector
+    ritzval_want_history::Vector
+    ritzval_unwant_history::Vector
+    hessenberg_history::Vector;          # Hessenberg after arnoldi_iterate!
+    hessenberg_restart_history::Vector;  # Hessenberg we use for restart
+end
+
+"""
+    History(mvproducts, nconverged, converged, nev)
+
+History shows whether the method has converged (when `nconverged` ≥ `nev`) and
+how many matrix-vector products were necessary to do so.
+"""
+function History(mvproducts, nconverged, converged, nev)
+    return GeneralHistory(mvproducts, nconverged, converged, nev)
+end
+
+function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target, history_level::Int) where {T,Ttol<:Real}
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
@@ -168,7 +191,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     # V[:,active:maxdim] ⸺ Active part of decomposition.
     # V[:,active:k     ] ⸺ Smallest size of Arnoldi relation; k will increase over time.
     #                        We keep length(active:k) ≈ mindim, but we should also retain
-    #                        space to add new directions to the Krylov subspace, so 
+    #                        space to add new directions to the Krylov subspace, so
     #                        length(k+1:maxdim) should not be too small either.
     active = 1
     k = mindim
@@ -181,11 +204,21 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     reinitialize!(arnoldi)
     iterate_arnoldi!(A, arnoldi, 1:mindim)
 
+    ritzval_history=Vector{Vector{complex(T)}}(undef,0);
+    ritzval_lock_history=Vector{Vector{Int}}(undef,0);
+    ritzval_want_history=Vector{Vector{Int}}(undef,0);
+    ritzval_unwant_history=Vector{Vector{Int}}(undef,0);
+    hessenberg_history=Vector{Matrix{complex(T)}}(undef,0);
+    hessenberg_restart_history=Vector{Matrix{complex(T)}}(undef,0);
     for iter = 1 : restarts
 
         # Expand Krylov subspace dimension from `k` to `maxdim`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
-        
+
+        if (history_level>0)
+            push!(hessenberg_history,arnoldi.H)
+        end
+
         # Bookkeeping
         prods += length(k+1:maxdim)
 
@@ -194,11 +227,15 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         # Construct Schur decomposition of H[active:maxdim,active:maxdim] in-place
         local_schurfact!(view(H, OneTo(maxdim), :), active, maxdim, Q)
-        
+
         # Update the Ritz values
         copyto!(ritz.ord, OneTo(maxdim))
         copy_eigenvalues!(ritz.λs, H)
         copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
+
+        if (history_level>0)
+            push!(ritzval_history,ritz.λs);
+        end
 
         # Create a permutation that sorts Ritz values from most wanted to least wanted
         sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
@@ -221,15 +258,21 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Partition in converged & not converged.
         first_not_conv_idx = partition!(isconverged, ritz.ord, active:effective_nev)
 
-        # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
+        # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and
         # nlock ≤ effective_nev, so it's really just these that we are after!
         nlock = first_not_conv_idx === nothing ? effective_nev : first_not_conv_idx - 1
 
         # Next, purge the converged eigenvalues we do not want by moving them to the back.
         partition!(i -> !isconverged(i), ritz.ord, nlock+1:maxdim)
 
+        if (history_level>0)
+            push!(ritzval_lock_history,ritz.ord[1:nlock])
+            push!(ritzval_want_history,ritz.ord[nlock+1:k])
+            push!(ritzval_unwant_history,ritz.ord[k+1:end])
+        end
+
         # Determine the new length `k` of the truncated Krylov subspace:
-        # 1. The dimension of the active part should be roughly `mindim`; so `k` will be 
+        # 1. The dimension of the active part should be roughly `mindim`; so `k` will be
         #    larger than `mindim` when converged Ritz vectors have been locked.
         # 2. But `k` can't be so large that the expansion would barely give new information;
         #    hence we meet in the middle: `k` is at most halfway `mindim` and `maxdim`.
@@ -263,10 +306,15 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         @views copyto!(V[:,active:k], Vtmp[:,active:k])
         @views copyto!(V[:,k+1], V[:,maxdim+1])
 
-        # The active part 
+        # The active part
         active = nlock + 1
 
         active > nev && break
+
+        if (history_level>0)
+            push!(hessenberg_restart_history,arnoldi.H)
+        end
+
     end
 
     nconverged = active - 1
@@ -284,7 +332,14 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     # Copy the eigenvalues just one more time
     copy_eigenvalues!(ritz.λs, H, OneTo(nconverged))
 
-    history = History(prods, nconverged, nconverged ≥ nev, nev)
+
+    local history::History
+    if (history_level == 0)
+        history = History(prods, nconverged, nconverged ≥ nev, nev)
+    else
+        history = DetailedHistory(prods, nconverged, nconverged ≥ nev, nev, ritzval_history, ritzval_lock_history, ritzval_want_history, ritzval_unwant_history,hessenberg_history,hessenberg_restart_history)
+    end
+
     schur = PartialSchur(Vconverged, Hconverged, ritz.λs[1:nconverged])
 
     return schur, history
@@ -297,37 +352,37 @@ function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
     #  m
     #  l
 
-    # |2|33|1|2|33|2|1|  -> |2|33|1|2|33|2|1| 
-    #    h               ->       h             
-    #  m                 ->    m             
-    #  l                 ->  l               
+    # |2|33|1|2|33|2|1|  -> |2|33|1|2|33|2|1|
+    #    h               ->       h
+    #  m                 ->    m
+    #  l                 ->  l
 
-    # |2|33|1|2|33|2|1|  -> |1|2|33|2|33|2|1| 
-    #       h            ->         h              
+    # |2|33|1|2|33|2|1|  -> |1|2|33|2|33|2|1|
+    #       h            ->         h
     #    m               ->      m
-    #  l                 ->    l                   
-    
-    # |1|2|33|2|33|2|1|  -> |1|2|2|33|33|2|1| 
-    #         h          ->           h        
-    #      m             ->        m         
-    #    l               ->    l             
+    #  l                 ->    l
 
-    # |1|2|2|33|33|2|1|  -> |1|2|2|33|33|2|1| 
-    #           h        ->              h              
-    #        m           ->        m          
-    #    l               ->    l                   
+    # |1|2|33|2|33|2|1|  -> |1|2|2|33|33|2|1|
+    #         h          ->           h
+    #      m             ->        m
+    #    l               ->    l
 
-    # |1|2|2|33|33|2|1|  -> |1|2|2|2|33|33|1| 
-    #              h     ->                h   
-    #        m           ->          m       
-    #    l               ->    l             
-        
-    
+    # |1|2|2|33|33|2|1|  -> |1|2|2|33|33|2|1|
+    #           h        ->              h
+    #        m           ->        m
+    #    l               ->    l
+
+    # |1|2|2|33|33|2|1|  -> |1|2|2|2|33|33|1|
+    #              h     ->                h
+    #        m           ->          m
+    #    l               ->    l
+
+
     # |1|2|2|2|33|33|1|  -> |1|1|2|2|2|33|33|
-    #                h   ->                  h             
-    #          m         ->            m       
-    #    l               ->      l                  
-     
+    #                h   ->                  h
+    #          m         ->            m
+    #    l               ->      l
+
 
     hi = 1
     mi = 1
@@ -379,7 +434,7 @@ function sortschur!(R, Q, to::Int, ordering::Ordering)
         # so that we skip either 1 or 2 steps.
         curr_size = is_start_of_11_block(R, curr_idx) ? 1 : 2
         curr_λ = eigenvalue(R, curr_idx)
-        
+
         # Insertion part of the sort
         while curr_idx > 1
 
