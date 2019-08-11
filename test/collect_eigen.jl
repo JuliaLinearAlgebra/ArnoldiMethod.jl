@@ -13,7 +13,11 @@ using LinearAlgebra
         R = triu(rand(T, n, n))
 
         # Compute exact eigenvectors according to LAPACK
-        λs, xs = eigen(R)
+        if VERSION >= v"1.2.0-DEV.275"
+            λs, xs = eigen(R, sortby=nothing)
+        else
+            λs, xs = eigen(R)
+        end
 
         # Allocate a complex-valued eigenvector
         x = zeros(complex(T), n)
@@ -38,9 +42,13 @@ rot(θ) = [cos(θ) sin(θ); -sin(θ) cos(θ)]
     R = triu(rand(n, n))
     R[1:2,1:2] .= rot(1.0) + I
     R[10:11,10:11] .= rot(1.2) + 2I
-    
+
     # Compute exact eigenvectors according to LAPACK
-    λs, xs = eigen(R)
+    if VERSION >= v"1.2.0-DEV.275"
+        λs, xs = eigen(R, sortby=nothing)
+    else
+        λs, xs = eigen(R)
+    end
 
     # Allocate a complex-valued eigenvector
     x = zeros(ComplexF64, n)
