@@ -99,6 +99,9 @@ function partialschur(A;
                        maxdim::Int = min(max(20, 2nev), size(A, 1)),
                        restarts::Int = 200)
     s = checksquare(A)
+    if nev < 1
+        throw(ArgumentError("nev cannot be less than 1"))
+    end
     nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
     _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
 end
