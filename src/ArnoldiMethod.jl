@@ -72,6 +72,49 @@ struct PartialSchur{TQ,TR,Tλ<:Complex}
     eigenvalues::Vector{Tλ}
 end
 
+
+
+struct Reflector{T}
+    vec::Vector{T}
+    offset::RefValue{Int}
+    len::RefValue{Int}
+    τ::RefValue{T}
+
+    Reflector{T}(max_len::Int) where {T} = new{T}(
+        Vector{T}(undef, max_len),
+        Base.RefValue(1),
+        Base.RefValue(0),
+        Base.RefValue(zero(T))
+    )
+end
+
+
+struct PartialSchurWorkspace{T}
+    arnoldi::Arnoldi{T}
+    Vtmp::Matrix{T}
+    Q::Matrix{T}
+    x::Vector{Complex{T}}
+    G::Reflector{T}
+    ritz::RitzValues{Complex{T}, T}
+    groups::Vector{Int}
+    n::Int
+    maxdim::Int
+
+    function PartialSchurWorkspace{T}(n, maxdim) where T      
+        arnoldi = Arnoldi{T}(n, maxdim)
+        Vtmp = Matrix{T}(undef, n, maxdim)
+        Q = Matrix{T}(undef, maxdim, maxdim)
+        x = Vector{Complex{T}}(undef, maxdim)
+        G = Reflector{T}(maxdim)   
+        ritz = RitzValues{T}(maxdim)
+        groups = Vector{Int}(undef, maxdim)
+        return new{T}(arnoldi, Vtmp, Q, x, G, ritz, groups, n, maxdim)
+    end
+
+end
+
+
+
 include("targets.jl")
 include("partition.jl")
 include("schurfact.jl")

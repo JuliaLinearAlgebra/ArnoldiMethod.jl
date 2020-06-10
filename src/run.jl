@@ -106,6 +106,32 @@ function partialschur(A;
     _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
 end
 
+
+
+function partialschur!(w::PartialSchurWorkspace{T},
+                       A;
+                       nev::Int = min(6, size(A, 1)),
+                       which::Target = LM(),
+                       tol::Real = sqrt(eps(real(vtype(A)))), 
+                       mindim::Int = min(max(10, nev), size(A, 1)),
+                       maxdim::Int = w.maxdim,
+                       restarts::Int = 200) where {T}
+    s = checksquare(A)
+    if nev < 1
+        throw(ArgumentError("nev cannot be less than 1"))
+    end
+    nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
+    
+    # Assert input dimensions and options match workspace
+    w.n == size(A,1) || throw(DimensionMismatch("Preallocated wokspace specifies matrix dimension $(w.n) ≠ size(A,1)"))
+      
+    _partialschur!(w, A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
+end
+
+    
+
+   
+
 """
     IsConverged(ritz, tol)
 
@@ -140,6 +166,7 @@ struct History
 end
 
 function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
+
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
@@ -292,6 +319,166 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
     return schur, history
 end
+
+
+
+
+function _partialschur!(w::PartialSchurWorkspace{T},  # Pre-allocated workspace
+                        A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
+
+
+
+    # Unpack workspace
+    arnoldi = w.arnoldi
+    Vtmp = w.Vtmp
+    Q = w.Q
+    x = w.x
+    G = w.G
+    ritz = w.ritz
+    groups = w.groups
+    n = w.n
+
+    # Reset workspace
+    fill!(x, zero(eltype(x)))
+    fill!(groups, zero(eltype(groups)))
+
+    # Unpack for convenience
+    H = arnoldi.H
+    V = arnoldi.V
+
+    isconverged = IsConverged(ritz, tol)
+    ordering = get_order(which)
+
+
+    # V[:,1:active-1   ] ⸺ Locked vectors / approximately invariant subspace
+    # V[:,active:maxdim] ⸺ Active part of decomposition.
+    # V[:,active:k     ] ⸺ Smallest size of Arnoldi relation; k will increase over time.
+    #                        We keep length(active:k) ≈ mindim, but we should also retain
+    #                        space to add new directions to the Krylov subspace, so 
+    #                        length(k+1:maxdim) should not be too small either.
+    active = 1
+    k = mindim
+    effective_nev = nev
+
+    # Bookkeeping for number of mv-products
+    prods = mindim
+
+    # Initialize an Arnoldi relation of size `mindim`
+    reinitialize!(arnoldi)
+    iterate_arnoldi!(A, arnoldi, 1:mindim)
+
+    for iter = 1 : restarts
+
+        # Expand Krylov subspace dimension from `k` to `maxdim`.
+        iterate_arnoldi!(A, arnoldi, k+1:maxdim)
+        
+        # Bookkeeping
+        prods += length(k+1:maxdim)
+
+        # Q accumulates the changes of basis via relfectors; initially it's just I.
+        copyto!(Q, I)
+
+        # Construct Schur decomposition of H[active:maxdim,active:maxdim] in-place
+        local_schurfact!(view(H, OneTo(maxdim), :), active, maxdim, Q)
+        
+        # Update the Ritz values
+        copyto!(ritz.ord, OneTo(maxdim))
+        copy_eigenvalues!(ritz.λs, H)
+        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
+
+        # Create a permutation that sorts Ritz values from most wanted to least wanted
+        sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
+
+        # Compute the Frobenius norm of H for the stopping criterion
+        isconverged.H_frob_norm[] = norm(H)
+
+        ### PARTITIONING OF SCHUR FORM IN [LOCKED | RETAINED | PURGED]
+
+        # Plan de campagne: reorder the permutation `ritz.ord` such that
+        # ritz.ord[1:nlock] gives the indices of the locked ritz values
+        # ritz.ord[nlock+1:k] is the indices of the ritz values we wanna retain
+        # ritz.ord[k+1:maxdim] is the indices of the ritz values we wanna truncate
+        # Then we make ritz.groups[i] = {1,2,3} by iterating over them.
+
+        # We keep at most `nev` or `nev+1` eigenvalues, depending on the split being
+        # halfway a conjugate pair.
+        effective_nev = include_conjugate_pair(T, ritz, nev)
+
+        # Partition in converged & not converged.
+        first_not_conv_idx = partition!(isconverged, ritz.ord, active:effective_nev)
+
+        # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
+        # nlock ≤ effective_nev, so it's really just these that we are after!
+        nlock = first_not_conv_idx === nothing ? effective_nev : first_not_conv_idx - 1
+
+        # Next, purge the converged eigenvalues we do not want by moving them to the back.
+        partition!(i -> !isconverged(i), ritz.ord, nlock+1:maxdim)
+
+        # Determine the new length `k` of the truncated Krylov subspace:
+        # 1. The dimension of the active part should be roughly `mindim`; so `k` will be 
+        #    larger than `mindim` when converged Ritz vectors have been locked.
+        # 2. But `k` can't be so large that the expansion would barely give new information;
+        #    hence we meet in the middle: `k` is at most halfway `mindim` and `maxdim`.
+        # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
+        k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
+
+        # Locked ritz values
+        @inbounds for i = 1:nlock
+            groups[ritz.ord[i]] = 1
+        end
+
+        # Retained ritz values
+        @inbounds for i = nlock+1:k
+            groups[ritz.ord[i]] = 2
+        end
+
+        # Truncated ritz values
+        @inbounds for i = k+1:maxdim
+            groups[ritz.ord[i]] = 3
+        end
+
+        partition_schur_three_way!(H, Q, groups)
+
+        # Restore the Hessenberg matrix via Householder reflections.
+        # Note that we restore the new active part only -- Q[end, 1:nlock] is small enough
+        # by convergence criterion.
+        restore_arnoldi!(H, nlock + 1, k, Q, G)
+
+        # Finally do the change of basis to get the length `k` Arnoldi relation.
+        @views mul!(Vtmp[:,active:k], V[:,active:maxdim], Q[active:maxdim,active:k])
+        @views copyto!(V[:,active:k], Vtmp[:,active:k])
+        @views copyto!(V[:,k+1], V[:,maxdim+1])
+
+        # The active part 
+        active = nlock + 1
+
+        active > nev && break
+    end
+
+    nconverged = active - 1
+
+    @views Vconverged = V[:,1:nconverged]
+    @views Hconverged = H[1:nconverged,1:nconverged]
+
+    # Sort the converged eigenvalues like the user wants them
+    sortschur!(H, copyto!(Q, I), nconverged, ordering)
+
+    # Change of basis
+    @views mul!(Vtmp[:,1:nconverged], Vconverged, Q[1:nconverged,1:nconverged])
+    @views copyto!(Vconverged, Vtmp[:,1:nconverged])
+
+    # Copy the eigenvalues just one more time
+    copy_eigenvalues!(ritz.λs, H, OneTo(nconverged))
+
+    history = History(prods, nconverged, nconverged ≥ nev, nev)
+    schur = PartialSchur(Vconverged, Hconverged, ritz.λs[1:nconverged])
+
+    return schur, history
+end
+
+
+
+
 
 function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
     # Partitioning goes like this:

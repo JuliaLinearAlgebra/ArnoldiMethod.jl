@@ -44,19 +44,6 @@ function reflector!(y::AbstractVector{T}, k::Integer) where {T}
     end
 end
 
-struct Reflector{T}
-    vec::Vector{T}
-    offset::RefValue{Int}
-    len::RefValue{Int}
-    τ::RefValue{T}
-
-    Reflector{T}(max_len::Int) where {T} = new{T}(
-        Vector{T}(undef, max_len),
-        Base.RefValue(1),
-        Base.RefValue(0),
-        Base.RefValue(zero(T))
-    )
-end
 
 function reflector!(z::Reflector, k::Integer)
     z.len[] = k
