@@ -38,7 +38,7 @@ rot(θ) = [cos(θ) sin(θ); -sin(θ) cos(θ)]
     R = triu(rand(n, n))
     R[1:2,1:2] .= rot(1.0) + I
     R[10:11,10:11] .= rot(1.2) + 2I
-    
+
     # Compute exact eigenvectors according to LAPACK
     λs, xs = eigen(R)
 

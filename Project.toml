@@ -9,8 +9,9 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [extras]
+GenericSchur = "c145ed77-6b09-5dd9-b285-bf645a82121e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "SparseArrays"]
+test = ["Test", "SparseArrays","GenericSchur"]

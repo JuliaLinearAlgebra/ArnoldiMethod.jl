@@ -1,6 +1,5 @@
 using Random
 using LinearAlgebra
-using LinearAlgebra.BLAS: gemv!
 
 """
     reinitialize!(a::Arnoldi, j::Int = 0) → a
@@ -32,7 +31,7 @@ function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
 
     # Orthogonalize: h = Vprev' * v, v ← v - Vprev * Vprev' * v = v - Vprev * h
     h = Vprev' * v
-    gemv!('N', -one(T), Vprev, h, one(T), v)
+    mul!(v,Vprev,h,-one(T),one(T))
 
     # Norm after orthogonalization
     wnorm = norm(v)
@@ -41,7 +40,7 @@ function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
     if wnorm < η * rnorm
         rnorm = wnorm
         mul!(h, Vprev', v)
-        gemv!('N', -one(T), Vprev, h, one(T), v)
+        mul!(v,Vprev,h,-one(T),one(T))
         wnorm = norm(v)
     end
 
@@ -79,7 +78,7 @@ function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
 
     # Orthogonalize: h = Vprev' * v, v ← v - Vprev * Vprev' * v = v - Vprev * h
     mul!(h, Vprev', v)
-    gemv!('N', -one(T), Vprev, h, one(T), v)
+    mul!(v,Vprev,h,-one(T),one(T))
 
     # Norm after orthogonalization
     wnorm = norm(v)
@@ -88,7 +87,7 @@ function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
     if wnorm < η * rnorm
         rnorm = wnorm
         correction = Vprev' * v
-        gemv!('N', -one(T), Vprev, correction, one(T), v)
+        mul!(v,Vprev,correction,-one(T),one(T))
         h .+= correction
         wnorm = norm(v)
     end
@@ -112,7 +111,7 @@ Perform Arnoldi from `from` to `to`.
 """
 function iterate_arnoldi!(A, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
     V, H = arnoldi.V, arnoldi.H
-    
+
     for j = range
         # Generate a new column of the Krylov subspace
         mul!(view(V, :, j+1), A, view(V, :,j))
