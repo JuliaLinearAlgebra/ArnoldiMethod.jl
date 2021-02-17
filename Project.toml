@@ -1,12 +1,16 @@
 name = "ArnoldiMethod"
-uuid = "3ad52dbc-8794-42d5-ba69-10f868172940"
+uuid = "ec485272-7323-5ecc-a04f-4719b315124d"
 author = ["Harmen Stoppels <me@harmenstoppels.nl>", "Lauri Nyman"]
-version = "0.0.4"
+version = "0.1.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[compat]
+StaticArrays = "0.8, 0.9, 0.10, 0.11, 0.12, 1.0"
+julia = "1"
 
 [extras]
 GenericSchur = "c145ed77-6b09-5dd9-b285-bf645a82121e"
