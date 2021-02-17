@@ -74,9 +74,13 @@ Computes the LU factorization of A using complete pivoting.
 """
 function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
     # A, p and q should allocate, but escape analysis will eliminate this!
-    A = MMatrix(A)
-    p = @MVector fill(N, N)
+    if isbitstype(T)
+        A = MMatrix(A)
+    else
+        A = SizedMatrix(A)
+    end
     q = @MVector fill(N, N)
+    p = @MVector fill(N, N)
     singular = false
 
     # Maybe I should consider doing this recursively.
@@ -132,7 +136,11 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
 end
 
 function (\)(LU::CompletelyPivotedLU{T,N}, b::SVector{N}) where {T,N}
-    x = MVector(b)
+    if isbitstype(T)
+        x = MVector(b)
+    else
+        x = SizedVector(b)
+    end
 
     # x ← L \ (P * b)
     for i = OneTo(N)
