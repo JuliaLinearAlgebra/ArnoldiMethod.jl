@@ -2,6 +2,7 @@ using Test
 using LinearAlgebra
 using SparseArrays
 using Random
+using GenericSchur
 
 include("expansion.jl")
 include("givens_rotation.jl")

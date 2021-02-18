@@ -10,19 +10,20 @@ using LinearAlgebra
     # the stopping criterion works for these zero eigenvalues, we don't take
     # into account that it finds the complete eigenspace of the 0 eigenvalue.
     # (we have too few basis vectors for it anyways)
+    for T in (Float64, ComplexF64, BigFloat, Complex{BigFloat})
+        A = rand(T,10, 3)
 
-    A = rand(10, 3)
+        # Rank 3 matrix.
+        B = A * A' 
 
-    # Rank 3 matrix.
-    B = A * A' 
+        schur, history = partialschur(B, nev = 5, mindim = 5, maxdim = 7, tol = eps())
 
-    schur, history = partialschur(B, nev = 5, mindim = 5, maxdim = 7, tol = eps())
-
-    @test history.converged
-    @test history.mvproducts == 7
-    @test norm(schur.Q'schur.Q - I) < 100eps()
-    @test norm(B * schur.Q - schur.Q * schur.R) < 100eps()
-    @test norm(diag(schur.R)[4:5]) < 100eps()
+        @test history.converged
+        @test history.mvproducts == 7
+        @test norm(schur.Q'schur.Q - I) < 100eps(real(T))
+        @test norm(B * schur.Q - schur.Q * schur.R) < 100eps(real(T))
+        @test norm(diag(schur.R)[4:5]) < 100eps(real(T))
+    end
 end
 
 @testset "Right number type" begin
