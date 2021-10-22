@@ -17,7 +17,7 @@ makedocs(
 )
 
 deploydocs(
-	repo = "github.com/haampie/ArnoldiMethod.jl.git",
+	repo = "github.com/JuliaLinearAlgebra/ArnoldiMethod.jl.git",
 	target = "build",
 	osname = "linux",
 	julia  = "0.7",

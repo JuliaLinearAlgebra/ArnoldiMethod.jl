@@ -1,7 +1,7 @@
 # How to contribute to ArnoldiMethod.jl
 
 ## Did you find a bug?
-[Open an issue](https://github.com/haampie/ArnoldiMethod.jl/issues) on GitHub 
+[Open an issue](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/issues) on GitHub
 and share a minimal, reproducible example.
 
 ## How can I contribute?
@@ -31,4 +31,4 @@ A recommended workflow to contribute is as follows:
    ```
 5. Make changes to the code;
 6. Push the changes to your forked repository;
-7. Open a [pull request](https://github.com/haampie/ArnoldiMethod.jl/pulls).
+7. Open a [pull request](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/pulls).
