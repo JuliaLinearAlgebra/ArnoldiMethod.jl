@@ -2,7 +2,7 @@ import Base: \
 import LinearAlgebra: lu
 
 using Base: OneTo
-using LinearAlgebra: givensAlgorithm
+using LinearAlgebra: givensAlgorithm, LinearAlgebra
 
 
 
@@ -65,7 +65,11 @@ struct CompletelyPivotedLU{T,N,TA<:SMatrix{N,N,T},TP}
     singular::Bool
 end
 
-struct CompletePivoting end
+@static if isdefined(LinearAlgebra, :PivotingStrategy)
+    struct CompletePivoting <: LinearAlgebra.PivotingStrategy end
+else
+    struct CompletePivoting end
+end
 
 """
     lu(A, CompletePivoting) → CompletelyPivotedLU(B, p, q)
