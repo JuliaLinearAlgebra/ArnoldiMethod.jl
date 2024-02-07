@@ -222,7 +222,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         effective_nev = include_conjugate_pair(T, ritz, nev)
 
         # Partition in converged & not converged.
-        first_not_conv_idx = partition!(isconverged, ritz.ord, 1:nev)
+        first_not_conv_idx = partition!(isconverged, ritz.ord, 1:effective_nev)
 
         # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
         # nlock ≤ effective_nev, so it's really just these that we are after!
