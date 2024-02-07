@@ -201,7 +201,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # Update the Ritz values
         copyto!(ritz.ord, OneTo(maxdim))
         copy_eigenvalues!(ritz.λs, H)
-        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
+        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, 1:maxdim)
 
         # Create a permutation that sorts Ritz values from most wanted to least wanted
         sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
@@ -222,7 +222,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         effective_nev = include_conjugate_pair(T, ritz, nev)
 
         # Partition in converged & not converged.
-        first_not_conv_idx = partition!(isconverged, ritz.ord, active:effective_nev)
+        first_not_conv_idx = partition!(isconverged, ritz.ord, 1:nev)
 
         # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
         # nlock ≤ effective_nev, so it's really just these that we are after!
