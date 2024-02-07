@@ -204,7 +204,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
 
         # Create a permutation that sorts Ritz values from most wanted to least wanted
-        sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
+        sort!(ritz.ord, active, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
 
         # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(H)
