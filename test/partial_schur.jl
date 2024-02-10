@@ -55,3 +55,21 @@ end
     S, hist = partialschur(A, which = SR())
     @test all(x -> real(x) ≤ 10, eigenvalues(S.R))
 end
+
+@testset "Repeated eigenvalues" begin
+    # Repeated eigenvalues have somewhat irregular convergence behavior. In
+    # the example below the dominant eigenvalue 10.0 is repeated, and typically
+    # converges first, but the next multiple may only start to converge after
+    # 9.99, 9.98, 9.97 are converged. We have no purging, so eigenvalues are
+    # locked as they converge, meaning that we may not always find all largest
+    # magnitude eigenvalues. This test merely checks if we do get a correct
+    # Schur decomposition -- in the past purging was implemented incorrectly,
+    # destroying the partial schur decomposition.
+    A = Diagonal([1:0.1:9; 9.97; 9.98; 9.99; 10.0; 10.0; 10.0])
+
+    schur, history = partialschur(A, nev=5, maxdim=20, tol=1e-12)
+    @test history.converged
+    @test norm(schur.Q'schur.Q - I) < 100 * eps(Float64)
+    @test norm(A * schur.Q - schur.Q * schur.R) < size(A, 1) * 1e-12
+end
+
