@@ -57,14 +57,14 @@ end
 end
 
 @testset "Repeated eigenvalues" begin
-    # Repeated eigenvalues have somewhat irregular convergence behavior. In
-    # the example below the dominant eigenvalue 10.0 is repeated, and typically
-    # converges first, but the next multiple may only start to converge after
-    # 9.99, 9.98, 9.97 are converged. We have no purging, so eigenvalues are
-    # locked as they converge, meaning that we may not always find all largest
-    # magnitude eigenvalues. This test merely checks if we do get a correct
-    # Schur decomposition -- in the past purging was implemented incorrectly,
-    # destroying the partial schur decomposition.
+    # Regression test for a bug where previously the Arnoldi relation broke down
+    # after somewhat irregular convergence behavior of repeated eigenvalues; the
+    # largest magnitude eigenvalues were locked, including a single instance of the
+    # repeated eigenvalue. Later a second starts to converge, and would break after
+    # partitioning. This issue was never really problematic, as typically eigenvalues
+    # converge in order. In this example, the largest magnitude eigenvalue is repeated
+    # three times. Note that the Arnoldi method may or may not find all multiples, there
+    # is no guarantee.
     A = Diagonal([1:0.1:9; 9.97; 9.98; 9.99; 10.0; 10.0; 10.0])
 
     schur, history = partialschur(A, nev=5, maxdim=20, tol=1e-12)

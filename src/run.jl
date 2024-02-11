@@ -204,32 +204,26 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
 
         # Create a permutation that sorts Ritz values from most wanted to least wanted
-        sort!(ritz.ord, active, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
+        sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
 
         # Compute the Frobenius norm of H for the stopping criterion
         isconverged.H_frob_norm[] = norm(H)
 
         ### PARTITIONING OF SCHUR FORM IN [LOCKED | RETAINED | PURGED]
 
-        # Plan de campagne: reorder the permutation `ritz.ord` such that
-        # ritz.ord[1:nlock] gives the indices of the locked ritz values
-        # ritz.ord[nlock+1:k] is the indices of the ritz values we wanna retain
-        # ritz.ord[k+1:maxdim] is the indices of the ritz values we wanna truncate
-        # Then we make ritz.groups[i] = {1,2,3} by iterating over them.
-
-        # We keep at most `nev` or `nev+1` eigenvalues, depending on the split being
-        # halfway a conjugate pair.
+        # We keep at most `nev` or `nev+1` eigenvalues, depending on the split being halfway a
+        # conjugate pair.
         effective_nev = include_conjugate_pair(T, ritz, nev)
 
-        # Partition in converged & not converged.
-        first_not_conv_idx = partition!(isconverged, ritz.ord, active:effective_nev)
-
-        # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
-        # nlock ≤ effective_nev, so it's really just these that we are after!
-        nlock = first_not_conv_idx === nothing ? effective_nev : first_not_conv_idx - 1
-
-        # Next, purge the converged eigenvalues we do not want by moving them to the back.
-        partition!(i -> !isconverged(i), ritz.ord, nlock+1:maxdim)
+        nlock = 0
+        for i in 1:effective_nev
+            if isconverged(ritz.ord[i])
+                groups[ritz.ord[i]] = 1
+                nlock += 1
+            else
+                groups[ritz.ord[i]] = 2
+            end
+        end
 
         # Determine the new length `k` of the truncated Krylov subspace:
         # 1. The dimension of the active part should be roughly `mindim`; so `k` will be 
@@ -239,18 +233,11 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
         k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
 
-        # Locked ritz values
-        @inbounds for i = 1:nlock
-            groups[ritz.ord[i]] = 1
-        end
-
-        # Retained ritz values
-        @inbounds for i = nlock+1:k
+        for i in effective_nev+1:k
             groups[ritz.ord[i]] = 2
         end
 
-        # Truncated ritz values
-        @inbounds for i = k+1:maxdim
+        for i in k+1:maxdim
             groups[ritz.ord[i]] = 3
         end
 
