@@ -73,7 +73,6 @@ struct PartialSchur{TQ,TR,Tλ<:Complex}
 end
 
 include("targets.jl")
-include("partition.jl")
 include("schurfact.jl")
 include("schursort.jl")
 include("restore_hessenberg.jl")

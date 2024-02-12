@@ -211,25 +211,19 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         ### PARTITIONING OF SCHUR FORM IN [LOCKED | RETAINED | PURGED]
 
-        # Plan de campagne: reorder the permutation `ritz.ord` such that
-        # ritz.ord[1:nlock] gives the indices of the locked ritz values
-        # ritz.ord[nlock+1:k] is the indices of the ritz values we wanna retain
-        # ritz.ord[k+1:maxdim] is the indices of the ritz values we wanna truncate
-        # Then we make ritz.groups[i] = {1,2,3} by iterating over them.
-
-        # We keep at most `nev` or `nev+1` eigenvalues, depending on the split being
-        # halfway a conjugate pair.
+        # We keep at most `nev` or `nev+1` eigenvalues, depending on the split being halfway a
+        # conjugate pair.
         effective_nev = include_conjugate_pair(T, ritz, nev)
 
-        # Partition in converged & not converged.
-        first_not_conv_idx = partition!(isconverged, ritz.ord, active:effective_nev)
-
-        # Now ritz.ord[1:nlock] are converged eigenvalues that we want to lock, and 
-        # nlock ≤ effective_nev, so it's really just these that we are after!
-        nlock = first_not_conv_idx === nothing ? effective_nev : first_not_conv_idx - 1
-
-        # Next, purge the converged eigenvalues we do not want by moving them to the back.
-        partition!(i -> !isconverged(i), ritz.ord, nlock+1:maxdim)
+        nlock = 0
+        for i in 1:effective_nev
+            if isconverged(ritz.ord[i])
+                groups[ritz.ord[i]] = 1
+                nlock += 1
+            else
+                groups[ritz.ord[i]] = 2
+            end
+        end
 
         # Determine the new length `k` of the truncated Krylov subspace:
         # 1. The dimension of the active part should be roughly `mindim`; so `k` will be 
@@ -239,19 +233,26 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
         k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
 
-        # Locked ritz values
-        @inbounds for i = 1:nlock
-            groups[ritz.ord[i]] = 1
-        end
-
-        # Retained ritz values
-        @inbounds for i = nlock+1:k
+        for i in effective_nev+1:k
             groups[ritz.ord[i]] = 2
         end
 
-        # Truncated ritz values
-        @inbounds for i = k+1:maxdim
+        for i in k+1:maxdim
             groups[ritz.ord[i]] = 3
+        end
+
+        # Typically eigenvalues converge in the desired order: closest to the target first and
+        # furthest last. This is not guaranteed though, especially with repeated eigenvalues close
+        # to the target: they may start to converge only much later. In the worst case, the number
+        # of values we've locked + the number of new Ritz values closer to the target exceed the
+        # number of eigenvalues we're looking for. In that case, we unlock / purge the furthest
+        # currently locked eigenvalues in favor of the new ones. Here we determine the index
+        # `purge` of the first vector to be purged, or `active` if no purging is necessary. Notice
+        # that `purge` can be any index in 1:active-1, because locked vectors are merely
+        # partitioned as locked vectors, they are never sorted until full convergence.
+        purge = 1
+        while purge < active && groups[purge] == 1
+            purge += 1
         end
 
         partition_schur_three_way!(H, Q, groups)
@@ -262,8 +263,8 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         restore_arnoldi!(H, nlock + 1, k, Q, G)
 
         # Finally do the change of basis to get the length `k` Arnoldi relation.
-        @views mul!(Vtmp[:,active:k], V[:,active:maxdim], Q[active:maxdim,active:k])
-        @views copyto!(V[:,active:k], Vtmp[:,active:k])
+        @views mul!(Vtmp[:,purge:k], V[:,purge:maxdim], Q[purge:maxdim,purge:k])
+        @views copyto!(V[:,purge:k], Vtmp[:,purge:k])
         @views copyto!(V[:,k+1], V[:,maxdim+1])
 
         # The active part 
