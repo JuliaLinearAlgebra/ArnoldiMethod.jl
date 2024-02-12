@@ -19,7 +19,7 @@ function reflector!(y::AbstractVector{T}, k::Integer) where {T}
 
         # Norm except the last entry.
         xnrm = zero(real(T))
-        @simd for idx in OneTo(k-1)
+        @simd for idx in OneTo(k - 1)
             xnrm += abs2(y[idx])
         end
 
@@ -32,9 +32,9 @@ function reflector!(y::AbstractVector{T}, k::Integer) where {T}
         β = -copysign(hypot(α, xnrm), real(α))
         τ = (β - α) / β
         α = inv(α - β)
-       
+
         # Rescale
-        @simd for i = OneTo(k-1)
+        @simd for i in OneTo(k - 1)
             y[i] *= α
         end
 
@@ -54,14 +54,14 @@ struct Reflector{T}
         Vector{T}(undef, max_len),
         Base.RefValue(1),
         Base.RefValue(0),
-        Base.RefValue(zero(T))
+        Base.RefValue(zero(T)),
     )
 end
 
 function reflector!(z::Reflector, k::Integer)
     z.len[] = k
     z.τ[] = reflector!(z.vec, k)
-    return z.τ[];
+    return z.τ[]
 end
 
 """
@@ -72,7 +72,13 @@ A[VQ₁ VQ₂] = [VQ₁ VQ₂][R₁₁ R₁₂; + hv[. eₖᵀQ₂]
 
 Column VQ₂ has column indices from:to
 """
-function restore_arnoldi!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q, G::Reflector{T}) where {T}
+function restore_arnoldi!(
+    H::AbstractMatrix{T},
+    from::Integer,
+    to::Integer,
+    Q,
+    G::Reflector{T},
+) where {T}
     m, n = size(H)
 
     @inbounds begin
@@ -85,8 +91,8 @@ function restore_arnoldi!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q, G
         G.offset[] = from
 
         # Copy over the last row of Q
-        @simd for i = OneTo(len)
-            G.vec[i] = Q[n,i+from-1]'
+        @simd for i in OneTo(len)
+            G.vec[i] = Q[n, i+from-1]'
         end
 
         # Zero out entries 1:len-1
@@ -97,9 +103,9 @@ function restore_arnoldi!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q, G
 
         # Handle the last row by hand
         @simd for i = from:to-1
-            Q[n,i] = zero(T)
+            Q[n, i] = zero(T)
         end
-        Q[n,to] = G.vec[len]'
+        Q[n, to] = G.vec[len]'
 
         # Then apply to H from both sides.
         rmul!(H, G, 1, to)
@@ -110,19 +116,19 @@ function restore_arnoldi!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q, G
             row = from + i
 
             # Copy over row `row`
-            @simd for j = OneTo(i)
-                G.vec[j] = H[row,j+from-1]'
+            @simd for j in OneTo(i)
+                G.vec[j] = H[row, j+from-1]'
             end
 
             # Construct a reflector from it
             τ₂ = reflector!(G, i)
 
             # Apply it to the right to H
-            rmul!(H, G, 1, row-1)
+            rmul!(H, G, 1, row - 1)
 
             # Zero out things by hand
-            @simd for j = OneTo(i - 1)
-                H[row,j+from-1] = zero(T)
+            @simd for j in OneTo(i - 1)
+                H[row, j+from-1] = zero(T)
             end
             H[row, i-1+from] = G.vec[i]'
 
@@ -135,7 +141,7 @@ function restore_arnoldi!(H::AbstractMatrix{T}, from::Integer, to::Integer, Q, G
 
         # Finally in the Arnoldi decomp we want a last residual term of the form
         # h * vₖ₊₁ * eₖᵀ, so we absorb the last Q-entry in the Hessenberg matrix!
-        H[to+1,to] = Q[end,to] * H[m, n]
+        H[to+1, to] = Q[end, to] * H[m, n]
 
     end
 
@@ -155,15 +161,15 @@ function lmul!(G::Reflector, H::AbstractMatrix{T}, from::Int, to::Int) where {T}
 
     @inbounds for col = from:to
         dot = zero(T)
-        @simd for i = 1 : len - 1
-            dot += z[i]' * H[i + offset - 1, col]
+        @simd for i = 1:len-1
+            dot += z[i]' * H[i+offset-1, col]
         end
-        dot += H[len + offset - 1, col]
+        dot += H[len+offset-1, col]
         dot *= τ
-        @simd for i = 1 : len - 1
-            H[i + offset - 1, col] -= dot * z[i]
+        @simd for i = 1:len-1
+            H[i+offset-1, col] -= dot * z[i]
         end
-        H[len + offset - 1, col] -= dot
+        H[len+offset-1, col] -= dot
     end
 end
 
@@ -179,13 +185,13 @@ function rmul!(H::AbstractMatrix{T}, G::Reflector, from::Int, to::Int) where {T}
     @inbounds for row = from:to
         dot = zero(T)
         @simd for i = 1:len-1
-            dot += H[row, i + offset - 1] * z[i]
+            dot += H[row, i+offset-1] * z[i]
         end
-        dot += H[row, offset + len - 1]
+        dot += H[row, offset+len-1]
         dot *= τ'
-        @simd for i = 1 : len - 1
-            H[row,i+offset-1] -= dot * z[i]'
+        @simd for i = 1:len-1
+            H[row, i+offset-1] -= dot * z[i]'
         end
-        H[row, offset + len - 1] -= dot
+        H[row, offset+len-1] -= dot
     end
 end

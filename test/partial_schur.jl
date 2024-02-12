@@ -11,10 +11,10 @@ using LinearAlgebra
     # into account that it finds the complete eigenspace of the 0 eigenvalue.
     # (we have too few basis vectors for it anyways)
     for T in (Float64, ComplexF64, BigFloat, Complex{BigFloat})
-        A = rand(T,10, 3)
+        A = rand(T, 10, 3)
 
         # Rank 3 matrix.
-        B = A * A' 
+        B = A * A'
 
         schur, history = partialschur(B, nev = 5, mindim = 5, maxdim = 7, tol = eps())
 
@@ -27,7 +27,7 @@ using LinearAlgebra
 end
 
 @testset "Right number type" begin
-    A = [rand(Bool) ? 1 : 0 for i=1:10, j=1:10]
+    A = [rand(Bool) ? 1 : 0 for i = 1:10, j = 1:10]
     @inferred partialschur(A, nev = 2, mindim = 3, maxdim = 8)
     @test vtype(A) == Float64
 end
@@ -72,9 +72,8 @@ end
     # exceeds nev, some of the locked ones need to be removed.
     A = Diagonal([1:0.1:9; 9.97; 9.98; 9.99; 10.0; 10.0; 10.0])
 
-    schur, history = partialschur(A, nev=5, maxdim=20, tol=1e-12)
+    schur, history = partialschur(A, nev = 5, maxdim = 20, tol = 1e-12)
     @test history.converged
     @test norm(schur.Q'schur.Q - I) < 100 * eps(Float64)
     @test norm(A * schur.Q - schur.Q * schur.R) < size(A, 1) * 1e-12
 end
-

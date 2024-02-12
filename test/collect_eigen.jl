@@ -14,7 +14,7 @@ using LinearAlgebra
 
         # Compute exact eigenvectors according to LAPACK
         if VERSION >= v"1.2.0-DEV.275"
-            λs, xs = eigen(R, sortby=nothing)
+            λs, xs = eigen(R, sortby = nothing)
         else
             λs, xs = eigen(R)
         end
@@ -41,12 +41,12 @@ rot(θ) = [cos(θ) sin(θ); -sin(θ) cos(θ)]
     for T in (Float64, BigFloat)
         n = 20
         R = triu(rand(T, n, n))
-        R[1:2,1:2] .= rot(one(T)) + I
-        R[10:11,10:11] .= rot(T(6//5)) + 2I
-        
+        R[1:2, 1:2] .= rot(one(T)) + I
+        R[10:11, 10:11] .= rot(T(6 // 5)) + 2I
+
         # Compute exact eigenvectors according to LAPACK
         if VERSION >= v"1.2.0-DEV.275"
-            λs, xs = eigen(R, sortby=nothing)
+            λs, xs = eigen(R, sortby = nothing)
         else
             λs, xs = eigen(R)
         end
@@ -67,9 +67,9 @@ end
 @testset "Extract partial" begin
     n = 20
     for T in (Float64, BigFloat)
-        R = triu(rand(T,n, n))
-        R[1:2,1:2] .= rot(1.0) + I
-        for range = (1:3, 1:4)
+        R = triu(rand(T, n, n))
+        R[1:2, 1:2] .= rot(1.0) + I
+        for range in (1:3, 1:4)
             λs = eigvals(R[range, range])
             θs = copy_eigenvalues!(rand(Complex{T}, length(range)), R, range)
             @test sort!(λs, by = reim) ≈ sort!(θs, by = reim)

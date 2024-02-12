@@ -3,7 +3,12 @@
 
 Puts the eigenvalues of a quasi-upper triangular matrix A in the λs vector.
 """
-function copy_eigenvalues!(λs, A::AbstractMatrix{T}, range = OneTo(size(A, 2)), tol = eps(real(T))) where {T}
+function copy_eigenvalues!(
+    λs,
+    A::AbstractMatrix{T},
+    range = OneTo(size(A, 2)),
+    tol = eps(real(T)),
+) where {T}
     i = first(range)
 
     @inbounds while i < last(range)
@@ -12,17 +17,17 @@ function copy_eigenvalues!(λs, A::AbstractMatrix{T}, range = OneTo(size(A, 2)),
             i += 1
         else
             # Conjugate pair
-            d = A[i,i] * A[i+1,i+1] - A[i,i+1] * A[i+1,i]
-            x = (A[i,i] + A[i+1,i+1]) / 2
-            y = sqrt(complex(x*x - d))
-            λs[i + 0] = x + y
-            λs[i + 1] = x - y
+            d = A[i, i] * A[i+1, i+1] - A[i, i+1] * A[i+1, i]
+            x = (A[i, i] + A[i+1, i+1]) / 2
+            y = sqrt(complex(x * x - d))
+            λs[i+0] = x + y
+            λs[i+1] = x - y
             i += 2
         end
     end
 
     @inbounds if i == last(range)
-        λs[i] = A[i, i] 
+        λs[i] = A[i, i]
     end
 
     return λs
@@ -38,12 +43,12 @@ function eigenvalue(R, i)
     n = minimum(size(R))
 
     @inbounds begin
-        if i == n || iszero(R[i+1,i])
-            return complex(R[i,i])
+        if i == n || iszero(R[i+1, i])
+            return complex(R[i, i])
         else
-            d = R[i,i] * R[i+1,i+1] - R[i,i+1] * R[i+1,i]
-            x = (R[i,i] + R[i+1,i+1]) / 2
-            y = sqrt(complex(x*x - d))
+            d = R[i, i] * R[i+1, i+1] - R[i, i+1] * R[i+1, i]
+            x = (R[i, i] + R[i+1, i+1]) / 2
+            y = sqrt(complex(x * x - d))
             return x + y
         end
     end
@@ -82,5 +87,5 @@ upper triangular matrix `R` from the partial Schur decomposition.
 """
 function partialeigen(P::PartialSchur)
     vals, vecs = eigen(P.R)
-    return vals, P.Q*vecs
+    return vals, P.Q * vecs
 end

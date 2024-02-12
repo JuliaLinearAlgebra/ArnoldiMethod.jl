@@ -12,7 +12,7 @@ using ArnoldiMethod: Hessenberg, Rotation2, Rotation3
             G = Rotation2(rand(real(T)), rand(T), 2)
             G_mat = Matrix(G, 6)
 
-            @test [A[:,1:1] G_mat * A[:,2:4] A[:,5:5]] ≈ lmul!(G, copy(A), 2, 4)
+            @test [A[:, 1:1] G_mat * A[:, 2:4] A[:, 5:5]] ≈ lmul!(G, copy(A), 2, 4)
             @test G_mat * A ≈ lmul!(G, copy(A))
         end
 
@@ -22,7 +22,7 @@ using ArnoldiMethod: Hessenberg, Rotation2, Rotation3
             G = Rotation2(rand(real(T)), rand(T), 2)
             G_mat = Matrix(G, 5)
 
-            @test [A[1:1,:]; A[2:4,:]*G_mat'; A[5:10,:]] ≈ rmul!(copy(A), G, 2, 4)
+            @test [A[1:1, :]; A[2:4, :] * G_mat'; A[5:10, :]] ≈ rmul!(copy(A), G, 2, 4)
             @test A * G_mat' ≈ rmul!(copy(A), G)
         end
     end
@@ -34,7 +34,7 @@ using ArnoldiMethod: Hessenberg, Rotation2, Rotation3
             G = Rotation3(rand(real(T)), rand(T), rand(real(T)), rand(T), 2)
             G_mat = Matrix(G, 6)
 
-            @test [A[:,1:1] G_mat * A[:,2:4] A[:,5:5]] ≈ lmul!(G, copy(A), 2, 4)
+            @test [A[:, 1:1] G_mat * A[:, 2:4] A[:, 5:5]] ≈ lmul!(G, copy(A), 2, 4)
             @test G_mat * A ≈ lmul!(G, copy(A))
         end
 
@@ -44,7 +44,7 @@ using ArnoldiMethod: Hessenberg, Rotation2, Rotation3
             G = Rotation3(rand(real(T)), rand(T), rand(real(T)), rand(T), 2)
             G_mat = Matrix(G, 5)
 
-            @test [A[1:1,:]; A[2:4,:]*G_mat'; A[5:10,:]] ≈ rmul!(copy(A), G, 2, 4)
+            @test [A[1:1, :]; A[2:4, :] * G_mat'; A[5:10, :]] ≈ rmul!(copy(A), G, 2, 4)
             @test A * G_mat' ≈ rmul!(copy(A), G)
         end
     end

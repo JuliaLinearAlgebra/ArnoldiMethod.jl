@@ -9,8 +9,8 @@ using Arpack
 
 function helloworld(n = 40, nev = 4)
     A = randn(n, n)
-    @time S, hist = partialschur(A, nev=nev, which = LR(), tol = 1e-6)
-    @time eigs(A, nev=nev, which = :LR, tol = 1e-6)
+    @time S, hist = partialschur(A, nev = nev, which = LR(), tol = 1e-6)
+    @time eigs(A, nev = nev, which = :LR, tol = 1e-6)
     @show norm(A * S.Q - S.Q * S.R)
     println(hist)
     θs = eigvals(S.R)

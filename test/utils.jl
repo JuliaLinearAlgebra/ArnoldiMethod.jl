@@ -19,10 +19,10 @@ function normal_hessenberg_matrix(T::Type{<:Real}, vals::AbstractVector{<:Comple
     i = 1
     while i ≤ n
         if imag(vals[i]) != 0
-            D[i+0,i+0] = real(vals[i])
-            D[i+1,i+0] = imag(vals[i])
-            D[i+0,i+1] = -imag(vals[i])
-            D[i+1,i+1] = real(vals[i])
+            D[i+0, i+0] = real(vals[i])
+            D[i+1, i+0] = imag(vals[i])
+            D[i+0, i+1] = -imag(vals[i])
+            D[i+1, i+1] = real(vals[i])
             i += 2
         else
             D[i] = real(vals[i])

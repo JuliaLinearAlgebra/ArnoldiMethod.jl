@@ -22,7 +22,7 @@ function rotate_right!(R, from::Integer, to::Integer, Q = NotWanted())
     while i > from
         # Let's just do this check always; sometimes a block might split.
         curr_11 = is_start_of_11_block(R, i)
-        prev_11 = is_end_of_11_block(R, i-1)
+        prev_11 = is_end_of_11_block(R, i - 1)
         j = prev_11 ? i - 1 : i - 2
         swap!(R, j, prev_11, curr_11, Q)
         i = j
@@ -84,12 +84,12 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
     singular = false
 
     # Maybe I should consider doing this recursively.
-    for k = OneTo(N - 1)
+    for k in OneTo(N - 1)
         # Find max value in sub-part.
         m, n, maxval = 1, 1, zero(real(T))
         for j = k:N, i = k:N
-            if abs(A[i,j]) > maxval
-                m, n, maxval = i, j, abs(A[i,j])
+            if abs(A[i, j]) > maxval
+                m, n, maxval = i, j, abs(A[i, j])
             end
         end
 
@@ -106,7 +106,7 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
             A[j, k], A[j, n] = A[j, n], A[j, k]
         end
 
-        Akk = A[k,k]
+        Akk = A[k, k]
 
         # It has actually happened :(
         if iszero(Akk)
@@ -119,15 +119,15 @@ function lu(A::SMatrix{N,N,T}, ::Type{CompletePivoting}) where {N,T}
         end
 
         for j = k+1:N
-            Akj = A[k,j]
+            Akj = A[k, j]
 
             for i = k+1:N
-                A[i,j] -= A[i,k] * Akj
+                A[i, j] -= A[i, k] * Akj
             end
         end
     end
 
-    if iszero(A[N,N])
+    if iszero(A[N, N])
         singular = true
     end
 
@@ -143,7 +143,7 @@ function (\)(LU::CompletelyPivotedLU{T,N}, b::SVector{N}) where {T,N}
     end
 
     # x ← L \ (P * b)
-    for i = OneTo(N)
+    for i in OneTo(N)
         x[i], x[LU.p[i]] = x[LU.p[i]], x[i]
         for j = i+1:N
             x[j] -= LU.A[j, i] * x[i]
@@ -155,7 +155,7 @@ function (\)(LU::CompletelyPivotedLU{T,N}, b::SVector{N}) where {T,N}
         for j = N:-1:i+1
             x[i] -= LU.A[i, j] * x[j]
         end
-        x[i] /= LU.A[i,i]
+        x[i] /= LU.A[i, i]
         x[i], x[LU.q[i]] = x[LU.q[i]], x[i]
     end
 
@@ -163,19 +163,22 @@ function (\)(LU::CompletelyPivotedLU{T,N}, b::SVector{N}) where {T,N}
     SVector(x)
 end
 
-@inline sylvsystem(A::SMatrix{1,1,T}, B::SMatrix{2,2,T}) where {T} =
-    @SMatrix [A[1,1]-B[1,1] -B[2,1]       ;
-              -B[1,2]        A[1,1]-B[2,2]]
+@inline sylvsystem(A::SMatrix{1,1,T}, B::SMatrix{2,2,T}) where {T} = @SMatrix [
+    A[1, 1]-B[1, 1] -B[2, 1]
+    -B[1, 2] A[1, 1]-B[2, 2]
+]
 
-@inline sylvsystem(A::SMatrix{2,2,T}, B::SMatrix{1,1,T}) where {T} = 
-    @SMatrix [A[1,1]-B[1,1] A[1,2]       ;
-              A[2,1]        A[2,2]-B[1,1]]
+@inline sylvsystem(A::SMatrix{2,2,T}, B::SMatrix{1,1,T}) where {T} = @SMatrix [
+    A[1, 1]-B[1, 1] A[1, 2]
+    A[2, 1] A[2, 2]-B[1, 1]
+]
 
-@inline sylvsystem(A::SMatrix{2,2,T}, B::SMatrix{2,2,T}) where {T} =
-    @SMatrix [A[1,1]-B[1,1] A[1,2]        -B[2,1]       T(0)         ;
-              A[2,1]        A[2,2]-B[1,1] T(0)          -B[2,1]      ;
-              -B[1,2]       T(0)          A[1,1]-B[2,2] A[1,2]       ;
-              T(0)          -B[1,2]       A[2,1]        A[2,2]-B[2,2]]
+@inline sylvsystem(A::SMatrix{2,2,T}, B::SMatrix{2,2,T}) where {T} = @SMatrix [
+    A[1, 1]-B[1, 1] A[1, 2] -B[2, 1] T(0)
+    A[2, 1] A[2, 2]-B[1, 1] T(0) -B[2, 1]
+    -B[1, 2] T(0) A[1, 1]-B[2, 2] A[1, 2]
+    T(0) -B[1, 2] A[2, 1] A[2, 2]-B[2, 2]
+]
 
 """
     sylv(A, B, C) → X, singular
@@ -190,7 +193,7 @@ If the eigenvalues of A and B are equal, then `singular = true`.
 """
 @inline function sylv(A::SMatrix{N,N,T}, B::SMatrix{M,M,T}, C::SMatrix{N,M,T}) where {T,N,M}
     fact = lu(sylvsystem(A, B), CompletePivoting)
-    rhs = SVector{N*M,T}(C)
+    rhs = SVector{N * M,T}(C)
     SMatrix{N,M,T}(fact \ rhs), fact.singular
 end
 
@@ -214,14 +217,14 @@ to upper triangular form:
 """
 function swap22_rotations(X::SMatrix{2,2,T}) where {T}
     # Upper triangulize first column of X
-    c₁, s₁, nrm₁ = givensAlgorithm(-X[2,1], T(1))
-    c₂, s₂, nrm₂ = givensAlgorithm(-X[1,1], nrm₁)
+    c₁, s₁, nrm₁ = givensAlgorithm(-X[2, 1], T(1))
+    c₂, s₂, nrm₂ = givensAlgorithm(-X[1, 1], nrm₁)
 
     # Apply the Givens rotations to the second column of X
-    X22 = c₁ * -X[2,2] # + s₁ * 0
-    X32 = -s₁' * -X[2,2] # + c₁ * 0
+    X22 = c₁ * -X[2, 2] # + s₁ * 0
+    X32 = -s₁' * -X[2, 2] # + c₁ * 0
     # X12 = c₂ * -X[1,2] + s₂ * X22 # aint gonna need it!
-    X22 = -s₂' * -X[1,2] + c₂ * X22
+    X22 = -s₂' * -X[1, 2] + c₂ * X22
 
     # Upper triangularize the second column of X
     c₃, s₃, nrm₃ = givensAlgorithm(X32, T(1))
@@ -248,11 +251,11 @@ to upper triangular form:
 """
 function swap12_rotations(X::SMatrix{1,2,T}) where {T}
     # Upper triangulize first column of X
-    c₁, s₁, nrm₁₁ = givensAlgorithm(-X[1,1], T(1))
+    c₁, s₁, nrm₁₁ = givensAlgorithm(-X[1, 1], T(1))
 
     # Apply the Givens rotations to the second column of X
     # X12 = c₁₁ * -X[1,2] # + s₁₁ * 0 # ain't gonna need it!
-    X22 = -s₁' * -X[1,2] # + c₁₁ * 0
+    X22 = -s₁' * -X[1, 2] # + c₁₁ * 0
 
     # Upper triangularize the second column of X
     c₂, s₂, nrm₁₂ = givensAlgorithm(X22, T(1))
@@ -278,8 +281,8 @@ to upper triangular form:
 ```
 """
 function swap21_rotations(X::SMatrix{2,1,T}) where {T}
-    c₁, s₁, nrm₁ = givensAlgorithm(-X[2,1], T(1))
-    c₂, s₂, nrm₂ = givensAlgorithm(-X[1,1], nrm₁)
+    c₁, s₁, nrm₁ = givensAlgorithm(-X[2, 1], T(1))
+    c₂, s₂, nrm₂ = givensAlgorithm(-X[1, 1], nrm₁)
     return c₁, s₁, c₂, s₂
 end
 
@@ -303,9 +306,9 @@ function swap22!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
     @inbounds begin
 
         # Copy the upper triangular blocks + connection between them.
-        A = @SMatrix [R[i+0,i+0] R[i+0,i+1]; R[i+1,i+0] R[i+1,i+1]]
-        B = @SMatrix [R[i+2,i+2] R[i+2,i+3]; R[i+3,i+2] R[i+3,i+3]]
-        C = @SMatrix [R[i+0,i+2] R[i+0,i+3]; R[i+1,i+2] R[i+1,i+3]]
+        A = @SMatrix [R[i+0, i+0] R[i+0, i+1]; R[i+1, i+0] R[i+1, i+1]]
+        B = @SMatrix [R[i+2, i+2] R[i+2, i+3]; R[i+3, i+2] R[i+3, i+3]]
+        C = @SMatrix [R[i+0, i+2] R[i+0, i+3]; R[i+1, i+2] R[i+1, i+3]]
 
         # A * X - X * B = C
         X, singular = sylv(A, B, C)
@@ -314,21 +317,21 @@ function swap22!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
         singular && return R
 
         # Rotations that upper triangularize X
-        c₁,s₁, c₂,s₂, c₃,s₃, c₄,s₄ = swap22_rotations(X)
-        G₁ = Rotation3(c₁, s₁, c₂, s₂, i+0)
-        G₂ = Rotation3(c₃, s₃, c₄, s₄, i+1)
+        c₁, s₁, c₂, s₂, c₃, s₃, c₄, s₄ = swap22_rotations(X)
+        G₁ = Rotation3(c₁, s₁, c₂, s₂, i + 0)
+        G₂ = Rotation3(c₃, s₃, c₄, s₄, i + 1)
 
         # Apply to R
         lmul!(G₁, R, i, n)
-        rmul!(R, G₁, 1, i+3)
+        rmul!(R, G₁, 1, i + 3)
         lmul!(G₂, R, i, n)
-        rmul!(R, G₂, 1, i+3)
+        rmul!(R, G₂, 1, i + 3)
 
         # Zero out things.
-        R[i+2,i+0] = zero(T)
-        R[i+3,i+0] = zero(T)
-        R[i+2,i+1] = zero(T)
-        R[i+3,i+1] = zero(T)
+        R[i+2, i+0] = zero(T)
+        R[i+3, i+0] = zero(T)
+        R[i+2, i+1] = zero(T)
+        R[i+3, i+1] = zero(T)
 
         # Accumulate
         rmul!(Q, G₁)
@@ -357,9 +360,9 @@ function swap21!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
     @inbounds begin
 
         # Copy the upper triangular blocks + connection between them.
-        A = @SMatrix [R[i+0,i+0] R[i+0,i+1]; R[i+1,i+0] R[i+1,i+1]]
-        B = @SMatrix [R[i+2,i+2]]
-        C = @SMatrix [R[i+0,i+2]; R[i+1,i+2]]
+        A = @SMatrix [R[i+0, i+0] R[i+0, i+1]; R[i+1, i+0] R[i+1, i+1]]
+        B = @SMatrix [R[i+2, i+2]]
+        C = @SMatrix [R[i+0, i+2]; R[i+1, i+2]]
 
         # A * X - X * B = C
         X, singular = sylv(A, B, C)
@@ -368,21 +371,21 @@ function swap21!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
         singular && return R
 
         # Rotations that upper triangularize X
-        c₁,s₁, c₂,s₂ = swap21_rotations(X)
+        c₁, s₁, c₂, s₂ = swap21_rotations(X)
         G₁ = Rotation3(c₁, s₁, c₂, s₂, i)
 
         # Apply rotations
         lmul!(G₁, R, i, n)
-        rmul!(R, G₁, 1, i+2)
+        rmul!(R, G₁, 1, i + 2)
 
         # Zero out things.
-        R[i+1,i+0] = zero(T)
-        R[i+2,i+0] = zero(T)
+        R[i+1, i+0] = zero(T)
+        R[i+2, i+0] = zero(T)
 
         # Accumulate
         rmul!(Q, G₁)
     end
-    
+
     R
 end
 
@@ -408,9 +411,9 @@ function swap12!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
     @inbounds begin
 
         # Copy the upper triangular blocks + connection between them.
-        A = @SMatrix [R[i+0,i+0]]
-        B = @SMatrix [R[i+1,i+1] R[i+1,i+2]; R[i+2,i+1] R[i+2,i+2]]
-        C = @SMatrix [R[i+0,i+1] R[i+0,i+2]]
+        A = @SMatrix [R[i+0, i+0]]
+        B = @SMatrix [R[i+1, i+1] R[i+1, i+2]; R[i+2, i+1] R[i+2, i+2]]
+        C = @SMatrix [R[i+0, i+1] R[i+0, i+2]]
 
         # A * X - X * B = C
         X, singular = sylv(A, B, C)
@@ -419,25 +422,25 @@ function swap12!(R::AbstractMatrix{T}, i::Integer, Q = NotWanted()) where {T}
         singular && return R
 
         # Rotations that upper triangularize X
-        c₁,s₁, c₂,s₂ = swap12_rotations(X)
-        G₁ = Rotation2(c₁, s₁, i+0)
-        G₂ = Rotation2(c₂, s₂, i+1)
+        c₁, s₁, c₂, s₂ = swap12_rotations(X)
+        G₁ = Rotation2(c₁, s₁, i + 0)
+        G₂ = Rotation2(c₂, s₂, i + 1)
 
         # Apply rotations
         lmul!(G₁, R, i, n)
-        rmul!(R, G₁, 1, i+2)
+        rmul!(R, G₁, 1, i + 2)
         lmul!(G₂, R, i, n)
-        rmul!(R, G₂, 1, i+2)
+        rmul!(R, G₂, 1, i + 2)
 
         # Zero out things.
-        R[i+2,i+0] = zero(T)
-        R[i+2,i+1] = zero(T)
+        R[i+2, i+0] = zero(T)
+        R[i+2, i+1] = zero(T)
 
         # Accumulate
         rmul!(Q, G₁)
         rmul!(Q, G₂)
     end
-    
+
     R
 end
 
@@ -454,18 +457,18 @@ function swap11!(R::AbstractMatrix, i::Integer, Q = NotWanted())
     m, n = size(R)
 
     @inbounds begin
-        R₁₁ = R[i+0,i+0]
-        R₁₂ = R[i+0,i+1]
-        R₂₂ = R[i+1,i+1]
-        
+        R₁₁ = R[i+0, i+0]
+        R₁₂ = R[i+0, i+1]
+        R₂₂ = R[i+1, i+1]
+
         # Turns out the Sylvester equation is not so hard to solve in this case.
         G, = get_rotation(R₁₂, R₂₂ - R₁₁, i)
-        
+
         # Miniscule optimization by not touching R[i:i+1,i:i+1]
-        lmul!(G, R, i+2, n)
-        rmul!(R, G, 1, i-1)
-        R[i+0,i+0] = R₂₂
-        R[i+1,i+1] = R₁₁
+        lmul!(G, R, i + 2, n)
+        rmul!(R, G, 1, i - 1)
+        R[i+0, i+0] = R₂₂
+        R[i+1, i+1] = R₁₁
 
         # Accumulate
         rmul!(Q, G)
@@ -480,7 +483,7 @@ end
 Swap the two consecutive blocks of the Schur form starting at index i.
 """
 function swap!(R::AbstractMatrix, i::Integer, curr_11::Bool, next_11::Bool, Q = NotWanted())
-    if curr_11 
+    if curr_11
         if next_11
             swap11!(R, i, Q)
         else
@@ -495,5 +498,5 @@ function swap!(R::AbstractMatrix, i::Integer, curr_11::Bool, next_11::Bool, Q = 
     end
 end
 
-@inline is_start_of_11_block(R, i) = i == size(R, 2) || @inbounds(iszero(R[i+1,i]))
-@inline is_end_of_11_block(R, i) = i == 1 || @inbounds(iszero(R[i,i-1]))
+@inline is_start_of_11_block(R, i) = i == size(R, 2) || @inbounds(iszero(R[i+1, i]))
+@inline is_end_of_11_block(R, i) = i == 1 || @inbounds(iszero(R[i, i-1]))

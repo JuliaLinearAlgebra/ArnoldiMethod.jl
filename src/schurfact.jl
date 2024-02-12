@@ -4,8 +4,11 @@ using Base: @propagate_inbounds
 import LinearAlgebra: lmul!, rmul!
 import Base: Matrix
 
-@propagate_inbounds is_offdiagonal_small(H::AbstractMatrix{T}, i::Int, tol = eps(real(T))) where {T} = 
-    abs(H[i+1,i]) ≤ tol*(abs(H[i,i]) + abs(H[i+1,i+1]))
+@propagate_inbounds is_offdiagonal_small(
+    H::AbstractMatrix{T},
+    i::Int,
+    tol = eps(real(T)),
+) where {T} = abs(H[i+1, i]) ≤ tol * (abs(H[i, i]) + abs(H[i+1, i+1]))
 
 
 abstract type SmallRotation end
@@ -34,11 +37,11 @@ end
 # Some utility to materialize a rotation to a matrix.
 function Matrix(r::Rotation2{Tc,Ts}, n::Int) where {Tc,Ts}
     r.i < n || throw(ArgumentError("Matrix should have order $(r.i+1) or larger"))
-    G = Matrix{promote_type(Tc,Ts)}(I, n, n)
-    G[r.i+0,r.i+0] = r.c
-    G[r.i+1,r.i+0] = -conj(r.s)
-    G[r.i+0,r.i+1] = r.s
-    G[r.i+1,r.i+1] = r.c
+    G = Matrix{promote_type(Tc, Ts)}(I, n, n)
+    G[r.i+0, r.i+0] = r.c
+    G[r.i+1, r.i+0] = -conj(r.s)
+    G[r.i+0, r.i+1] = r.s
+    G[r.i+1, r.i+1] = r.c
     return G
 end
 
@@ -78,19 +81,19 @@ rmul!(::NotWanted, ::SmallRotation, args...) = nothing
 
 @inline function lmul!(G::Rotation3, A::AbstractMatrix, from::Int, to::Int)
     @inbounds for j = from:to
-        a₁ = A[G.i+0,j]
-        a₂ = A[G.i+1,j]
-        a₃ = A[G.i+2,j]
+        a₁ = A[G.i+0, j]
+        a₂ = A[G.i+1, j]
+        a₃ = A[G.i+2, j]
 
         a₂′ = G.c₁ * a₂ + G.s₁ * a₃
         a₃′ = -G.s₁' * a₂ + G.c₁ * a₃
 
         a₁′′ = G.c₂ * a₁ + G.s₂ * a₂′
         a₂′′ = -G.s₂' * a₁ + G.c₂ * a₂′
-        
-        A[G.i+0,j] = a₁′′
-        A[G.i+1,j] = a₂′′
-        A[G.i+2,j] = a₃′
+
+        A[G.i+0, j] = a₁′′
+        A[G.i+1, j] = a₂′′
+        A[G.i+2, j] = a₃′
     end
 
     A
@@ -98,9 +101,9 @@ end
 
 @inline function rmul!(A::AbstractMatrix, G::Rotation3, from::Int, to::Int)
     @inbounds for j = from:to
-        a₁ = A[j,G.i+0]
-        a₂ = A[j,G.i+1]
-        a₃ = A[j,G.i+2]
+        a₁ = A[j, G.i+0]
+        a₂ = A[j, G.i+1]
+        a₃ = A[j, G.i+2]
 
         a₂′ = a₂ * G.c₁ + a₃ * G.s₁'
         a₃′ = a₂ * -G.s₁ + a₃ * G.c₁
@@ -108,23 +111,23 @@ end
         a₁′′ = a₁ * G.c₂ + a₂′ * G.s₂'
         a₂′′ = a₁ * -G.s₂ + a₂′ * G.c₂
 
-        A[j,G.i+0] = a₁′′
-        A[j,G.i+1] = a₂′′
-        A[j,G.i+2] = a₃′
+        A[j, G.i+0] = a₁′′
+        A[j, G.i+1] = a₂′′
+        A[j, G.i+2] = a₃′
     end
     A
 end
 
 @inline function lmul!(G::Rotation2, A::AbstractMatrix, from::Int, to::Int)
     @inbounds for j = from:to
-        a₁ = A[G.i+0,j]
-        a₂ = A[G.i+1,j]
+        a₁ = A[G.i+0, j]
+        a₂ = A[G.i+1, j]
 
         a₁′ = G.c * a₁ + G.s * a₂
         a₂′ = -G.s' * a₁ + G.c * a₂
-        
-        A[G.i+0,j] = a₁′
-        A[G.i+1,j] = a₂′
+
+        A[G.i+0, j] = a₁′
+        A[G.i+1, j] = a₂′
     end
 
     A
@@ -132,30 +135,35 @@ end
 
 @inline function rmul!(A::AbstractMatrix, G::Rotation2, from::Int, to::Int)
     @inbounds for j = from:to
-        a₁ = A[j,G.i+0]
-        a₂ = A[j,G.i+1]
+        a₁ = A[j, G.i+0]
+        a₂ = A[j, G.i+1]
 
         a₁′ = a₁ * G.c + a₂ * G.s'
         a₂′ = a₁ * -G.s + a₂ * G.c
 
-        A[j,G.i+0] = a₁′
-        A[j,G.i+1] = a₂′
+        A[j, G.i+0] = a₁′
+        A[j, G.i+1] = a₂′
     end
     A
 end
 
-function double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int, 
-                             μ::Complex, Q = NotWanted()) where {Tv<:Real}
+function double_shift_schur!(
+    H::AbstractMatrix{Tv},
+    from::Int,
+    to::Int,
+    μ::Complex,
+    Q = NotWanted(),
+) where {Tv<:Real}
     m, n = size(H)
 
     # Compute the nonzero entries of p = (H - μI)(H - μ'I)e₁.
     # Because of the Hessenberg structure we only need H[min:min+2,min:min+1] to form p.
-    @inbounds H₁₁ = H[from+0,from+0]
-    @inbounds H₂₁ = H[from+1,from+0]
+    @inbounds H₁₁ = H[from+0, from+0]
+    @inbounds H₂₁ = H[from+1, from+0]
 
-    @inbounds H₁₂ = H[from+0,from+1]
-    @inbounds H₂₂ = H[from+1,from+1]
-    @inbounds H₃₂ = H[from+2,from+1]
+    @inbounds H₁₂ = H[from+0, from+1]
+    @inbounds H₂₂ = H[from+1, from+1]
+    @inbounds H₃₂ = H[from+2, from+1]
 
     p₁ = abs2(μ) - 2real(μ) * H₁₁ + H₁₁ * H₁₁ + H₁₂ * H₂₁
     p₂ = -2real(μ) * H₂₁ + H₂₁ * H₁₁ + H₂₂ * H₂₁
@@ -195,18 +203,18 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
     #             ↑
     #             i
 
-    @inbounds for i = from + 1 : to - 2
-        p₁ = H[i+0,i-1]
-        p₂ = H[i+1,i-1]
-        p₃ = H[i+2,i-1]
+    @inbounds for i = from+1:to-2
+        p₁ = H[i+0, i-1]
+        p₂ = H[i+1, i-1]
+        p₃ = H[i+2, i-1]
 
         G, nrm = get_rotation(p₁, p₂, p₃, i)
 
         # First column is done by hand
-        H[i+0,i-1] = nrm
-        H[i+1,i-1] = zero(Tv)
-        H[i+2,i-1] = zero(Tv)
-        
+        H[i+0, i-1] = nrm
+        H[i+1, i-1] = zero(Tv)
+        H[i+2, i-1] = zero(Tv)
+
         # Rotate remaining columns
         lmul!(G, H, i, n)
 
@@ -227,24 +235,29 @@ function double_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
     # to  → ------- x x x            o + +              + +
 
 
-    @inbounds Gₙ, nrm = get_rotation(H[to-1,to-2], H[to,to-2], to-1)
-    @inbounds H[to-1,to-2] = nrm
-    @inbounds H[to,to-2] = zero(Tv)
+    @inbounds Gₙ, nrm = get_rotation(H[to-1, to-2], H[to, to-2], to - 1)
+    @inbounds H[to-1, to-2] = nrm
+    @inbounds H[to, to-2] = zero(Tv)
 
-    lmul!(Gₙ, H, to-1, n)
+    lmul!(Gₙ, H, to - 1, n)
     rmul!(H, Gₙ, 1, to)
     rmul!(Q, Gₙ)
 
     H
 end
 
-function single_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int, 
-                             μ::Number, Q = NotWanted()) where {Tv<:Number}
+function single_shift_schur!(
+    H::AbstractMatrix{Tv},
+    from::Int,
+    to::Int,
+    μ::Number,
+    Q = NotWanted(),
+) where {Tv<:Number}
     m, n = size(H)
 
     # Compute the nonzero entries of p = (H - μI)e₁.
-    @inbounds H₁₁ = H[from+0,from+0]
-    @inbounds H₂₁ = H[from+1,from+0]
+    @inbounds H₁₁ = H[from+0, from+0]
+    @inbounds H₂₁ = H[from+1, from+0]
 
     p₁ = H₁₁ - μ
     p₂ = H₂₁
@@ -283,16 +296,16 @@ function single_shift_schur!(H::AbstractMatrix{Tv}, from::Int, to::Int,
     #               ↑
     #               i
 
-    @inbounds for i = from + 1 : to - 1
-        p₁ = H[i+0,i-1]
-        p₂ = H[i+1,i-1]
+    @inbounds for i = from+1:to-1
+        p₁ = H[i+0, i-1]
+        p₂ = H[i+1, i-1]
 
         G, nrm = get_rotation(p₁, p₂, i)
 
         # First column is done by hand
-        H[i+0,i-1] = nrm
-        H[i+1,i-1] = zero(Tv)
-        
+        H[i+0, i-1] = nrm
+        H[i+1, i-1] = zero(Tv)
+
         # Rotate remaining columns
         lmul!(G, H, i, n)
 
@@ -307,9 +320,14 @@ end
 ###
 ### Real arithmetic
 ###
-function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int, 
-                          Q = NotWanted(), tol = eps(T), 
-                          maxiter = 100*size(H, 1)) where {T<:Real}
+function local_schurfact!(
+    H::AbstractMatrix{T},
+    start::Int,
+    to::Int,
+    Q = NotWanted(),
+    tol = eps(T),
+    maxiter = 100 * size(H, 1),
+) where {T<:Real}
     # iteration count
     iter = 0
 
@@ -317,7 +335,7 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
         iter += 1
 
         if iter > maxiter
-            throw("QR algorithm did not converge") 
+            throw("QR algorithm did not converge")
         end
 
         # Indexing
@@ -349,7 +367,7 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
 
         if from == to
             # This just means H[to, to-1] == 0, so one eigenvalue converged at the end
-            H[from,from-1] = zero(T)
+            H[from, from-1] = zero(T)
             to -= 1
         else
             # Now we are sure we can work with a 2×2 block H[to-1:to,to-1:to]
@@ -358,13 +376,16 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
             # Otherwise, if from + 1 < to, we do either a single or double shift, based on
             # whether the H[to-1:to,to-1:to] part has real eigenvalues or a conjugate pair.
 
-            H₁₁, H₁₂ = H[to-1,to-1], H[to-1,to]
-            H₂₁, H₂₂ = H[to  ,to-1], H[to  ,to]
+            H₁₁, H₁₂ = H[to-1, to-1], H[to-1, to]
+            H₂₁, H₂₂ = H[to, to-1], H[to, to]
 
             # Scaling to avoid losing precision in the case where we have nearly
             # repeated eigenvalues.
             scale = abs(H₁₁) + abs(H₁₂) + abs(H₂₁) + abs(H₂₂)
-            H₁₁ /= scale; H₁₂ /= scale; H₂₁ /= scale; H₂₂ /= scale
+            H₁₁ /= scale
+            H₁₂ /= scale
+            H₂₁ /= scale
+            H₂₂ /= scale
 
             # Trace and discriminant of small eigenvalue problem.
             t = (H₁₁ + H₂₂) / 2
@@ -379,7 +400,7 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
 
                 # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
                 # near H[to,to]
-                
+
                 λ₁ = t + sqrt_discr
                 λ₂ = t - sqrt_discr
                 λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
@@ -392,7 +413,7 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
                 if from + 1 == to
                     # A conjugate pair has converged apparently!
                     if from != 1
-                        H[from,from-1] = zero(T)
+                        H[from, from-1] = zero(T)
                     end
                     to -= 2
                 else
@@ -413,9 +434,14 @@ end
 ###
 ### Generic implementation
 ###
-function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int, 
-                          Q = NotWanted(), tol = eps(real(T)), 
-                          maxiter = 100*size(H, 1)) where {T}
+function local_schurfact!(
+    H::AbstractMatrix{T},
+    start::Int,
+    to::Int,
+    Q = NotWanted(),
+    tol = eps(real(T)),
+    maxiter = 100 * size(H, 1),
+) where {T}
     # iteration count
     iter = 0
 
@@ -432,19 +458,19 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
 
         if from == to
             # This just means H[to, to-1] == 0, so one eigenvalue converged at the end
-            H[from,from-1] = zero(T)
+            H[from, from-1] = zero(T)
             to -= 1
         else
             # Compute Wilkinson shift
-            H₁₁, H₁₂ = H[to-1,to-1], H[to-1,to]
-            H₂₁, H₂₂ = H[to  ,to-1], H[to  ,to]
+            H₁₁, H₁₂ = H[to-1, to-1], H[to-1, to]
+            H₂₁, H₂₂ = H[to, to-1], H[to, to]
             d = H₁₁ * H₂₂ - H₂₁ * H₁₂
             t = H₁₁ + H₂₂
             sqr = sqrt(t * t - 4d)
             λ₁ = (t + sqr) / 2
             λ₂ = (t - sqr) / 2
             λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
-            
+
             # Run a bulge chase
             single_shift_schur!(H, from, to, λ, Q)
         end
@@ -456,5 +482,9 @@ function local_schurfact!(H::AbstractMatrix{T}, start::Int, to::Int,
     return true
 end
 
-local_schurfact!(H::AbstractMatrix{T}, Q = NotWanted(), tol = eps(real(T)), maxiter = 100*size(H, 1)) where {T} =
-    local_schurfact!(H, 1, size(H, 2), Q, tol, maxiter)
+local_schurfact!(
+    H::AbstractMatrix{T},
+    Q = NotWanted(),
+    tol = eps(real(T)),
+    maxiter = 100 * size(H, 1),
+) where {T} = local_schurfact!(H, 1, size(H, 2), Q, tol, maxiter)
