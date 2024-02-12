@@ -10,7 +10,7 @@ The Implicitly Restarted Arnoldi Method, natively in Julia.
 [![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/stable) [![Latest docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/dev)
 
 ## Goal
-Make `eigs` a native Julia function.
+Make `eigs` an efficient and native Julia function.
 
 ## Installation
 
