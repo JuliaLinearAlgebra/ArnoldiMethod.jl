@@ -1,6 +1,7 @@
 # ArnoldiMethod.jl
 
-[![CI](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yaml/badge.svg)](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yaml) [![Coverage Status](https://coveralls.io/repos/github/JuliaLinearAlgebra/ArnoldiMethod.jl/badge.svg)](https://coveralls.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl)
+[![CI](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yml) [![Codecov](http://codecov.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl?branch=master)
+
 
 
 The Implicitly Restarted Arnoldi Method, natively in Julia.
