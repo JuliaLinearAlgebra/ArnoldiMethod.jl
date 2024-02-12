@@ -241,6 +241,20 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
             groups[ritz.ord[i]] = 3
         end
 
+        # Typically eigenvalues converge in the desired order: closest to the target first and
+        # furthest last. This is not guaranteed though, especially with repeated eigenvalues close
+        # to the target: they may start to converge only much later. In that case it may happen
+        # that we need to purge an already converged Schur pair, because the later Ritz values are
+        # closer to the target, and the eigenvalues we've locked + new more interesting Ritz values
+        # exceed nev. So, unlocked_idx refers to the first vector that is not or no longer locked.
+        # That's usually equal to `active`, except when a vector needs to be purged; and its index
+        # could be anywhere in the range 1:active-1. `purge` refers to the index of the first vec
+        # to be purged, or to `active` if no purging is necessary.
+        purge = 1
+        while purge < active && groups[purge] == 1
+            purge += 1
+        end
+
         partition_schur_three_way!(H, Q, groups)
 
         # Restore the Hessenberg matrix via Householder reflections.
@@ -249,8 +263,8 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         restore_arnoldi!(H, nlock + 1, k, Q, G)
 
         # Finally do the change of basis to get the length `k` Arnoldi relation.
-        @views mul!(Vtmp[:,active:k], V[:,active:maxdim], Q[active:maxdim,active:k])
-        @views copyto!(V[:,active:k], Vtmp[:,active:k])
+        @views mul!(Vtmp[:,purge:k], V[:,purge:maxdim], Q[purge:maxdim,purge:k])
+        @views copyto!(V[:,purge:k], Vtmp[:,purge:k])
         @views copyto!(V[:,k+1], V[:,maxdim+1])
 
         # The active part 
