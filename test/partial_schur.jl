@@ -65,6 +65,11 @@ end
     # converge in order. In this example, the largest magnitude eigenvalue is repeated
     # three times. Note that the Arnoldi method may or may not find all multiples, there
     # is no guarantee.
+
+    # TODO: Currently this test unfortunately does *not* cover purging very well, which
+    # happens when many eigenvalues are already locked, but suddenly a few more converge
+    # that are closer to the target than most of the locked ones. As num_locked + num_new
+    # exceeds nev, some of the locked ones need to be removed.
     A = Diagonal([1:0.1:9; 9.97; 9.98; 9.99; 10.0; 10.0; 10.0])
 
     schur, history = partialschur(A, nev=5, maxdim=20, tol=1e-12)
