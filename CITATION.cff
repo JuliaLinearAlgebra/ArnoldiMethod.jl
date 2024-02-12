@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
 - family-names: "Stoppels"
-  given-names: "Harmen"
+  given-names: "Harmen Taeke"
 - family-names: "Nyman"
   given-names: "Lauri"
 title: "ArnoldiMethod.jl"
