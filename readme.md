@@ -1,13 +1,13 @@
 # ArnoldiMethod.jl
 
-[![CI](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yml) [![Codecov](http://codecov.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl?branch=master)
+[![CI](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl/actions/workflows/ci.yml) [![Codecov](https://codecov.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl/coverage.svg?branch=master)](https://codecov.io/github/JuliaLinearAlgebra/ArnoldiMethod.jl?branch=master)
 
 
 
 The Implicitly Restarted Arnoldi Method, natively in Julia.
 
 ## Docs
-[![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/stable) [![Latest docs](https://img.shields.io/badge/docs-latest-gray.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/dev)
+[![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/stable) [![Latest docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/dev)
 
 ## Goal
 Make `eigs` a native Julia function.
