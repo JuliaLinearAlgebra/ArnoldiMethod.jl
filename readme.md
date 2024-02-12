@@ -4,7 +4,7 @@
 
 
 
-The Implicitly Restarted Arnoldi Method, natively in Julia.
+The Arnoldi Method with Krylov-Schur restart, natively in Julia.
 
 ## Docs
 [![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/stable) [![Latest docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://julialinearalgebra.github.io/ArnoldiMethod.jl/dev)
