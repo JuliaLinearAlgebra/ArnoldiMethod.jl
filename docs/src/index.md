@@ -56,18 +56,26 @@ problems can be casted to standard form.
 
 See [Theory](@ref theory) for more information.
 
-## Goal of this package: a pure Julia implementation
+## Goal of this package: an efficient, pure Julia implementation
 This project started with two goals:
 
-- Having a *native* Julia implementation of the `eigs` function that performs as
-  well as ARPACK. With native we mean that its implementation should be generic
-  and support any number type. Currently the [`partialschur`](@ref) function 
-  does not depend on LAPACK, and removing the last remnants of direct calls to 
-  BLAS is in the pipeline.
-- Removing the dependency of the Julia language on ARPACK. This goal was already
-  achieved before the package was stable enough, since ARPACK moved to a 
-  separate repository 
-  [Arpack.jl](https://github.com/JuliaLinearAlgebra/Arpack.jl/).
+1. Having a *native* Julia implementation of the `eigs` function that performs as
+   well as ARPACK. With native we mean that its implementation should be generic
+   and support any number type. Currently the [`partialschur`](@ref) function
+   does not depend on LAPACK, it even has its own implementation of a dense
+   eigensolver.
+2. Removing the dependency of the Julia language on ARPACK. This goal was already
+   achieved before the package was stable enough, since ARPACK moved to a
+   separate repository [Arpack.jl](https://github.com/JuliaLinearAlgebra/Arpack.jl/).
+
+## Performance
+
+ArnoldiMethod.jl should be roughly on par with Arpack.jl, and slightly faster than
+KrylovKit.jl.
+
+Do note that for an apples to apples comparison, it's important to compare the
+defaults: each of the mentioned packages uses a slightly different convergence
+tolerance.
 
 ## Status
 An overview of what we have, how it's done and what we're missing.
@@ -77,6 +85,9 @@ An overview of what we have, how it's done and what we're missing.
 - The method does not make assumptions about the type of the matrix; it is 
   matrix-free.
 - Converged Ritz vectors are locked (or deflated).
+- We may do "purging" differently from ARPACK: in ArnoldiMethod.jl it is rather
+  "unlocking", in the sense that converged but unwanted eigenvectors are retained
+  in the search subspace instead of removed from it.
 - Important matrices and vectors are pre-allocated and operations on the 
   Hessenberg matrix are in-place; Julia's garbage collector can sit back.
 - Krylov basis vectors are orthogonalized with repeated classical Gram-Schmidt
@@ -92,8 +103,8 @@ An overview of what we have, how it's done and what we're missing.
 - Shrinking the size of the Krylov subspace and changing its basis is done by
   accumulating all rotations and reflections in a unitary matrix `Q`, and then
   simply computing the matrix-matrix product `V := V * Q`, where `V` is the 
-  original orthonormal basis. This is not in-place in `V`, but with good reason: 
-  the dense matrix-matrix product is not memory-bound.
+  original orthonormal basis. This is not in-place in `V`, so we allocate a bit
+  of scratch space ahead of time.
 
 ### Not implemented (yet) and future ideas
 - Being able to kickstart the method from a given Arnoldi relation. This also

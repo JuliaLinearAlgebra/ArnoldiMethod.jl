@@ -5,7 +5,7 @@
 In Julia open the package manager in the REPL via `]` and run:
 
 ```julia
-(v1.0) pkg> add ArnoldiMethod
+(v1.6) pkg> add ArnoldiMethod
 ```
 
 Then use the package.
