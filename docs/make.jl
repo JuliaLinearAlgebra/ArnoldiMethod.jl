@@ -19,6 +19,6 @@ makedocs(
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo = "github.com/JuliaSparse/KLU.jl.git",
+    repo = "github.com/JuliaLinearAlgebra/ArnoldiMethod.jl.git",
     devbranch="main"
 )
