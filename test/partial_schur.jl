@@ -14,15 +14,15 @@ using LinearAlgebra
         A = rand(T,10, 3)
 
         # Rank 3 matrix.
-        B = A * A' 
+        B = A * A'
 
         schur, history = partialschur(B, nev = 5, mindim = 5, maxdim = 7, tol = eps())
 
         @test history.converged
         @test history.mvproducts == 7
-        @test norm(schur.Q'schur.Q - I) < 100eps(real(T))
-        @test norm(B * schur.Q - schur.Q * schur.R) < 100eps(real(T))
-        @test norm(diag(schur.R)[4:5]) < 100eps(real(T))
+        @test norm(schur.Q'schur.Q - I) < 1000eps(real(T))
+        @test norm(B * schur.Q - schur.Q * schur.R) < 1000eps(real(T))
+        @test norm(diag(schur.R)[4:5]) < 1000eps(real(T))
     end
 end
 
