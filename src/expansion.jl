@@ -11,7 +11,7 @@ Returns false if the column is numerically in the span of the previous vectors.
 """
 function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
     V = arnoldi.V
-    v = view(V, :, j+1)
+    v = view(V, :, j + 1)
 
     # Generate a new random column
     rand!(v)
@@ -31,7 +31,7 @@ function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
 
     # Orthogonalize: h = Vprev' * v, v ← v - Vprev * Vprev' * v = v - Vprev * h
     h = Vprev' * v
-    mul!(v,Vprev,h,-one(T),one(T))
+    mul!(v, Vprev, h, -one(T), one(T))
 
     # Norm after orthogonalization
     wnorm = norm(v)
@@ -40,7 +40,7 @@ function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
     if wnorm < η * rnorm
         rnorm = wnorm
         mul!(h, Vprev', v)
-        mul!(v,Vprev,h,-one(T),one(T))
+        mul!(v, Vprev, h, -one(T), one(T))
         wnorm = norm(v)
     end
 
@@ -70,7 +70,7 @@ function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
     η = √2 / 2
 
     Vprev = view(V, :, 1:j)
-    v = view(V, :, j+1)
+    v = view(V, :, j + 1)
     h = view(H, 1:j, j)
 
     # Norm before orthogonalization
@@ -78,7 +78,7 @@ function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
 
     # Orthogonalize: h = Vprev' * v, v ← v - Vprev * Vprev' * v = v - Vprev * h
     mul!(h, Vprev', v)
-    mul!(v,Vprev,h,-one(T),one(T))
+    mul!(v, Vprev, h, -one(T), one(T))
 
     # Norm after orthogonalization
     wnorm = norm(v)
@@ -87,18 +87,18 @@ function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
     if wnorm < η * rnorm
         rnorm = wnorm
         correction = Vprev' * v
-        mul!(v,Vprev,correction,-one(T),one(T))
+        mul!(v, Vprev, correction, -one(T), one(T))
         h .+= correction
         wnorm = norm(v)
     end
 
     if wnorm ≤ η * rnorm
         # If we have to reorthogonalize thrice, then we're just numerically in the span
-        H[j+1,j] = zero(T)
+        H[j+1, j] = zero(T)
         return false
     else
         # Otherwise we just normalize this new basis vector
-        H[j+1,j] = wnorm
+        H[j+1, j] = wnorm
         v ./= wnorm
         return true
     end
@@ -112,9 +112,9 @@ Perform Arnoldi from `from` to `to`.
 function iterate_arnoldi!(A, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
     V, H = arnoldi.V, arnoldi.H
 
-    for j = range
+    for j in range
         # Generate a new column of the Krylov subspace
-        mul!(view(V, :, j+1), A, view(V, :,j))
+        mul!(view(V, :, j + 1), A, view(V, :, j))
 
         # Orthogonalize it against the other columns
         # If V[:,j+1] is in the span of V[:,1:j], then we generate a new

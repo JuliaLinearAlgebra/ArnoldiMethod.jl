@@ -1,5 +1,6 @@
 using Test
-using ArnoldiMethod: reflector!, restore_arnoldi!, Reflector, Arnoldi, reinitialize!, iterate_arnoldi!
+using ArnoldiMethod:
+    reflector!, restore_arnoldi!, Reflector, Arnoldi, reinitialize!, iterate_arnoldi!
 using LinearAlgebra
 using Random
 
@@ -13,7 +14,7 @@ using Random
 
     @inferred reflector!(copy(x), n)
     @test norm(y[1:n-1]) ≤ 10eps()
-    @test abs(real(y[n])) ≈ norm(x) 
+    @test abs(real(y[n])) ≈ norm(x)
     @test abs(imag(y[n])) ≤ eps()
     @test 1 ≤ real(τ) ≤ 2
     @test abs(τ - 1) ≤ 1
@@ -29,7 +30,7 @@ end
 @testset "rmul! $T" for T in (Float64, ComplexF64)
     A = rand(T, 4, 4)
     B = copy(A)
-    
+
     # Implicit representation
     G = Reflector{T}(4)
     rand!(G.vec)
@@ -48,7 +49,7 @@ end
 @testset "lmul! $T" for T in (Float64, ComplexF64)
     A = rand(T, 4, 4)
     B = copy(A)
-    
+
     # Implicit representation
     G = Reflector{T}(4)
     rand!(G.vec)
@@ -76,7 +77,7 @@ end
     # Do an orthogonal change of basis.
 
     H = copy(arn.H)
-    H[1:k,1:k] .= Q' * H[1:k,1:k] * Q
+    H[1:k, 1:k] .= Q' * H[1:k, 1:k] * Q
 
     # Restore the relation
     restore_arnoldi!(H, 1, k, Q, Reflector{T}(k))

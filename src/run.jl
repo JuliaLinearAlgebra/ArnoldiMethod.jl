@@ -8,7 +8,7 @@ on.
 """
 function vtype(A)
     T = eltype(A)
-    typeof(zero(T)/sqrt(one(T)))
+    typeof(zero(T) / sqrt(one(T)))
 end
 
 """
@@ -91,18 +91,22 @@ suggested to keep `mindim` equal to or slightly larger than `nev`, and `maxdim`
 is usually about two times `mindim`.
 
 """
-function partialschur(A;
-                       nev::Int = min(6, size(A, 1)),
-                       which::Target = LM(),
-                       tol::Real = sqrt(eps(real(vtype(A)))), 
-                       mindim::Int = min(max(10, nev), size(A, 1)),
-                       maxdim::Int = min(max(20, 2nev), size(A, 1)),
-                       restarts::Int = 200)
+function partialschur(
+    A;
+    nev::Int = min(6, size(A, 1)),
+    which::Target = LM(),
+    tol::Real = sqrt(eps(real(vtype(A)))),
+    mindim::Int = min(max(10, nev), size(A, 1)),
+    maxdim::Int = min(max(20, 2nev), size(A, 1)),
+    restarts::Int = 200,
+)
     s = checksquare(A)
     if nev < 1
         throw(ArgumentError("nev cannot be less than 1"))
     end
-    nev ≤ mindim ≤ maxdim ≤ s || throw(ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"))
+    nev ≤ mindim ≤ maxdim ≤ s || throw(
+        ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"),
+    )
     _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
 end
 
@@ -120,7 +124,8 @@ struct IsConverged{RV<:RitzValues,T}
     tol::T
     H_frob_norm::RefValue{T}
 
-    IsConverged(ritz::R, tol::T) where {R<:RitzValues,T} = new{R,T}(ritz, tol, RefValue(zero(T)))
+    IsConverged(ritz::R, tol::T) where {R<:RitzValues,T} =
+        new{R,T}(ritz, tol, RefValue(zero(T)))
 end
 
 (r::IsConverged{RV,T})(i::Integer) where {RV,T} =
@@ -139,7 +144,16 @@ struct History
     nev::Int
 end
 
-function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Ttol, restarts::Int, which::Target) where {T,Ttol<:Real}
+function _partialschur(
+    A,
+    ::Type{T},
+    mindim::Int,
+    maxdim::Int,
+    nev::Int,
+    tol::Ttol,
+    restarts::Int,
+    which::Target,
+) where {T,Ttol<:Real}
     n = size(A, 1)
 
     # Pre-allocated Arnoldi decomp
@@ -184,11 +198,11 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
     reinitialize!(arnoldi)
     iterate_arnoldi!(A, arnoldi, 1:mindim)
 
-    for iter = 1 : restarts
+    for iter = 1:restarts
 
         # Expand Krylov subspace dimension from `k` to `maxdim`.
         iterate_arnoldi!(A, arnoldi, k+1:maxdim)
-        
+
         # Bookkeeping
         prods += length(k+1:maxdim)
 
@@ -197,11 +211,11 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         # Construct Schur decomposition of H[active:maxdim,active:maxdim] in-place
         local_schurfact!(view(H, OneTo(maxdim), :), active, maxdim, Q)
-        
+
         # Update the Ritz values
         copyto!(ritz.ord, OneTo(maxdim))
         copy_eigenvalues!(ritz.λs, H)
-        copy_residuals!(ritz.rs, H, Q, H[maxdim+1,maxdim], x, active:maxdim)
+        copy_residuals!(ritz.rs, H, Q, H[maxdim+1, maxdim], x, active:maxdim)
 
         # Create a permutation that sorts Ritz values from most wanted to least wanted
         sort!(ritz.ord, 1, maxdim, QuickSort, OrderPerm(ritz.λs, ordering))
@@ -216,7 +230,7 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         effective_nev = include_conjugate_pair(T, ritz, nev)
 
         nlock = 0
-        for i in 1:effective_nev
+        for i = 1:effective_nev
             if isconverged(ritz.ord[i])
                 groups[ritz.ord[i]] = 1
                 nlock += 1
@@ -233,11 +247,11 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
         k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
 
-        for i in effective_nev+1:k
+        for i = effective_nev+1:k
             groups[ritz.ord[i]] = 2
         end
 
-        for i in k+1:maxdim
+        for i = k+1:maxdim
             groups[ritz.ord[i]] = 3
         end
 
@@ -263,9 +277,9 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
         restore_arnoldi!(H, nlock + 1, k, Q, G)
 
         # Finally do the change of basis to get the length `k` Arnoldi relation.
-        @views mul!(Vtmp[:,purge:k], V[:,purge:maxdim], Q[purge:maxdim,purge:k])
-        @views copyto!(V[:,purge:k], Vtmp[:,purge:k])
-        @views copyto!(V[:,k+1], V[:,maxdim+1])
+        @views mul!(Vtmp[:, purge:k], V[:, purge:maxdim], Q[purge:maxdim, purge:k])
+        @views copyto!(V[:, purge:k], Vtmp[:, purge:k])
+        @views copyto!(V[:, k+1], V[:, maxdim+1])
 
         # The active part 
         active = nlock + 1
@@ -275,15 +289,15 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
     nconverged = active - 1
 
-    @views Vconverged = V[:,1:nconverged]
-    @views Hconverged = H[1:nconverged,1:nconverged]
+    @views Vconverged = V[:, 1:nconverged]
+    @views Hconverged = H[1:nconverged, 1:nconverged]
 
     # Sort the converged eigenvalues like the user wants them
     sortschur!(H, copyto!(Q, I), nconverged, ordering)
 
     # Change of basis
-    @views mul!(Vtmp[:,1:nconverged], Vconverged, Q[1:nconverged,1:nconverged])
-    @views copyto!(Vconverged, Vtmp[:,1:nconverged])
+    @views mul!(Vtmp[:, 1:nconverged], Vconverged, Q[1:nconverged, 1:nconverged])
+    @views copyto!(Vconverged, Vtmp[:, 1:nconverged])
 
     # Copy the eigenvalues just one more time
     copy_eigenvalues!(ritz.λs, H, OneTo(nconverged))
@@ -310,7 +324,7 @@ function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
     #       h            ->         h              
     #    m               ->      m
     #  l                 ->    l                   
-    
+
     # |1|2|33|2|33|2|1|  -> |1|2|2|33|33|2|1| 
     #         h          ->           h        
     #      m             ->        m         
@@ -325,13 +339,13 @@ function partition_schur_three_way!(R, Q, groups::AbstractVector{Int})
     #              h     ->                h   
     #        m           ->          m       
     #    l               ->    l             
-        
-    
+
+
     # |1|2|2|2|33|33|1|  -> |1|1|2|2|2|33|33|
     #                h   ->                  h             
     #          m         ->            m       
     #    l               ->      l                  
-     
+
 
     hi = 1
     mi = 1
@@ -383,7 +397,7 @@ function sortschur!(R, Q, to::Int, ordering::Ordering)
         # so that we skip either 1 or 2 steps.
         curr_size = is_start_of_11_block(R, curr_idx) ? 1 : 2
         curr_λ = eigenvalue(R, curr_idx)
-        
+
         # Insertion part of the sort
         while curr_idx > 1
 
@@ -424,14 +438,21 @@ end
 
 Computes the Ritz residuals ‖Ax - λx‖₂ = |yₖ| * |hₖ₊₁ₖ| for each eigenvalue
 """
-function copy_residuals!(rs::AbstractVector{T}, H, Q, hₖ₊₁ₖ, x::AbstractVector, range::AbstractRange) where {T<:Real}
+function copy_residuals!(
+    rs::AbstractVector{T},
+    H,
+    Q,
+    hₖ₊₁ₖ,
+    x::AbstractVector,
+    range::AbstractRange,
+) where {T<:Real}
     fill!(rs, 0)
     m = size(H, 2)
-    @inbounds for i = range
+    @inbounds for i in range
         fill!(x, zero(T))
         len = collect_eigen!(x, H, i)
         tmp = zero(complex(T))
-        for j = 1 : len
+        for j = 1:len
             tmp += Q[m, j] * x[j]
         end
         rs[i] = abs(tmp * hₖ₊₁ₖ)

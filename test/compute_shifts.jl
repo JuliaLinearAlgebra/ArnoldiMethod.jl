@@ -1,15 +1,21 @@
 using Test
 
-using ArnoldiMethod: eigvalues, local_schurfact!, backward_subst!, compute_shifts, initialize, iterate_arnoldi!
+using ArnoldiMethod:
+    eigvalues,
+    local_schurfact!,
+    backward_subst!,
+    compute_shifts,
+    initialize,
+    iterate_arnoldi!
 using LinearAlgebra
 
 @testset "Shift computation" begin
     for j = 1:20
         n = 20
         # A = rand(ComplexF64, n,n)
-        A = triu(rand(ComplexF64, n,n))
+        A = triu(rand(ComplexF64, n, n))
         for i = 1:n
-            A[i,i] = i
+            A[i, i] = i
         end
         max = 10
         arnoldi = initialize(ComplexF64, n, max)
@@ -19,14 +25,17 @@ using LinearAlgebra
         vals, vecs = eigen(arnoldi.H[1:max, 1:max])
 
         # Test whether the shifts are the eigenvalues of H
-        @test sort(vals, by=abs) ≈ sort(shifts, by=abs)
+        @test sort(vals, by = abs) ≈ sort(shifts, by = abs)
 
-        res = Vector{Float64}(undef,max)
+        res = Vector{Float64}(undef, max)
         for i = 1:max
-            res[i] = norm(A * arnoldi.V[:,1:max] * vecs[:,i] - vals[i] * arnoldi.V[:,1:max] * vecs[:,i])
+            res[i] = norm(
+                A * arnoldi.V[:, 1:max] * vecs[:, i] -
+                vals[i] * arnoldi.V[:, 1:max] * vecs[:, i],
+            )
         end
         # @show res
-        perm = sortperm(res, by=abs)
+        perm = sortperm(res, by = abs)
         vals = vals[perm]
 
         # Test the order of the shifts
