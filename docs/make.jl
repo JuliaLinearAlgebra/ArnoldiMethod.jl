@@ -1,26 +1,24 @@
 using Documenter, ArnoldiMethod
 
 makedocs(
-	modules = [ArnoldiMethod],
-	format = :html,
-	doctest = false,
-	clean = true,
-	sitename = "ArnoldiMethod.jl",
-	pages = [
-		"Home" => "index.md",
-		"Theory" => "theory.md",
-		"Using ArnoldiMethod.jl" => [
-			"Getting started" => "usage/01_getting_started.md",
-			"Transformations" => "usage/02_spectral_transformations.md"
-		]
+    modules = [ArnoldiMethod],
+    sitename = "ArnoldiMethod.jl",
+    format = Documenter.HTML(),
+    pages = [
+	"Home" => "index.md",
+	"Theory" => "theory.md",
+	"Using ArnoldiMethod.jl" => [
+	    "Getting started" => "usage/01_getting_started.md",
+	    "Transformations" => "usage/02_spectral_transformations.md"
 	]
+    ],
+    warnonly = [:missing_docs, :cross_references],
 )
 
+# Documenter can also automatically deploy documentation to gh-pages.
+# See "Hosting Documentation" and deploydocs() in the Documenter manual
+# for more information.
 deploydocs(
-	repo = "github.com/JuliaLinearAlgebra/ArnoldiMethod.jl.git",
-	target = "build",
-	osname = "linux",
-	julia  = "0.7",
-	deps = nothing,
-	make = nothing,
+    repo = "github.com/JuliaSparse/KLU.jl.git",
+    devbranch="main"
 )
