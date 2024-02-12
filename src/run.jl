@@ -243,13 +243,13 @@ function _partialschur(A, ::Type{T}, mindim::Int, maxdim::Int, nev::Int, tol::Tt
 
         # Typically eigenvalues converge in the desired order: closest to the target first and
         # furthest last. This is not guaranteed though, especially with repeated eigenvalues close
-        # to the target: they may start to converge only much later. In that case it may happen
-        # that we need to purge an already converged Schur pair, because the later Ritz values are
-        # closer to the target, and the eigenvalues we've locked + new more interesting Ritz values
-        # exceed nev. So, unlocked_idx refers to the first vector that is not or no longer locked.
-        # That's usually equal to `active`, except when a vector needs to be purged; and its index
-        # could be anywhere in the range 1:active-1. `purge` refers to the index of the first vec
-        # to be purged, or to `active` if no purging is necessary.
+        # to the target: they may start to converge only much later. In the worst case, the number
+        # of values we've locked + the number of new Ritz values closer to the target exceed the
+        # number of eigenvalues we're looking for. In that case, we unlock / purge the furthest
+        # currently locked eigenvalues in favor of the new ones. Here we determine the index
+        # `purge` of the first vector to be purged, or `active` if no purging is necessary. Notice
+        # that `purge` can be any index in 1:active-1, because locked vectors are merely
+        # partitioned as locked vectors, they are never sorted until full convergence.
         purge = 1
         while purge < active && groups[purge] == 1
             purge += 1
