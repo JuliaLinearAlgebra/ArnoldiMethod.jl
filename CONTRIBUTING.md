@@ -23,11 +23,11 @@ A recommended workflow to contribute is as follows:
 2. Open Julia's REPL and hit `]` to enter the package manager mode;
 3. Run
    ```julia
-   (v1.0) pkg> dev git git@github.com:YOURUSERNAME/ArnoldiMethod.jl.git
+   (v1.6) pkg> dev git git@github.com:YOURUSERNAME/ArnoldiMethod.jl.git
    ```
 4. Run the tests locally to make sure things work:
    ```julia
-   (v1.0) pkg> test ArnoldiMethod
+   (v1.6) pkg> test ArnoldiMethod
    ```
 5. Make changes to the code;
 6. Push the changes to your forked repository;
