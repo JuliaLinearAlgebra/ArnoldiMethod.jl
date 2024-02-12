@@ -5,5 +5,5 @@ authors:
   given-names: "Harmen Taeke"
 - family-names: "Nyman"
   given-names: "Lauri"
-title: "ArnoldiMethod.jl"
+title: "ArnoldiMethod.jl: Implicitly Restarted Arnoldi Method, natively in Julia"
 url: "https://github.com/JuliaLinearAlgebra/ArnoldiMethod.jl"
