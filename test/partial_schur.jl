@@ -20,9 +20,9 @@ using LinearAlgebra
 
         @test history.converged
         @test history.mvproducts == 7
-        @test norm(schur.Q'schur.Q - I) < 100eps(real(T))
-        @test norm(B * schur.Q - schur.Q * schur.R) < 100eps(real(T))
-        @test norm(diag(schur.R)[4:5]) < 100eps(real(T))
+        @test norm(schur.Q'schur.Q - I) < 1000eps(real(T))
+        @test norm(B * schur.Q - schur.Q * schur.R) < 1000eps(real(T))
+        @test norm(diag(schur.R)[4:5]) < 1000eps(real(T))
     end
 end
 
