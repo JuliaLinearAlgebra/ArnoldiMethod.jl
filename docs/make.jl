@@ -20,5 +20,5 @@ makedocs(
 # for more information.
 deploydocs(
     repo = "github.com/JuliaLinearAlgebra/ArnoldiMethod.jl.git",
-    devbranch="main"
+    devbranch="master"
 )
