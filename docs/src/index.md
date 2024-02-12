@@ -73,9 +73,9 @@ This project started with two goals:
 ArnoldiMethod.jl should be roughly on par with Arpack.jl, and slightly faster than
 KrylovKit.jl.
 
-Do note that for an apples to apples comparison, it's important to compare the
-defaults: each of the mentioned packages uses a slightly different convergence
-tolerance.
+Do note that for an apples to apples comparison, it's important to compare with
+identical defaults: each of the mentioned packages uses a slightly different default
+convergence criterion.
 
 ## Status
 An overview of what we have, how it's done and what we're missing.
