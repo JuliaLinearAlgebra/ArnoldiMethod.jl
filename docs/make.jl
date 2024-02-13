@@ -7,10 +7,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Theory" => "theory.md",
-        "Using ArnoldiMethod.jl" => [
-            "Getting started" => "usage/01_getting_started.md",
-            "Transformations" => "usage/02_spectral_transformations.md",
-        ],
+        "Using ArnoldiMethod.jl" => "usage.md",
     ],
     warnonly = [:missing_docs, :cross_references],
 )
