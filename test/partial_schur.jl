@@ -77,3 +77,15 @@ end
     @test norm(schur.Q'schur.Q - I) < 100 * eps(Float64)
     @test norm(A * schur.Q - schur.Q * schur.R) < size(A, 1) * 1e-12
 end
+
+@testset "Zero matrix" begin
+    # This tests edge cases in the convergence criterion (<= vs <) as well as collecting
+    # eigenvectors through backwards substitution of an upper diagonal matrix which is
+    # exactly singular.
+    A = zeros(5, 5)
+    schur, history = partialschur(A)
+    @test history.converged
+    @test history.mvproducts == history.nconverged == 5
+    @test norm(schur.Q'schur.Q - I) < 100 * eps(Float64)
+    @test norm(A * schur.Q - schur.Q * schur.R) == 0
+end
