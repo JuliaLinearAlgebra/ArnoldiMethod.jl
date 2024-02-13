@@ -136,8 +136,8 @@ struct IsConverged{RV<:RitzValues,T}
         new{R,T}(ritz, tol, RefValue(zero(T)))
 end
 
-(r::IsConverged{RV,T})(i::Integer) where {RV,T} =
-    @inbounds return r.ritz.rs[i] < max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
+(r::IsConverged{RV,T})(i::Integer) where {RV,T} = @inbounds return r.ritz.rs[i] <=
+                 max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
 
 """
     History(mvproducts, nconverged, converged, nev)

@@ -11,6 +11,7 @@ function shifted_backward_sub!(x, R::AbstractMatrix{Tm}, λ, k) where {Tm<:Real}
             R11, R12 = R[k-1, k-1] - λ, R[k-1, k]
             R21, R22 = R[k, k-1], R[k, k] - λ
             det = R11 * R22 - R21 * R12
+            # det == 0 cannot happen as then it would not be a conjugate pair.
             a1 = (R22 * x[k-1] - R12 * x[k-0]) / det
             a2 = (-R21 * x[k-1] + R11 * x[k-0]) / det
             x[k-1] = a1
@@ -23,11 +24,17 @@ function shifted_backward_sub!(x, R::AbstractMatrix{Tm}, λ, k) where {Tm<:Real}
             k -= 2
         else
             # Solve 1x1 "problem"
-            x[k] /= R[k, k] - λ
+            σ = R[k, k] - λ
 
-            # Backward substitute
-            for i = 1:k-1
-                x[i] -= R[i, k] * x[k]
+            if iszero(σ)
+                x[k] = σ
+            else
+                x[k] /= σ
+
+                # Backward substitute
+                for i = 1:k-1
+                    x[i] -= R[i, k] * x[k]
+                end
             end
 
             k -= 1
@@ -41,11 +48,17 @@ function shifted_backward_sub!(x, R::AbstractMatrix, λ, k)
     # Generic implementation, upper triangular R
     @inbounds while k > 0
         # Solve 1x1 "problem"
-        x[k] /= R[k, k] - λ
+        σ = R[k, k] - λ
 
-        # Backward substitute
-        for i = 1:k-1
-            x[i] -= R[i, k] * x[k]
+        if iszero(σ)
+            x[k] = σ
+        else
+            x[k] /= σ
+
+            # Backward substitute
+            for i = 1:k-1
+                x[i] -= R[i, k] * x[k]
+            end
         end
 
         k -= 1
