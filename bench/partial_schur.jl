@@ -37,7 +37,7 @@ end
 function bencharnoldi()
     A = mymatrix(6000)
     A = construct_linear_map(mymatrix(6000))
-    target = LM()
+    target = :LM
 
     @benchmark partialschur(
         B,

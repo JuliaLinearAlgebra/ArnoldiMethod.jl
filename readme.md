@@ -31,7 +31,7 @@ julia> A = spdiagm(
             1 => fill(-1.0, 99)
        );
 
-julia> decomp, history = partialschur(A, nev=10, tol=1e-6, which=SR());
+julia> decomp, history = partialschur(A, nev=10, tol=1e-6, which=:SR);
 
 julia> decomp
 PartialSchur decomposition (Float64) of dimension 10

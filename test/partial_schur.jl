@@ -52,7 +52,7 @@ end
 @testset "Target non-dominant eigenvalues" begin
     # Dominant eigenvalues 50, 51, 52, 53, but we target the smallest real part
     A = Diagonal([1:0.1:10; 50:53])
-    S, hist = partialschur(A, which = SR())
+    S, hist = partialschur(A, which = :SR)
     @test all(x -> real(x) ≤ 10, eigenvalues(S.R))
 end
 
