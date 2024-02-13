@@ -6,8 +6,6 @@ makedocs(
     format = Documenter.HTML(),
     pages = [
         "Home" => "index.md",
-        "Theory" => "theory.md",
-        "Using ArnoldiMethod.jl" => "usage.md",
     ],
     warnonly = [:missing_docs, :cross_references],
 )
