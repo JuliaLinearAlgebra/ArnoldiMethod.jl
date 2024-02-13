@@ -31,22 +31,22 @@ The most important keyword arguments:
 | Keyword | Type | Default | Description |
 |------:|:-----|:----|:------|
 | `nev` | `Int` | `min(6, size(A, 1))` |Number of eigenvalues |
-| `which` | `Target` | `LM()` | One of `LM()`, `LR()`, `SR()`, `LI()`, `SI()`, see below. |
+| `which` | `Symbol` or `Target` | `:LM` | One of `:LM`, `:LR`, `:SR`, `:LI`, `:SI`, see below. |
 | `tol` | `Real` | `√eps` | Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖ |
 
-The target `which` can be any of `subtypes(ArnoldiMethod.Target)`:
+The target `which` can be any of:
 
-| Target | Description |
-|------:|:-----|
-| `LM()` | Largest magnitude: `abs(λ)` is largest |
-| `LR()` | Largest real part: `real(λ)` is largest |
-| `SR()` | Smallest real part: `real(λ)` is smallest |
-| `LI()` | Largest imaginary part: `imag(λ)` is largest|
-| `SI()` | Smallest imaginary part: `imag(λ)` is smallest|
+| Target          | Description                                    |
+|----------------:|:-----------------------------------------------|
+| `:LM` or `LM()` | Largest magnitude: `abs(λ)` is largest         |
+| `:LR` or `LR()` | Largest real part: `real(λ)` is largest        |
+| `:SR` or `SR()` | Smallest real part: `real(λ)` is smallest      |
+| `:LI` or `LI()` | Largest imaginary part: `imag(λ)` is largest   |
+| `:SI` or `SI()` | Smallest imaginary part: `imag(λ)` is smallest |
 
 !!! note
 
-    The targets `LI()` and `SI()` only make sense in complex arithmetic. In real
+    The targets `:LI` and `:SI` only make sense in complex arithmetic. In real
     arithmetic `λ` is an eigenvalue iff `conj(λ)` is an eigenvalue and this 
     conjugate pair converges simultaneously.
 
@@ -94,7 +94,7 @@ is usually about two times `mindim`.
 function partialschur(
     A;
     nev::Int = min(6, size(A, 1)),
-    which::Target = LM(),
+    which::Union{Target,Symbol} = LM(),
     tol::Real = sqrt(eps(real(vtype(A)))),
     mindim::Int = min(max(10, nev), size(A, 1)),
     maxdim::Int = min(max(20, 2nev), size(A, 1)),
@@ -107,8 +107,16 @@ function partialschur(
     nev ≤ mindim ≤ maxdim ≤ s || throw(
         ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"),
     )
-    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, which)
+    _which = which isa Target ? which : _symbol_to_target(which)
+    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, _which)
 end
+
+_symbol_to_target(sym::Symbol) =
+    sym == :LM ? LM() :
+    sym == :LR ? LR() :
+    sym == :SR ? SR() :
+    sym == :LI ? LI() : sym == :SI ? SI() : throw(ArgumentError("Unknown target: $sym"))
+
 
 """
     IsConverged(ritz, tol)
