@@ -61,7 +61,7 @@ Holds an orthonormal basis `Q` and a (quasi) upper triangular matrix `R`.
 
 For convenience the eigenvalues that appear on the diagonal of `R` are also 
 listed as `eigenvalues`, which is in particular useful in the case of real 
-matrices with complex eigenvalues. Note that the eigenvalues are always a 
+matrices with complex eigenvalues. Note that the eigenvalues are always 
 complex, even when the matrix `R` is real.
 """
 struct PartialSchur{TQ,TR,Tλ<:Complex}
