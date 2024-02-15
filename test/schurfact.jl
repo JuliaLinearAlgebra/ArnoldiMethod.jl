@@ -127,3 +127,16 @@ end
         @test local_schurfact!(mat(eps(T)))
     end
 end
+
+@testset "Convergence issue encountered in the wild" begin
+    # This 4x4 matrix with almost identical eigenvalues previously caused tens of thousands
+    # of iterations of the QR algorithm to converge, likely due to unstable computation of
+    # shifts and (H - μ₁I)(H - μ₂I)e₁ column.
+    H = [
+        -9.000000046596169 9.363971416904122e-6 0.6216202324428521 0.783119615978767
+        -3.1249216068055166e-10 -9.000000125049475 -0.005030734831215954 0.026538692060151765
+        0.0 2.5838932886290116e-12 -8.999999884550379 -4.118678562647915e-7
+        0.0 0.0 5.499735555858365e-9 -8.99999994380397
+    ]
+    @test local_schurfact!(H, 1, 4)
+end

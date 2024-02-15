@@ -151,7 +151,8 @@ function double_shift_schur!(
     H::AbstractMatrix{Tv},
     from::Int,
     to::Int,
-    μ::Complex,
+    trace::Tv,
+    determinant::Tv,
     Q = NotWanted(),
 ) where {Tv<:Real}
     m, n = size(H)
@@ -165,8 +166,8 @@ function double_shift_schur!(
     @inbounds H₂₂ = H[from+1, from+1]
     @inbounds H₃₂ = H[from+2, from+1]
 
-    p₁ = abs2(μ) - 2real(μ) * H₁₁ + H₁₁ * H₁₁ + H₁₂ * H₂₁
-    p₂ = -2real(μ) * H₂₁ + H₂₁ * H₁₁ + H₂₂ * H₂₁
+    p₁ = H₁₁ * (H₁₁ - trace) + H₁₂ * H₂₁ + determinant
+    p₂ = H₂₁ * (H₁₁ + H₂₂ - trace)
     p₃ = H₃₂ * H₂₁
 
     # Map that column to a mulitiple of e₁ via two Given's rotations
@@ -370,30 +371,25 @@ function local_schurfact!(
             H[from, from-1] = zero(T)
             to -= 1
         else
-            # Now we are sure we can work with a 2×2 block H[to-1:to,to-1:to]
+            # Now we are sure we can work with a 2×2 block C := H[to-1:to,to-1:to]
             # We check if this block has a conjugate eigenpair, which might mean we have
             # converged w.r.t. this block if from + 1 == to. 
             # Otherwise, if from + 1 < to, we do either a single or double shift, based on
-            # whether the H[to-1:to,to-1:to] part has real eigenvalues or a conjugate pair.
+            # whether the C part has real eigenvalues or a conjugate pair.
+            C₁₁, C₁₂ = H[to-1, to-1], H[to-1, to]
+            C₂₁, C₂₂ = H[to, to-1], H[to, to]
 
-            H₁₁, H₁₂ = H[to-1, to-1], H[to-1, to]
-            H₂₁, H₂₂ = H[to, to-1], H[to, to]
+            # A double shift, whether conjugate pair or not, is done by computing the first column
+            # of (H - μ₊I)(H - μ₋I) where μ₊ and μ₋ are the eigenvalues of C. That's identical to
+            # (H² - (μ₊ + μ₋)H + μ₊μ₋), with μ₊₋ = (tr(C) ± √(tr(C)² - det(C))) / 2.
+            # Do more maths, and you'll find μ₊ + μ₋ = tr(C) and μ₊μ₋ = det(C).
+            trace = C₁₁ + C₂₂
+            determinant = C₁₁ * C₂₂ - C₁₂ * C₂₁
 
-            # Scaling to avoid losing precision in the case where we have nearly
-            # repeated eigenvalues.
-            scale = abs(H₁₁) + abs(H₁₂) + abs(H₂₁) + abs(H₂₂)
-            H₁₁ /= scale
-            H₁₂ /= scale
-            H₂₁ /= scale
-            H₂₂ /= scale
-
-            # Trace and discriminant of small eigenvalue problem.
-            t = (H₁₁ + H₂₂) / 2
-            d = (H₁₁ - t) * (H₂₂ - t) - H₁₂ * H₂₁
-            sqrt_discr = sqrt(abs(d))
-
-            # Very important to have a strict comparison here!
-            if d < zero(T)
+            # Very important to have a strict comparison here! (would have been great if I
+            # had commented why.)
+            discriminant = trace * trace - 4 * determinant
+            if discriminant > 0
                 # Real eigenvalues.
                 # Note that if from + 1 == to in this case, then just one additional
                 # iteration is necessary, since the Wilkinson shift will do an exact shift.
@@ -401,25 +397,21 @@ function local_schurfact!(
                 # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
                 # near H[to,to]
 
-                λ₁ = t + sqrt_discr
-                λ₂ = t - sqrt_discr
-                λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
-                λ *= scale
-
-                # Run a bulge chase
+                sqrt_discriminant = sqrt(discriminant)
+                λ₁ = (trace + sqrt_discriminant) / 2
+                λ₂ = (trace - sqrt_discriminant) / 2
+                λ = abs(C₂₂ - λ₁) < abs(C₂₂ - λ₂) ? λ₁ : λ₂
                 single_shift_schur!(H, from, to, λ, Q)
             else
                 # Conjugate pair
                 if from + 1 == to
-                    # A conjugate pair has converged apparently!
+                    # A conjugate pair has converged
                     if from != 1
                         H[from, from-1] = zero(T)
                     end
                     to -= 2
                 else
-                    # Otherwise we do a double shift!
-                    complex_shift = scale * (t + sqrt_discr * im)
-                    double_shift_schur!(H, from, to, complex_shift, Q)
+                    double_shift_schur!(H, from, to, trace, determinant, Q)
                 end
             end
         end
