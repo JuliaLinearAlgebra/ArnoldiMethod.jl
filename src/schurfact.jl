@@ -157,7 +157,7 @@ function double_shift_schur!(
 ) where {Tv<:Real}
     m, n = size(H)
 
-    # Compute the nonzero entries of p = (H - μI)(H - μ'I)e₁.
+    # Compute the nonzero entries of p = (H - μ₋I)(H - μ₊I)e₁.
     # Because of the Hessenberg structure we only need H[min:min+2,min:min+1] to form p.
     @inbounds H₁₁ = H[from+0, from+0]
     @inbounds H₂₁ = H[from+1, from+0]
@@ -166,7 +166,8 @@ function double_shift_schur!(
     @inbounds H₂₂ = H[from+1, from+1]
     @inbounds H₃₂ = H[from+2, from+1]
 
-    p₁ = H₁₁ * (H₁₁ - trace) + H₁₂ * H₂₁ + determinant
+    # Todo: avoid under/overflow.
+    p₁ = H₁₁ * H₁₁ + H₁₂ * H₂₁ - trace * H₁₁ + determinant
     p₂ = H₂₁ * (H₁₁ + H₂₂ - trace)
     p₃ = H₃₂ * H₂₁
 
@@ -318,6 +319,32 @@ function single_shift_schur!(
     H
 end
 
+function upper_triangular_2x2(a::T, b::T, c::T, d::T) where {T<:Real}
+    """
+    If a real matrix [a b; c d] has real eigenvalues, return the cs and sn value of the
+    Givens that makes [cs sn; -sn cs] * A * [cs sn; -sn cs]' upper triangular. In case
+    of complex conjugate eigenvalues, return identity matrix.
+    """
+    (iszero(c) || (iszero(a - d) && sign(b) != sign(c))) && return one(T), zero(T)
+    iszero(b) && return zero(T), one(T)
+
+    p = (a - d) / 2
+    bcmax = max(abs(b), abs(c))
+    bcmis = min(abs(b), abs(c)) * sign(b) * sign(c)
+    scale = max(abs(p), bcmax)
+    z = (p / scale) * p + (bcmax / scale) * bcmis
+
+    # Complex conjugate: leave as is, i.e. return identity matrix.
+    z <= 0 && return one(T), zero(T)
+
+    # Only in case of real eigenvalues compute a Given's rotation
+    z = p + copysign(sqrt(scale) * sqrt(z), p)
+    tau = hypot(c, z)
+    cs = z / tau
+    sn = c / tau
+    return cs, sn
+end
+
 ###
 ### Real arithmetic
 ###
@@ -362,62 +389,52 @@ function local_schurfact!(
         # We keep `from` one column past the zero off-diagonal value, so we check whether
         # the `from - 1` column has a small off-diagonal value.
         from = to
-        while from > start && !is_offdiagonal_small(H, from - 1, tol)
+        while from > start
+            if is_offdiagonal_small(H, from - 1, tol)
+                H[from, from-1] = zero(T)
+                break
+            end
             from -= 1
         end
 
         if from == to
-            # This just means H[to, to-1] == 0, so one eigenvalue converged at the end
-            H[from, from-1] = zero(T)
+            # A single eigenvalue has converged
             to -= 1
-        else
-            # Now we are sure we can work with a 2×2 block C := H[to-1:to,to-1:to]
-            # We check if this block has a conjugate eigenpair, which might mean we have
-            # converged w.r.t. this block if from + 1 == to. 
-            # Otherwise, if from + 1 < to, we do either a single or double shift, based on
-            # whether the C part has real eigenvalues or a conjugate pair.
-            C₁₁, C₁₂ = H[to-1, to-1], H[to-1, to]
-            C₂₁, C₂₂ = H[to, to-1], H[to, to]
-
-            # A double shift, whether conjugate pair or not, is done by computing the first column
-            # of (H - μ₊I)(H - μ₋I) where μ₊ and μ₋ are the eigenvalues of C. That's identical to
-            # (H² - (μ₊ + μ₋)H + μ₊μ₋), with μ₊₋ = (tr(C) ± √(tr(C)² - det(C))) / 2.
-            # Do more maths, and you'll find μ₊ + μ₋ = tr(C) and μ₊μ₋ = det(C).
-            trace = C₁₁ + C₂₂
-            determinant = C₁₁ * C₂₂ - C₁₂ * C₂₁
-
-            # Very important to have a strict comparison here! (would have been great if I
-            # had commented why.)
-            discriminant = trace * trace - 4 * determinant
-            if discriminant > 0
-                # Real eigenvalues.
-                # Note that if from + 1 == to in this case, then just one additional
-                # iteration is necessary, since the Wilkinson shift will do an exact shift.
-
-                # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
-                # near H[to,to]
-
-                sqrt_discriminant = sqrt(discriminant)
-                λ₁ = (trace + sqrt_discriminant) / 2
-                λ₂ = (trace - sqrt_discriminant) / 2
-                λ = abs(C₂₂ - λ₁) < abs(C₂₂ - λ₂) ? λ₁ : λ₂
-                single_shift_schur!(H, from, to, λ, Q)
-            else
-                # Conjugate pair
-                if from + 1 == to
-                    # A conjugate pair has converged
-                    if from != 1
-                        H[from, from-1] = zero(T)
-                    end
-                    to -= 2
-                else
-                    double_shift_schur!(H, from, to, trace, determinant, Q)
-                end
-            end
+            continue
         end
 
-        # Converged!
-        to ≤ start && break
+        # We can safely work with the bottom 2×2 block C := H[to-1:to,to-1:to] now.
+        C₁₁, C₁₂ = H[to-1, to-1], H[to-1, to]
+        C₂₁, C₂₂ = H[to, to-1], H[to, to]
+
+        # In case a 2x2 block split off, bring to upper triangular directly if real, or leave as is
+        # if conjugate pair. In either case, these eigenvalues are converged.
+        if from + 1 == to
+            # Compute a rotation that makes tiny C upper triangular.
+            cs, sn = upper_triangular_2x2(C₁₁, C₁₂, C₂₁, C₂₂)
+
+            # Do not apply the identity rotation.
+            if !isone(cs)
+                # Apply the rotation to H and Q
+                G = Rotation2(cs, sn, from)
+                lmul!(G, H, from, size(H, 2))
+                rmul!(H, G, 1, to)
+                rmul!(Q, G)
+                H[to, to-1] = zero(T)
+            end
+
+            # A pair of eigenvalues has converged.
+            to -= 2
+            continue
+        end
+
+        # A double shift, whether conjugate pair or not, is done by computing the first column
+        # of (H - μ₊I)(H - μ₋I) where μ₊ and μ₋ are the eigenvalues of C. That's identical to
+        # (H² - (μ₊ + μ₋)H + μ₊μ₋), and since μ₊₋ = (tr(C) ± √(tr(C)² - 4det(C))) / 2.
+        # actually identical to H² - tr(C)H + det(C)I.
+        trace = C₁₁ + C₂₂
+        determinant = C₁₁ * C₂₂ - C₁₂ * C₂₁
+        double_shift_schur!(H, from, to, trace, determinant, Q)
     end
 
     return true

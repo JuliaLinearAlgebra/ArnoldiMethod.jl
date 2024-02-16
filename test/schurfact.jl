@@ -132,11 +132,21 @@ end
     # This 4x4 matrix with almost identical eigenvalues previously caused tens of thousands
     # of iterations of the QR algorithm to converge, likely due to unstable computation of
     # shifts and (H - μ₁I)(H - μ₂I)e₁ column.
-    H = [
+    H1 = [
         -9.000000046596169 9.363971416904122e-6 0.6216202324428521 0.783119615978767
         -3.1249216068055166e-10 -9.000000125049475 -0.005030734831215954 0.026538692060151765
         0.0 2.5838932886290116e-12 -8.999999884550379 -4.118678562647915e-7
         0.0 0.0 5.499735555858365e-9 -8.99999994380397
     ]
-    @test local_schurfact!(H, 1, 4)
+    @test local_schurfact!(H1)
+
+    # Similarly this 3x3 matrix did not converge due to catastrophic cancellation when computing
+    # the first column of (H - μ₁I)(H - μ₂I)e₁.
+    H2 = [
+        -9.99999999890572 -5.359512176950441e-5 0.5057150345932383
+        6.673511665530937e-11 -9.999999865827567 -0.0009029114103036593
+        0.0 1.432733142195386e-11 -10.000000096783797
+    ]
+    @test local_schurfact!(H2)
+
 end
