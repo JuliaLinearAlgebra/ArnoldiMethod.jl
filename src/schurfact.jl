@@ -359,12 +359,9 @@ function local_schurfact!(
     # iteration count
     iter = 0
 
-    @inbounds while true
+    @inbounds while to > start
         iter += 1
-
-        if iter > maxiter
-            throw("QR algorithm did not converge")
-        end
+        iter > maxiter && throw("QR algorithm did not converge")
 
         # Indexing
         # `to` points to the column where the off-diagonal value was last zero.
