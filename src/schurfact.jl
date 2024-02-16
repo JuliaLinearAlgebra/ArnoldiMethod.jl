@@ -321,28 +321,33 @@ end
 
 function upper_triangular_2x2(a::T, b::T, c::T, d::T) where {T<:Real}
     """
-    If a real matrix [a b; c d] has real eigenvalues, return the cs and sn value of the
+    If a matrix A = [a b; c d] has real eigenvalues, return the cs and sn value of the
     Givens that makes [cs sn; -sn cs] * A * [cs sn; -sn cs]' upper triangular. In case
     of complex conjugate eigenvalues, return identity matrix.
     """
-    (iszero(c) || (iszero(a - d) && sign(b) != sign(c))) && return one(T), zero(T)
-    iszero(b) && return zero(T), one(T)
+    (iszero(c) || (iszero(a - d) && sign(b) != sign(c))) && return false, one(T), zero(T)
+    iszero(b) && return true, zero(T), one(T)
 
+    # The characteristic polynomial is λ² - tr(A)λ + det(A) = 0. So
+    # λ = (tr(A) ± √(tr(A)² - 4det(A))) / 2
+    # and discriminant tr(A)² - 4det(A) < 0 means a complex conjugate pair. Rewrite that as
+    # (a + d)^2 - 4(ad - bc) < 0 iff ((a - d)/2)^2 + bc < 0. Then apply scaling.
     p = (a - d) / 2
     bcmax = max(abs(b), abs(c))
     bcmis = min(abs(b), abs(c)) * sign(b) * sign(c)
     scale = max(abs(p), bcmax)
     z = (p / scale) * p + (bcmax / scale) * bcmis
 
-    # Complex conjugate: leave as is, i.e. return identity matrix.
-    z <= 0 && return one(T), zero(T)
+    # If complex, just leave as is. Actually LAPACK goes through a lot of trouble to deal with
+    # the case of 0 < z < 4eps(T). Maybe we should too.
+    z <= 0 && return false, one(T), zero(T)
 
-    # Only in case of real eigenvalues compute a Given's rotation
+    # In case of real return a Given's rotation.
     z = p + copysign(sqrt(scale) * sqrt(z), p)
     tau = hypot(c, z)
     cs = z / tau
     sn = c / tau
-    return cs, sn
+    return true, cs, sn
 end
 
 ###
@@ -408,10 +413,9 @@ function local_schurfact!(
         # if conjugate pair. In either case, these eigenvalues are converged.
         if from + 1 == to
             # Compute a rotation that makes tiny C upper triangular.
-            cs, sn = upper_triangular_2x2(C₁₁, C₁₂, C₂₁, C₂₂)
+            real, cs, sn = upper_triangular_2x2(C₁₁, C₁₂, C₂₁, C₂₂)
 
-            # Do not apply the identity rotation.
-            if !isone(cs)
+            if real
                 # Apply the rotation to H and Q
                 G = Rotation2(cs, sn, from)
                 lmul!(G, H, from, size(H, 2))
