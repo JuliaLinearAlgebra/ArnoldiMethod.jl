@@ -350,6 +350,38 @@ function upper_triangular_2x2(a::T, b::T, c::T, d::T) where {T<:Real}
     return true, cs, sn
 end
 
+function use_single_shift(H₁₁::T, H₁₂::T, H₂₁::T, H₂₂::T) where {T}
+    # TODO: merge with the above
+    # Scaling to avoid losing precision in the case where we have nearly
+    # repeated eigenvalues.
+    scale = abs(H₁₁) + abs(H₁₂) + abs(H₂₁) + abs(H₂₂)
+    H₁₁ /= scale
+    H₁₂ /= scale
+    H₂₁ /= scale
+    H₂₂ /= scale
+
+    # Trace and discriminant of small eigenvalue problem.
+    t = (H₁₁ + H₂₂) / 2
+    d = (H₁₁ - t) * (H₂₂ - t) - H₁₂ * H₂₁
+    sqrt_discr = sqrt(abs(d))
+
+    # Conjugate pair: double shift
+    d >= zero(T) && return false, zero(T)
+
+    # Real eigenvalues.
+    # Note that if from + 1 == to in this case, then just one additional
+    # iteration is necessary, since the Wilkinson shift will do an exact shift.
+
+    # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
+    # near H[to,to]
+
+    λ₁ = t + sqrt_discr
+    λ₂ = t - sqrt_discr
+    λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
+    λ *= scale
+    return true, λ
+end
+
 ###
 ### Real arithmetic
 ###
@@ -429,13 +461,20 @@ function local_schurfact!(
             continue
         end
 
-        # A double shift, whether conjugate pair or not, is done by computing the first column
-        # of (H - μ₊I)(H - μ₋I) where μ₊ and μ₋ are the eigenvalues of C. That's identical to
-        # (H² - (μ₊ + μ₋)H + μ₊μ₋), and since μ₊₋ = (tr(C) ± √(tr(C)² - 4det(C))) / 2.
-        # actually identical to H² - tr(C)H + det(C)I.
-        trace = C₁₁ + C₂₂
-        determinant = C₁₁ * C₂₂ - C₁₂ * C₂₁
-        double_shift_schur!(H, from, to, trace, determinant, Q)
+        # Real eigenvalues: single wilkinson shift. Conjugate pair: Francis double shift.
+        single, λ = use_single_shift(C₁₁, C₁₂, C₂₁, C₂₂)
+
+        if single
+            single_shift_schur!(H, from, to, λ, Q)
+        else
+            # A double shift is done by computing the first column
+            # of (H - μ₊I)(H - μ₋I) where μ₊ and μ₋ are the eigenvalues of C. That's identical to
+            # (H² - (μ₊ + μ₋)H + μ₊μ₋), and since μ₊₋ = (tr(C) ± √(tr(C)² - 4det(C))) / 2.
+            # So, identical to H² - tr(C)H + det(C)I.
+            trace = C₁₁ + C₂₂
+            determinant = C₁₁ * C₂₂ - C₁₂ * C₂₁
+            double_shift_schur!(H, from, to, trace, determinant, Q)
+        end
     end
 
     return true
