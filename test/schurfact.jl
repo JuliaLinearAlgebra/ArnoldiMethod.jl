@@ -161,14 +161,14 @@ end
     A = Float64[1 -1/4; 1 2]
 
     # Test for upper triangularizing a 2x2 block
-    is_real, c, s = ArnoldiMethod.upper_triangular_2x2(A'...)
+    is_real, c, s = upper_triangular_2x2(A'...)
     @test is_real
     G = [c s; -s c]
     @test G * A * G' ≈ Float64[1.5 -1.25; 0 1.5]
     @test G' * G ≈ I
 
     # Test for determining what type of shift to use
-    is_real, λ = ArnoldiMethod.use_single_shift(A'...)
+    is_real, λ = use_single_shift(A'...)
     @test is_real
     @test λ ≈ 1.5
 end
