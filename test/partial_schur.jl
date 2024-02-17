@@ -26,6 +26,18 @@ using LinearAlgebra
     end
 end
 
+@testset "Stopping criterion specified in different number type is fine" begin
+    A = spdiagm(
+        -1 => fill(big(-1.0), 99),
+        0 => fill(big(2.0), 100),
+        1 => fill(big(-1.0), 99),
+    )
+    tol = 1e-30 # specified as Float64
+    schur, history = partialschur(A, tol = tol, maxdim = 30, nev = 2)
+    @test history.converged
+    @test norm(A * schur.Q - schur.Q * schur.R) < size(A, 1) * tol
+end
+
 @testset "Right number type" begin
     A = [rand(Bool) ? 1 : 0 for i = 1:10, j = 1:10]
     @inferred partialschur(A, nev = 2, mindim = 3, maxdim = 8)
