@@ -59,3 +59,47 @@ julia> λs, X = partialeigen(decomp);
 julia> norm(A * X - X * Diagonal(λs))
 6.393869211477937e-8
 ```
+
+## ArnoldiMethod.jl is generic
+
+ArnoldiMethod.jl's Schur decomposition is written in Julia, it does not use LAPACK. This allows
+you to use arbitrary number types.
+
+We repeat the above example with [DoubleFloats.jl] and more accuracy.
+
+
+```julia
+julia> using ArnoldiMethod, DoubleFloats, LinearAlgebra, SparseArrays
+
+julia> A = spdiagm(
+           -1 => fill(Double64(-1), 99),
+            0 => fill(Double64(2), 100), 
+            1 => fill(Double64(-1), 99)
+       );
+
+julia> decomp, history = partialschur(A, nev=10, tol=eps(Double64), which=:SR);
+
+julia> decomp
+PartialSchur decomposition (Double64) of dimension 10
+eigenvalues:
+10-element Vector{Complex{Double64}}:
+ 9.67435416023870158508921871452324565e-04 + 0.0im
+ 3.86880573281130335530623278637074006e-03 + 0.0im
+ 8.70130406196283903200426213155547925e-03 + 0.0im
+ 1.54602552734469798152574737605188487e-02 + 0.0im
+ 2.41391205184865585041130463400865651e-02 + 0.0im
+ 3.47295035554726251259365854775962878e-02 + 0.0im
+ 4.72211588727859409278578405477067514e-02 + 0.0im
+ 6.16020016006677741124091774019634958e-02 + 0.0im
+ 7.78581192025509024705094505968534068e-02 + 0.0im
+ 9.59737849345402152393882633734754361e-02 + 0.0im
+
+julia> history
+Converged: 10 of 10 eigenvalues in 446 matrix-vector products
+
+julia> norm(A * decomp.Q - decomp.Q * decomp.R)
+2.0460733130653910836736821107777778e-30
+
+julia> norm(decomp.Q' * decomp.Q - I)
+2.32013980746013199981052425844605686e-29
+```
