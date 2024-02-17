@@ -65,7 +65,8 @@ julia> norm(A * X - X * Diagonal(λs))
 ArnoldiMethod.jl's Schur decomposition is written in Julia, it does not use LAPACK. This allows
 you to use arbitrary number types.
 
-We repeat the above example with [DoubleFloats.jl] and more accuracy.
+We repeat the above example with [DoubleFloats.jl](https://github.com/JuliaMath/DoubleFloats.jl)
+and more accuracy.
 
 
 ```julia
