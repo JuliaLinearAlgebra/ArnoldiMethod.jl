@@ -319,39 +319,49 @@ function single_shift_schur!(
     H
 end
 
-function upper_triangular_2x2(a::T, b::T, c::T, d::T) where {T<:Real}
-    """
-    If a matrix A = [a b; c d] has real eigenvalues, return the cs and sn value of the
-    Givens that makes [cs sn; -sn cs] * A * [cs sn; -sn cs]' upper triangular. In case
-    of complex conjugate eigenvalues, return identity matrix.
-    """
-    (iszero(c) || (iszero(a - d) && sign(b) != sign(c))) && return false, one(T), zero(T)
-    iszero(b) && return true, zero(T), one(T)
+"""
+Returns a tuple (is_real, c, s) where is_real is true iff the matrix H = [H₁₁ H₁₂; H₂₁ H₂₂] has
+real eigenvalues. The (c, s) values form the most stable Given's rotation that makes G * H * G'
+upper triangular (i.e. zeros out the bottom left entry).
+"""
+function upper_triangular_2x2(H₁₁::T, H₁₂::T, H₂₁::T, H₂₂::T) where {T<:Real}
+    # Early exit in trivial cases.
+    (iszero(H₂₁) || (iszero(H₁₁ - H₂₂) && sign(H₁₂) != sign(H₂₁))) &&
+        return false, one(T), zero(T)
+    iszero(H₁₂) && return true, zero(T), one(T)
 
-    # The characteristic polynomial is λ² - tr(A)λ + det(A) = 0. So
-    # λ = (tr(A) ± √(tr(A)² - 4det(A))) / 2
-    # and discriminant tr(A)² - 4det(A) < 0 means a complex conjugate pair. Rewrite that as
-    # (a + d)^2 - 4(ad - bc) < 0 iff ((a - d)/2)^2 + bc < 0. Then apply scaling.
-    p = (a - d) / 2
-    bcmax = max(abs(b), abs(c))
-    bcmis = min(abs(b), abs(c)) * sign(b) * sign(c)
+    # The characteristic polynomial is `λ² - tr(H)λ + det(H) = 0`
+    # => λ = (tr(H) ± √(tr(H)² - 4det(H))) / 2.
+    # Conjugate pair iff tr(H)² - 4det(H) < 0
+    # => (H₁₁ + H₂₂)² - 4(H₁₁H₂₂ - H₁₂H₂₁) < 0
+    # => ((H₁₁ - H₂₂) / 2)² + H₁₂H₂₁ < 0.
+    p = (H₁₁ - H₂₂) / 2
+    bcmax = max(abs(H₁₂), abs(H₂₁))
+    bcmis = min(abs(H₁₂), abs(H₂₁)) * sign(H₁₂) * sign(H₂₁)
     scale = max(abs(p), bcmax)
     z = (p / scale) * p + (bcmax / scale) * bcmis
 
-    # If complex, just leave as is. Actually LAPACK goes through a lot of trouble to deal with
-    # the case of 0 < z < 4eps(T). Maybe we should too.
-    z <= 0 && return false, one(T), zero(T)
+    # Return when complex. LAPACK also deals with 0 < z < 4eps(T), but I don't find it worth it.
+    # Note that the < is important, cause H = [1 -1/4; 1 2] for example is not upper triangular
+    # and has zero discriminant.
+    z < 0 && return false, one(T), zero(T)
 
-    # In case of real return a Given's rotation.
-    z = p + copysign(sqrt(scale) * sqrt(z), p)
-    tau = hypot(c, z)
-    cs = z / tau
-    sn = c / tau
-    return true, cs, sn
+    # The rotation is basically just a "perfect" Wilkinson shift, so compute from either
+    # (H₁₁ - λ₁, H₁₂) or (H₁₁ - λ₂, H₁₂). We pick the option that would avoid catastrophic
+    # cancellation by choosing equal signs. A small rewrite:
+    # H₁₁ - λ with λ = (tr(H)/2 ± √((tr(H)/2)² - det(H))) means
+    # H₁₁ - λ = (H₁₁ - H₂₂)/2 ± √(((H₁₁ - H₂₂)/2)² - H₂₁H₁₂)
+    H₁₁_min_λ = p + copysign(sqrt(scale) * sqrt(z), p)
+    nrm = hypot(H₂₁, H₁₁_min_λ)  # could use givensAlgorithm, but hypot is likely better regardless.
+    return true, H₁₁_min_λ / nrm, H₂₁ / nrm
 end
 
+"""
+Returns a tuple (is_single, λ) where is_single is true iff the matrix H = [H₁₁ H₁₂; H₂₁ H₂₂] has
+real eigenvalues. In that case λ is a Wilkinson shift: the eigenvalue closest to H₂₂.
+"""
 function use_single_shift(H₁₁::T, H₁₂::T, H₂₁::T, H₂₂::T) where {T}
-    # TODO: merge with the above
+    # TODO: Merge the scaling tricks with the above.
     # Scaling to avoid losing precision in the case where we have nearly
     # repeated eigenvalues.
     scale = abs(H₁₁) + abs(H₁₂) + abs(H₂₁) + abs(H₂₂)
@@ -360,26 +370,21 @@ function use_single_shift(H₁₁::T, H₁₂::T, H₂₁::T, H₂₂::T) where 
     H₂₁ /= scale
     H₂₂ /= scale
 
-    # Trace and discriminant of small eigenvalue problem.
+    # Trace and discriminant of small eigenvalue problem. Again,
+    # λ = tr(H) / 2 ± √(tr(H)² / 4 - det(H))
+    #   = (H₁₁ + H₂₂) / 2 ± √((H₁₁ - H₂₂)/2)² - H₁₂H₂₁) written in a funny way:
     t = (H₁₁ + H₂₂) / 2
     d = (H₁₁ - t) * (H₂₂ - t) - H₁₂ * H₂₁
+
+    # Conjugate pair: need to do a double shift.
+    d > zero(T) && return false, zero(T)
+
+    # The shift is picked as the closest eigenvalue of the 2x2 block near H[to,to]
     sqrt_discr = sqrt(abs(d))
-
-    # Conjugate pair: double shift
-    d >= zero(T) && return false, zero(T)
-
-    # Real eigenvalues.
-    # Note that if from + 1 == to in this case, then just one additional
-    # iteration is necessary, since the Wilkinson shift will do an exact shift.
-
-    # Determine the Wilkinson shift -- the closest eigenvalue of the 2x2 block
-    # near H[to,to]
-
     λ₁ = t + sqrt_discr
     λ₂ = t - sqrt_discr
     λ = abs(H₂₂ - λ₁) < abs(H₂₂ - λ₂) ? λ₁ : λ₂
-    λ *= scale
-    return true, λ
+    return true, λ * scale
 end
 
 ###
@@ -441,14 +446,16 @@ function local_schurfact!(
         C₁₁, C₁₂ = H[to-1, to-1], H[to-1, to]
         C₂₁, C₂₂ = H[to, to-1], H[to, to]
 
-        # In case a 2x2 block split off, bring to upper triangular directly if real, or leave as is
-        # if conjugate pair. In either case, these eigenvalues are converged.
+        # A 2x2 block is always considered converged. Complex conjugates are left as a 2x2 block.
+        # Real eigenvalues are "manually" upper triangularized.
         if from + 1 == to
-            # Compute a rotation that makes tiny C upper triangular.
-            real, cs, sn = upper_triangular_2x2(C₁₁, C₁₂, C₂₁, C₂₂)
+            # In case of real eigenvalues, it should in principle be enough to do a single
+            # Wilkinson shift: that would be a perfect shift, and upper triangularizes the 2x2
+            # block. But it can also completely destroy accuracy. So, we do this single shift with
+            # more accurate arithmetic with the rotation computed above.
+            is_real, cs, sn = upper_triangular_2x2(C₁₁, C₁₂, C₂₁, C₂₂)
 
-            if real
-                # Apply the rotation to H and Q
+            if is_real
                 G = Rotation2(cs, sn, from)
                 lmul!(G, H, from, size(H, 2))
                 rmul!(H, G, 1, to)
@@ -456,16 +463,15 @@ function local_schurfact!(
                 H[to, to-1] = zero(T)
             end
 
-            # A pair of eigenvalues has converged.
             to -= 2
             continue
         end
 
         # Real eigenvalues: single wilkinson shift. Conjugate pair: Francis double shift.
-        single, λ = use_single_shift(C₁₁, C₁₂, C₂₁, C₂₂)
+        is_single, μ = use_single_shift(C₁₁, C₁₂, C₂₁, C₂₂)
 
-        if single
-            single_shift_schur!(H, from, to, λ, Q)
+        if is_single
+            single_shift_schur!(H, from, to, μ, Q)
         else
             # A double shift is done by computing the first column
             # of (H - μ₊I)(H - μ₋I) where μ₊ and μ₋ are the eigenvalues of C. That's identical to
