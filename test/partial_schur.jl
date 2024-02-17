@@ -28,7 +28,7 @@ end
 
 @testset "Stopping criterion specified in different number type is fine" begin
     A = spdiagm(
-        -1 => fill(-big(1.0), 99),
+        -1 => fill(big(-1.0), 99),
         0 => fill(big(2.0), 100),
         1 => fill(big(-1.0), 99),
     )
