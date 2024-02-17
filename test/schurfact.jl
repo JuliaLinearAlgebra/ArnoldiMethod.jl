@@ -2,7 +2,13 @@
 # Here we look at some edge cases.
 
 using Test, LinearAlgebra
-using ArnoldiMethod: eigenvalues, local_schurfact!, is_offdiagonal_small, NotWanted
+using ArnoldiMethod:
+    eigenvalues,
+    local_schurfact!,
+    is_offdiagonal_small,
+    NotWanted,
+    use_single_shift,
+    upper_triangular_2x2
 
 include("utils.jl")
 
@@ -126,4 +132,43 @@ end
     for T in (Float64, BigFloat)
         @test local_schurfact!(mat(eps(T)))
     end
+end
+
+@testset "Convergence issue encountered in the wild" begin
+    # This 4x4 matrix with almost identical eigenvalues previously caused tens of thousands
+    # of iterations of the QR algorithm to converge, likely due to unstable computation of
+    # shifts and (H - μ₁I)(H - μ₂I)e₁ column.
+    H1 = [
+        -9.000000046596169 9.363971416904122e-6 0.6216202324428521 0.783119615978767
+        -3.1249216068055166e-10 -9.000000125049475 -0.005030734831215954 0.026538692060151765
+        0.0 2.5838932886290116e-12 -8.999999884550379 -4.118678562647915e-7
+        0.0 0.0 5.499735555858365e-9 -8.99999994380397
+    ]
+    @test local_schurfact!(H1)
+
+    # Similarly this 3x3 matrix did not converge due to catastrophic cancellation when computing
+    # the first column of (H - μ₁I)(H - μ₂I)e₁.
+    H2 = [
+        -9.99999999890572 -5.359512176950441e-5 0.5057150345932383
+        6.673511665530937e-11 -9.999999865827567 -0.0009029114103036593
+        0.0 1.432733142195386e-11 -10.000000096783797
+    ]
+    @test local_schurfact!(H2)
+
+end
+
+@testset "Exactly repeated eigenvalues in 2x2 block" begin
+    A = Float64[1 -1/4; 1 2]
+
+    # Test for upper triangularizing a 2x2 block
+    is_real, c, s = upper_triangular_2x2(A'...)
+    @test is_real
+    G = [c s; -s c]
+    @test G * A * G' ≈ Float64[1.5 -1.25; 0 1.5]
+    @test G' * G ≈ I
+
+    # Test for determining what type of shift to use
+    is_real, λ = use_single_shift(A'...)
+    @test is_real
+    @test λ ≈ 1.5
 end
