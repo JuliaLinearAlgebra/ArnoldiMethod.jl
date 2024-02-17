@@ -127,17 +127,19 @@ be scale invariant: the matrix `B = αA` for some constant `α` has the same
 eigenvectors with eigenvalue λα, so this scaling with `α` cancels in the 
 inequality.
 """
-struct IsConverged{RV<:RitzValues,T}
-    ritz::RV
-    tol::T
-    H_frob_norm::RefValue{T}
+struct IsConverged{Tv,Tr,Tt}
+    ritz::RitzValues{Tv,Tr}
+    tol::Tt
+    H_frob_norm::RefValue{Tr}
 
-    IsConverged(ritz::R, tol::T) where {R<:RitzValues,T} =
-        new{R,T}(ritz, tol, RefValue(zero(T)))
+    IsConverged(ritz::RitzValues{Tv,Tr}, tol::Tt) where {Tv,Tr,Tt} =
+        new{Tv,Tr,Tt}(ritz, tol, RefValue(zero(Tr)))
 end
 
-(r::IsConverged{RV,T})(i::Integer) where {RV,T} = @inbounds return r.ritz.rs[i] <=
-                 max(eps(T) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
+function (r::IsConverged{Tv,Tr})(i::Integer) where {Tv,Tr}
+    @inbounds r.ritz.rs[i] <= max(eps(Tr) * r.H_frob_norm[], r.tol * abs(r.ritz.λs[i]))
+end
+
 
 """
     History(mvproducts, nconverged, converged, nev)
