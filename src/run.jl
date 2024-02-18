@@ -240,7 +240,7 @@ function _partialschur(
         effective_nev = include_conjugate_pair(T, ritz, nev)
 
         nlock = 0
-        for i = 1:effective_nev
+        @inbounds for i = 1:effective_nev
             if isconverged(ritz.ord[i])
                 groups[ritz.ord[i]] = 1
                 nlock += 1
@@ -254,15 +254,30 @@ function _partialschur(
         #    larger than `mindim` when converged Ritz vectors have been locked.
         # 2. But `k` can't be so large that the expansion would barely give new information;
         #    hence we meet in the middle: `k` is at most halfway `mindim` and `maxdim`.
-        # 3. If `k` ends up on the boundary of a conjugate pair, we increase `k` by 1.
-        k = include_conjugate_pair(T, ritz, min(nlock + mindim, (mindim + maxdim) ÷ 2))
+        # 3. Further we don't want to split on a conjugate pair.
+        ideal_size = min(nlock + mindim, (mindim + maxdim) ÷ 2)
+        k = effective_nev
+        i = effective_nev + 1
 
-        for i = effective_nev+1:k
-            groups[ritz.ord[i]] = 2
-        end
-
-        for i = k+1:maxdim
-            groups[ritz.ord[i]] = 3
+        @inbounds while i ≤ maxdim
+            is_pair = include_conjugate_pair(T, ritz, i) == i + 1
+            num = is_pair ? 2 : 1
+            if k < ideal_size && !isconverged(ritz.ord[i])
+                # Keep the best, unconverged Ritz pairs.
+                group = 2
+                k += num
+            else
+                # Purge converged, unwanted ones, as well as the worst unconverged values.
+                group = 3
+            end
+            if is_pair
+                groups[ritz.ord[i]] = group
+                groups[ritz.ord[i+1]] = group
+                i += 2
+            else
+                groups[ritz.ord[i]] = group
+                i += 1
+            end
         end
 
         # Typically eigenvalues converge in the desired order: closest to the target first and
@@ -275,7 +290,7 @@ function _partialschur(
         # that `purge` can be any index in 1:active-1, because locked vectors are merely
         # partitioned as locked vectors, they are never sorted until full convergence.
         purge = 1
-        while purge < active && groups[purge] == 1
+        @inbounds while purge < active && groups[purge] == 1
             purge += 1
         end
 
