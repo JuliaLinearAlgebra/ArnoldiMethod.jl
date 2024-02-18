@@ -79,70 +79,55 @@ function restore_arnoldi!(
     Q,
     G::Reflector{T},
 ) where {T}
+    from < to || return nothing
+
     m, n = size(H)
 
-    @inbounds begin
+    # Use Given's rotations to zero out the last column of Q, which makes H[from:to, from:to]
+    # a dense block. We use rotations because it's more stable, since the Q values are residual
+    # norms, with varying orders of magnitude.
+    @inbounds nrm = Q[n, from]
+    @inbounds for i = from:to-1
+        c, s, nrm = givensAlgorithm(Q[n, i+1], nrm)
+        givens_rotation = Rotation2(c, -s, i)
+        rmul!(H, givens_rotation, 1, min(i + 2, to))
+        lmul!(givens_rotation, H, 1, to)
+        rmul!(Q, givens_rotation, 1, n)
+    end
 
-        # Size of the initial reflector
-        len = length(from:to)
+    # In the Arnoldi decomp we want a last residual term of the form h * vₖ₊₁ * eₖᵀ, so we absorb
+    # it in H.
+    @inbounds H[to+1, to] = Q[end, to] * H[m, n]
 
-        len ≤ 2 && return nothing
+    G.offset[] = from
 
-        G.offset[] = from
+    # Then restore the Hessenberg structure in H, which is now a full matrix.
+    @inbounds for i = to-from:-1:2
+        G.len[] = i
+        row = from + i
 
-        # Copy over the last row of Q
-        @simd for i in OneTo(len)
-            G.vec[i] = Q[n, i+from-1]'
+        # Copy over row `row`
+        @simd for j in OneTo(i)
+            G.vec[j] = H[row, j+from-1]'
         end
 
-        # Zero out entries 1:len-1
-        τ₁ = reflector!(G, len)
+        # Construct a reflector from it
+        reflector!(G, i)
 
-        # Apply to Q from the right.
-        rmul!(Q, G, 1, n - 1)
+        # Apply it to the right to H
+        rmul!(H, G, 1, row - 1)
 
-        # Handle the last row by hand
-        @simd for i = from:to-1
-            Q[n, i] = zero(T)
+        # Zero out things by hand
+        @simd for j in OneTo(i - 1)
+            H[row, j+from-1] = zero(T)
         end
-        Q[n, to] = G.vec[len]'
+        H[row, i-1+from] = G.vec[i]'
 
-        # Then apply to H from both sides.
-        rmul!(H, G, 1, to)
+        # Apply if from the left.
         lmul!(G, H, from, to)
 
-        # Then restore the Hessenberg structure in H, which is now a full matrix.
-        for i = len-1:-1:2
-            row = from + i
-
-            # Copy over row `row`
-            @simd for j in OneTo(i)
-                G.vec[j] = H[row, j+from-1]'
-            end
-
-            # Construct a reflector from it
-            τ₂ = reflector!(G, i)
-
-            # Apply it to the right to H
-            rmul!(H, G, 1, row - 1)
-
-            # Zero out things by hand
-            @simd for j in OneTo(i - 1)
-                H[row, j+from-1] = zero(T)
-            end
-            H[row, i-1+from] = G.vec[i]'
-
-            # Apply if from the left.
-            lmul!(G, H, from, to)
-
-            # Accumulate the reflectors
-            rmul!(Q, G, 1, n)
-        end
-
-        # Finally in the Arnoldi decomp we want a last residual term of the form
-        # h * vₖ₊₁ * eₖᵀ, so we absorb the last Q-entry in the Hessenberg matrix!
-        H[to+1, to] = Q[end, to] * H[m, n]
-
+        # Accumulate the reflectors
+        rmul!(Q, G, 1, n)
     end
 
     nothing
