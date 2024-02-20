@@ -5,27 +5,36 @@ using StaticArrays
 
 using Base: RefValue, OneTo
 
-export partialschur, LM, SR, LR, SI, LI, partialeigen
+export partialschur, LM, SR, LR, SI, LI, partialeigen, ArnoldiWorkspace
 
 """
-    Arnoldi(n, k) → Arnoldi
+ArnoldiWorkspace(n, k) → ArnoldiWorkspace
 
-Pre-allocated Arnoldi relation of the Vₖ₊₁ and Hₖ matrices that satisfy
-A * Vₖ = Vₖ₊₁ * Hₖ, where Vₖ₊₁ is orthonormal of size n × (k+1) and Hₖ upper 
-Hessenberg of size (k+1) × k. The constructor will just allocate sufficient
-space, but will *not* initialize the first vector of `v₁`. For the latter see
-`reinitialize!`.
+Holds the large arrays for the Arnoldi relation: Vₖ₊₁ and Hₖ are matrices that
+satisfy A * Vₖ = Vₖ₊₁ * Hₖ, where Vₖ₊₁ is orthonormal of size n × (k+1) and Hₖ upper 
+Hessenberg of size (k+1) × k.
 """
-struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
+struct ArnoldiWorkspace{T,TV<:AbstractMatrix{T},TH<:AbstractMatrix{T}}
     V::TV
-    H::TH
+    V_tmp::TV
+    H::TH  # if we support GPU arrays for V, H will still be on the CPU
 
-    function Arnoldi{T}(matrix_order::Int, krylov_dimension::Int) where {T}
+    function ArnoldiWorkspace(::Type{T}, matrix_order::Int, krylov_dimension::Int) where {T}
+        # Without an initial vector.
         krylov_dimension <= matrix_order ||
             throw(ArgumentError("Krylov dimension should be less than matrix order."))
         V = Matrix{T}(undef, matrix_order, krylov_dimension + 1)
+        V_tmp = similar(V)
         H = zeros(T, krylov_dimension + 1, krylov_dimension)
-        return new{T,typeof(V),typeof(H)}(V, H)
+        return new{T,typeof(V),typeof(H)}(V, V_tmp, H)
+    end
+
+    function ArnoldiWorkspace(v1::AbstractVector{T}, krylov_dimension::Int) where {T}
+        # From an initial vector v1.
+        V = similar(v1, length(v1), krylov_dimension + 1)
+        V_tmp = similar(V)
+        H = zeros(T, krylov_dimension + 1, krylov_dimension)
+        return new{T,typeof(V),typeof(H)}(V, V_tmp, H)
     end
 end
 

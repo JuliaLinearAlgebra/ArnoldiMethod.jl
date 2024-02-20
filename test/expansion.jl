@@ -1,10 +1,10 @@
 # Tests the Arnoldi relation AV = VH when expanding the search subspace
 
 using Test, LinearAlgebra, SparseArrays
-using ArnoldiMethod: reinitialize!, Arnoldi, iterate_arnoldi!
+using ArnoldiMethod: reinitialize!, ArnoldiWorkspace, iterate_arnoldi!
 
 @testset "Initialization" begin
-    arnoldi = Arnoldi{Float64}(5, 3)
+    arnoldi = ArnoldiWorkspace(Float64, 5, 3)
     reinitialize!(arnoldi)
     @test norm(arnoldi.V[:, 1]) ≈ 1
 end
@@ -15,7 +15,7 @@ end
     for T in (Float64, BigFloat)
         A = sprand(T, n, n, 0.1) + I
 
-        arnoldi = Arnoldi{T}(n, max)
+        arnoldi = ArnoldiWorkspace(T, n, max)
         reinitialize!(arnoldi)
         V, H = arnoldi.V, arnoldi.H
 
@@ -40,7 +40,7 @@ end
         ]
 
         # and an initial vector [1; 0; ... 0]
-        vh = Arnoldi{T}(8, 5)
+        vh = ArnoldiWorkspace(T, 8, 5)
         V, H = vh.V, vh.H
         V[:, 1] .= zero(T)
         V[1, 1] = one(T)
