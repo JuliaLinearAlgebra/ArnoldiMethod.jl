@@ -70,7 +70,7 @@ end
     Q = qr(randn(T, k, k)).Q * Matrix(1.0I, k, k)
 
     A = rand(T, n, n)
-    arn = Arnoldi{T}(n, k)
+    arn = ArnoldiWorkspace(T, n, k)
     reinitialize!(arn)
     iterate_arnoldi!(A, arn, 1:k)
 

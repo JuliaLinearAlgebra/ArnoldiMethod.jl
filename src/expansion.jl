@@ -9,12 +9,16 @@ Generate a random `j+1`th column orthonormal against V[:,1:j]
 Returns true if the column is a valid new basis vector.
 Returns false if the column is numerically in the span of the previous vectors.
 """
-function reinitialize!(arnoldi::Arnoldi{T}, j::Int = 0) where {T}
+function reinitialize!(
+    arnoldi::ArnoldiWorkspace{T},
+    j::Int = 0,
+    populate! = rand!,
+) where {T}
     V = arnoldi.V
     v = view(V, :, j + 1)
 
     # Generate a new random column
-    rand!(v)
+    populate!(v)
 
     # Norm before orthogonalization
     rnorm = norm(v)
@@ -62,7 +66,7 @@ Orthogonalize arnoldi.V[:, j+1] against arnoldi.V[:, 1:j].
 Returns true if the column is a valid new basis vector.
 Returns false if the column is numerically in the span of the previous vectors.
 """
-function orthogonalize!(arnoldi::Arnoldi{T}, j::Integer) where {T}
+function orthogonalize!(arnoldi::ArnoldiWorkspace{T}, j::Integer) where {T}
     V = arnoldi.V
     H = arnoldi.H
 
@@ -109,7 +113,7 @@ end
 
 Perform Arnoldi from `from` to `to`.
 """
-function iterate_arnoldi!(A, arnoldi::Arnoldi{T}, range::UnitRange{Int}) where {T}
+function iterate_arnoldi!(A, arnoldi::ArnoldiWorkspace{T}, range::UnitRange{Int}) where {T}
     V, H = arnoldi.V, arnoldi.H
 
     for j in range

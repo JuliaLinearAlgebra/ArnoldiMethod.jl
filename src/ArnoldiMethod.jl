@@ -8,24 +8,45 @@ using Base: RefValue, OneTo
 export partialschur, LM, SR, LR, SI, LI, partialeigen
 
 """
-    Arnoldi(n, k) → Arnoldi
+ArnoldiWorkspace(n, k) → ArnoldiWorkspace
 
-Pre-allocated Arnoldi relation of the Vₖ₊₁ and Hₖ matrices that satisfy
-A * Vₖ = Vₖ₊₁ * Hₖ, where Vₖ₊₁ is orthonormal of size n × (k+1) and Hₖ upper 
-Hessenberg of size (k+1) × k. The constructor will just allocate sufficient
-space, but will *not* initialize the first vector of `v₁`. For the latter see
-`reinitialize!`.
+Holds the large arrays for the Arnoldi relation: Vₖ₊₁ and Hₖ are matrices that
+satisfy A * Vₖ = Vₖ₊₁ * Hₖ, where Vₖ₊₁ is orthonormal of size n × (k+1) and Hₖ upper 
+Hessenberg of size (k+1) × k. The matrices V_tmp and Q are used for restarts, and
+have similar size as Vₖ₊₁ and Hₖ (but Q is k × k, not k+1 × k).
 """
-struct Arnoldi{T,TV<:StridedMatrix{T},TH<:StridedMatrix{T}}
+struct ArnoldiWorkspace{T,TV<:AbstractMatrix{T},TH<:AbstractMatrix{T}}
+    # Orthonormal basis of the Krylov subspace.
     V::TV
+
+    # The Hessenberg matrix of the Arnoldi relation.
     H::TH
 
-    function Arnoldi{T}(matrix_order::Int, krylov_dimension::Int) where {T}
+    # Temporary matrix similar to V, used to restart.
+    V_tmp::TV
+
+    # Unitary matrix size of (square) H to do a change of basis.
+    Q::TH
+
+    function ArnoldiWorkspace(::Type{T}, matrix_order::Int, krylov_dimension::Int) where {T}
+        # Without an initial vector.
         krylov_dimension <= matrix_order ||
             throw(ArgumentError("Krylov dimension should be less than matrix order."))
         V = Matrix{T}(undef, matrix_order, krylov_dimension + 1)
+        V_tmp = similar(V)
         H = zeros(T, krylov_dimension + 1, krylov_dimension)
-        return new{T,typeof(V),typeof(H)}(V, H)
+        Q = similar(H, krylov_dimension, krylov_dimension)
+        return new{T,typeof(V),typeof(H)}(V, H, V_tmp, Q)
+    end
+
+    function ArnoldiWorkspace(v1::AbstractVector{T}, krylov_dimension::Int) where {T}
+        # From an initial vector v1.
+        V = similar(v1, length(v1), krylov_dimension + 1)
+        V_tmp = similar(V)
+        H = similar(V, krylov_dimension + 1, krylov_dimension)
+        fill!(H, zero(eltype(H)))
+        Q = similar(H, krylov_dimension, krylov_dimension)
+        return new{T,typeof(V),typeof(H)}(V, H, V_tmp, Q)
     end
 end
 
