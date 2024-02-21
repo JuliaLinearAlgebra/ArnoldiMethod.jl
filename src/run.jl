@@ -13,7 +13,7 @@ end
 
 """
 ```julia
-partialschur(A; nev, which, tol, mindim, maxdim, restarts) → PartialSchur, History
+partialschur(A; v1, workspace, nev, which, tol, mindim, maxdim, restarts) → PartialSchur, History
 ```
 
 Find `nev` approximate eigenpairs of `A` with eigenvalues near a specified target.
@@ -33,6 +33,7 @@ The most important keyword arguments:
 | `nev` | `Int` | `min(6, size(A, 1))` |Number of eigenvalues |
 | `which` | `Symbol` or `Target` | `:LM` | One of `:LM`, `:LR`, `:SR`, `:LI`, `:SI`, see below. |
 | `tol` | `Real` | `√eps` | Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖ |
+| `v1` | `AbstractVector` | `nothing` | Optional starting vector for the Krylov subspace |
 
 The target `which` can be any of:
 
@@ -93,6 +94,7 @@ is usually about two times `mindim`.
 """
 function partialschur(
     A;
+    v1::Union{AbstractVector,Nothing} = nothing,
     nev::Int = min(6, size(A, 1)),
     which::Union{Target,Symbol} = LM(),
     tol::Real = sqrt(eps(real(vtype(A)))),
@@ -101,14 +103,24 @@ function partialschur(
     restarts::Int = 200,
 )
     s = checksquare(A)
-    if nev < 1
-        throw(ArgumentError("nev cannot be less than 1"))
-    end
+    nev < 1 && throw(ArgumentError("nev cannot be less than 1"))
     nev ≤ mindim ≤ maxdim ≤ s || throw(
-        ArgumentError("nev ≤ mindim ≤ maxdim does not hold, got $nev ≤ $mindim ≤ $maxdim"),
+        ArgumentError(
+            "nev ≤ mindim ≤ maxdim ≤ size(A, 1) does not hold, got $nev ≤ $mindim ≤ $maxdim ≤ $s",
+        ),
     )
     _which = which isa Target ? which : _symbol_to_target(which)
-    _partialschur(A, vtype(A), mindim, maxdim, nev, tol, restarts, _which)
+
+    if v1 === nothing
+        arnoldi = ArnoldiWorkspace(vtype(A), size(A, 1), maxdim)
+        reinitialize!(arnoldi, 0, v -> rand!(v))
+    else
+        length(v1) == size(A, 1) ||
+            throw(ArgumentError("v1 should have the same dimension as A"))
+        arnoldi = ArnoldiWorkspace(v1, maxdim)
+        reinitialize!(arnoldi, 0, v -> copyto!(v, v1))
+    end
+    _partialschur(A, arnoldi, mindim, maxdim, nev, tol, restarts, _which)
 end
 
 _symbol_to_target(sym::Symbol) =
@@ -156,7 +168,7 @@ end
 
 function _partialschur(
     A,
-    ::Type{T},
+    arnoldi::ArnoldiWorkspace{T},
     mindim::Int,
     maxdim::Int,
     nev::Int,
@@ -164,25 +176,17 @@ function _partialschur(
     restarts::Int,
     which::Target,
 ) where {T,Ttol<:Real}
-    n = size(A, 1)
-
-    # Pre-allocated Arnoldi decomp
-    arnoldi = Arnoldi{T}(n, maxdim)
-
     # Unpack for convenience
     H = arnoldi.H
     V = arnoldi.V
+    Vtmp = arnoldi.V_tmp
+    Q = arnoldi.Q
 
-    # For a change of basis we have Vtmp as working space
-    Vtmp = Matrix{T}(undef, n, maxdim)
-
-    # Unitary matrix used for change of basis of V.
-    Q = Matrix{T}(undef, maxdim, maxdim)
-
-    # We only need to store one eignvector of the Hessenberg matrix
+    # We only need to store one eigenvector of the Hessenberg matrix.
     x = zeros(complex(T), maxdim)
 
     # And we store the reflector to transform H back to Hessenberg separately
+    # TODO: can be in-place in H now.
     G = Reflector{T}(maxdim)
 
     # Approximate residual norms for all Ritz values, and Ritz values
@@ -205,7 +209,6 @@ function _partialschur(
     prods = mindim
 
     # Initialize an Arnoldi relation of size `mindim`
-    reinitialize!(arnoldi)
     iterate_arnoldi!(A, arnoldi, 1:mindim)
 
     for iter = 1:restarts

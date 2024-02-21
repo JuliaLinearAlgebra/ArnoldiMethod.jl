@@ -61,6 +61,21 @@ end
     @test_throws ArgumentError partialschur(A, nev = 10)
 end
 
+
+@testset "Eigenvector as initial vector is not problematic" begin
+    A = rand(30, 30)
+    A += A'
+    λs, X = eigen(Symmetric(A))  # ensure real eigenvectors
+
+    λ, x = λs[end], X[:, end]
+    decomp, history = partialschur(A, v1 = x, nev = 2, tol = 1e-8)
+
+    @test history.converged
+    @test norm(A * decomp.Q - decomp.Q * decomp.R) < 1e-7
+    @test abs(maximum(real(decomp.eigenvalues)) - λ) < 1e-7
+end
+
+
 @testset "Target non-dominant eigenvalues" begin
     # Dominant eigenvalues 50, 51, 52, 53, but we target the smallest real part
     A = Diagonal([1:0.1:10; 50:53])
