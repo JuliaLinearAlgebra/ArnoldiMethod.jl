@@ -180,14 +180,13 @@ function _partialschur(
     H = arnoldi.H
     V = arnoldi.V
     Vtmp = arnoldi.V_tmp
+    Q = arnoldi.Q
 
-    # Unitary matrix used for change of basis of V.
-    Q = Matrix{T}(undef, maxdim, maxdim)
-
-    # We only need to store one eignvector of the Hessenberg matrix
+    # We only need to store one eigenvector of the Hessenberg matrix.
     x = zeros(complex(T), maxdim)
 
     # And we store the reflector to transform H back to Hessenberg separately
+    # TODO: can be in-place in H now.
     G = Reflector{T}(maxdim)
 
     # Approximate residual norms for all Ritz values, and Ritz values
