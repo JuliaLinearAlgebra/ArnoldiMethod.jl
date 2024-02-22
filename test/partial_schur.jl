@@ -130,7 +130,8 @@ end
     @test norm(A * F.Q - F.Q * F.R) < 1e-10
 
     # Then continue to find a couple more, at higher tolerance
-    F, history = partialschur!(A, arnoldi, nev = 5, start_from = history.nconverged + 1 , tol = 1e-8)
+    F, history =
+        partialschur!(A, arnoldi, nev = 5, start_from = history.nconverged + 1, tol = 1e-8)
     @test history.converged
     @test history.nconverged in 5:6
     @test norm(A * F.Q - F.Q * F.R) < 1e-6
