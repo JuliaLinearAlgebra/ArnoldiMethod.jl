@@ -375,17 +375,10 @@ identical defaults: each of the mentioned packages uses a slightly different def
 convergence criterion.
 
 
-## Status
-An overview of what we have, how it's done and what we're missing.
+## Implementation details
 
-### Implementation details
-
-- The method does not make assumptions about the type of the matrix; it is 
-  matrix-free.
-- Converged Ritz vectors are locked (or deflated).
-- We may do "purging" differently from ARPACK: in ArnoldiMethod.jl it is rather
-  "unlocking", in the sense that converged but unwanted eigenvectors are retained
-  in the search subspace instead of removed from it.
+- The method is "matrix-free", in the sense that only `mul!` needs to be
+  implemented.
 - Important matrices and vectors are pre-allocated and operations on the 
   Hessenberg matrix are in-place; Julia's garbage collector can sit back.
 - Krylov basis vectors are orthogonalized with repeated classical Gram-Schmidt
@@ -394,12 +387,18 @@ An overview of what we have, how it's done and what we're missing.
 - To compute the Schur decomposition of the Hessenberg matrix we use a dense 
   QR algorithm written natively in Julia. It is based on implicit (or Francis) 
   shifts and handles real arithmetic efficiently.
-- Locking and purging of Ritz vectors is done by reordering the Schur form, 
-  which is also implemented natively in Julia. In the real case it is done by
-  casting tiny Sylvester equations to linear systems and solving them with 
-  complete pivoting.
+- Converged Ritz vectors close enough to the target are locked, converged
+  Ritz vectors too far away from the target are purged (= removed from the
+  search subspace). This is done by re-ordering the Schur form. In the real
+  case it is done by casting tiny Sylvester equations to linear systems and
+  solving them with complete pivoting (in pure Julia).
+- The Krylov-Schur restart is typically implemented by computing a Housholder
+  reflector for the last row of the "perturbed" Hessenberg matrix. For
+  stability, ArnoldiMethod.jl uses Given's rotations to zero out this row,
+  which is more stable, given that the row may contain number of vastly different
+  orders of magnitude -- they correspond to residuals, which can be tiny or large.
 - Shrinking the size of the Krylov subspace and changing its basis is done by
   accumulating all rotations and reflections in a unitary matrix `Q`, and then
   simply computing the matrix-matrix product `V := V * Q`, where `V` is the 
-  original orthonormal basis. This is not in-place in `V`, so we allocate a bit
-  of scratch space ahead of time.
+  original orthonormal basis. This is not in-place in `V`, so we need to
+  allocate a temporary for V (once, ahead of time).
