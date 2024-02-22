@@ -403,24 +403,3 @@ An overview of what we have, how it's done and what we're missing.
   simply computing the matrix-matrix product `V := V * Q`, where `V` is the 
   original orthonormal basis. This is not in-place in `V`, so we allocate a bit
   of scratch space ahead of time.
-
-### Not implemented
-- Being able to kickstart the method from a given Arnoldi relation. This also
-  captures:
-  1. Making an initial guess by providing a known approximate eigenvector;
-  2. Deflating some subspace by starting the Arnoldi method with a given partial
-     Schur decomposition.
-- Matrix-induced inner product for generalized eigenvalue problems.
-- Efficient implementation of symmetric problems with Lanczos.
-
-On my wish list is to allow custom vector or matrix types, so that we can 
-delegate expensive but trivial work to hardware that can do it faster 
-(distributed memory / GPU). The basic concept would be: 
-
-1. The core Arnoldi method performs tedious linear algebra on the projected, 
-   low-dimensional problem, but finally just outputs a change of basis in the
-   form of a unitary matrix Q.
-2. Appropriate hardware does the change of basis `V := V * Q`.
-
-Similar things should happen for expansion of the subspace and 
-orthogonalization.
