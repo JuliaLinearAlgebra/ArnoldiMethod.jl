@@ -35,6 +35,8 @@ The most important keyword arguments:
 | `tol` | `Real` | `√eps` | Tolerance for convergence: ‖Ax - xλ‖₂ < tol * ‖λ‖ |
 | `v1` | `AbstractVector` | `nothing` | Optional starting vector for the Krylov subspace |
 
+Regarding the initial vector `v1`: it will not be mutated, and it does not have to be normalized.
+
 The target `which` can be any of:
 
 | Target          | Description                                    |
@@ -113,7 +115,7 @@ function partialschur(
 
     if v1 === nothing
         arnoldi = ArnoldiWorkspace(vtype(A), size(A, 1), maxdim)
-        reinitialize!(arnoldi, 0, v -> rand!(v))
+        reinitialize!(arnoldi, 0, rand!)
     else
         length(v1) == size(A, 1) ||
             throw(ArgumentError("v1 should have the same dimension as A"))
@@ -121,6 +123,56 @@ function partialschur(
         reinitialize!(arnoldi, 0, v -> copyto!(v, v1))
     end
     _partialschur(A, arnoldi, mindim, maxdim, nev, tol, restarts, _which)
+end
+
+"""
+```julia
+partialschur!(A, arnoldi; start_from, initialize, nev, which, tol, mindim, maxdim, restarts) → PartialSchur, History
+```
+
+This is a variant of [`partialschur`](@ref) that operates on a pre-allocated
+[`ArnoldiWorkspace`](@ref) instance. This is useful in the following cases:
+
+1. To provide an initial partial Schur decomposition. In that case, set `start_from` to the
+   number of Schur vectors, and `partialschur` will continue from there. Notice that if you have
+   only one Schur vector, it can be simpler to pass it as `v1` instead.
+2. To provide a custom array type for the basis of the Krylov subspace, the Hessenberg matrix, and
+   some temporaries.
+3. To avoid allocations when calling `partialschur` repeatedly.
+
+You can also provide the initial vector that induces the Krylov subspace in the first column
+arnoldi.V[:, 1]. If you do that, set `initialize` explicitly to `false`.
+
+Upon return, note that the PartialSchur struct will contain views of arnoldi.V and arnoldi.H, no
+copies are made.
+"""
+function partialschur!(
+    A,
+    arnoldi::ArnoldiWorkspace{T};
+    start_from::Int = 1,
+    initialize::Bool = start_from == 1,
+    nev::Int = min(6, size(A, 1)),
+    which::Union{Target,Symbol} = LM(),
+    tol::Real = sqrt(eps(real(vtype(A)))),
+    mindim::Int = min(max(10, nev), size(A, 1), size(arnoldi.V, 2) - 1),
+    maxdim::Int = min(max(20, 2nev), size(A, 1), size(arnoldi.V, 2) - 1),
+    restarts::Int = 200,
+) where {T}
+    s = checksquare(A)
+    nev < 1 && throw(ArgumentError("nev cannot be less than 1"))
+    nev ≤ mindim ≤ maxdim ≤ s || throw(
+        ArgumentError(
+            "nev ≤ mindim ≤ maxdim ≤ size(A, 1) does not hold, got $nev ≤ $mindim ≤ $maxdim ≤ $s",
+        ),
+    )
+    maxdim < size(arnoldi.V, 2) ||
+        throw(ArgumentError("maxdim should be strictly less than size(arnoldi.V, 2)"))
+    1 ≤ start_from ≤ maxdim ||
+        throw(ArgumentError("start_from should be between 1 and maxdim"))
+    _which = which isa Target ? which : _symbol_to_target(which)
+    fill!(view(arnoldi.H, :, start_from:size(arnoldi.H, 2)), zero(T))
+    initialize && reinitialize!(arnoldi, start_from - 1)
+    _partialschur(A, arnoldi, mindim, maxdim, nev, tol, restarts, _which, start_from)
 end
 
 _symbol_to_target(sym::Symbol) =
@@ -175,11 +227,12 @@ function _partialschur(
     tol::Ttol,
     restarts::Int,
     which::Target,
+    active::Int = 1, # when > 1, assumes we already have a converged schur form
 ) where {T,Ttol<:Real}
     # Unpack for convenience
     H = arnoldi.H
     V = arnoldi.V
-    Vtmp = arnoldi.V_tmp
+    V_tmp = arnoldi.V_tmp
     Q = arnoldi.Q
 
     # We only need to store one eigenvector of the Hessenberg matrix.
@@ -201,15 +254,14 @@ function _partialschur(
     #                        We keep length(active:k) ≈ mindim, but we should also retain
     #                        space to add new directions to the Krylov subspace, so 
     #                        length(k+1:maxdim) should not be too small either.
-    active = 1
     k = mindim
     effective_nev = nev
 
     # Bookkeeping for number of mv-products
-    prods = mindim
+    prods = length(active:mindim)
 
     # Initialize an Arnoldi relation of size `mindim`
-    iterate_arnoldi!(A, arnoldi, 1:mindim)
+    iterate_arnoldi!(A, arnoldi, active:mindim)
 
     for iter = 1:restarts
 
@@ -305,8 +357,8 @@ function _partialschur(
         restore_arnoldi!(H, nlock + 1, k, Q, G)
 
         # Finally do the change of basis to get the length `k` Arnoldi relation.
-        @views mul!(Vtmp[:, purge:k], V[:, purge:maxdim], Q[purge:maxdim, purge:k])
-        @views copyto!(V[:, purge:k], Vtmp[:, purge:k])
+        @views mul!(V_tmp[:, purge:k], V[:, purge:maxdim], Q[purge:maxdim, purge:k])
+        @views copyto!(V[:, purge:k], V_tmp[:, purge:k])
         @views copyto!(V[:, k+1], V[:, maxdim+1])
 
         # The active part 
@@ -324,8 +376,8 @@ function _partialschur(
     sortschur!(H, copyto!(Q, I), nconverged, ordering)
 
     # Change of basis
-    @views mul!(Vtmp[:, 1:nconverged], Vconverged, Q[1:nconverged, 1:nconverged])
-    @views copyto!(Vconverged, Vtmp[:, 1:nconverged])
+    @views mul!(V_tmp[:, 1:nconverged], Vconverged, Q[1:nconverged, 1:nconverged])
+    @views copyto!(Vconverged, V_tmp[:, 1:nconverged])
 
     # Copy the eigenvalues just one more time
     copy_eigenvalues!(ritz.λs, H, OneTo(nconverged))

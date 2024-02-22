@@ -108,6 +108,7 @@ $A$ on the diagonal.
 
 ```@docs
 partialschur
+partialschur!
 ```
 
 ## Partial eigendecomposition
@@ -152,6 +153,52 @@ For completeness, the return values of the [`partialschur`](@ref) function:
 ArnoldiMethod.PartialSchur
 ArnoldiMethod.History
 ```
+
+## Passing an initial guess
+
+If you have a good guess for a target eigenvector, you can potentially speed up
+the method by passing it through `partialschur(A, v1=my_initial_vector)`. This
+vector is then used to build the Krylov subspace.
+
+## Pre-allocating and custom matrix types
+
+If you call `partialschur` multiple times, and you want to allocate large arrays and buffers only
+once ahead of time, you can allocate the relevant matrices manually and pass them to the algorithm.
+
+The same can be done if you want to work with custom matrix types.
+
+```@docs
+ArnoldiMethod.ArnoldiWorkspace
+```
+
+## Starting from an initial partial Schur decomposition
+
+You can also use [`ArnoldiWorkspace`](@ref) to start the algorithm from an initial partial Schur
+decomposition. This is useful if you already found a few Schur vectors, and want to continue to
+find more.
+
+```julia
+A = rand(100, 100)
+
+# Pre-allocate the relevant Krylov subspace arrays
+V, H = rand(100, 21), rand(21, 20)
+arnoldi = ArnoldiWorkspace(V, H)
+
+# Find a few eigenvalues
+_, info_1 = partialschur!(A, arnoldi, nev = 3, tol = 1e-12)
+
+# Then continue to find a couple more. Notice: 5 in total, so 2 more. Allow larger errors by
+# changin `tol`.
+F, info_2 = partialschur!(A, arnoldi, nev = 5, start_from = info_1.nconverged + 1 , tol = 1e-8)
+@show norm(A * F.Q - F.Q * F.R)
+```
+
+!!! note "Setting `start_from` correctly"
+
+    As pointed out above, in real arithmetic the algorithm may find one eigenvalue more than
+    requested if it corresponds to a conjugate pair. Also it may find fewer, if not all
+    converge. So if you reuse your `ArnoldiWorkspace`, make sure to set `start_from` to one plus
+    the number of previously converged eigenvalues.
 
 ## What algorithm is ArnoldiMethod.jl?
 

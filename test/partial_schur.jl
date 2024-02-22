@@ -1,6 +1,6 @@
 using Test
 
-using ArnoldiMethod: partialschur, vtype, eigenvalues, SR
+using ArnoldiMethod: partialschur, partialschur!, vtype, eigenvalues, SR, ArnoldiWorkspace
 using LinearAlgebra
 
 @testset "Zero eigenvalues & low-rank matrices" begin
@@ -117,4 +117,21 @@ end
         @test norm(schur.Q'schur.Q - I) < 100 * eps(Float64)
         @test norm(A * schur.Q - schur.Q * schur.R) == 0
     end
+end
+
+@testset "Passing an initial Schur decomp" begin
+    # First compute a few eigenvalues
+    A = rand(100, 100)
+    V, H = rand(100, 21), rand(21, 20)
+    arnoldi = ArnoldiWorkspace(V, H)
+    F, history = partialschur!(A, arnoldi, nev = 3, tol = 1e-12)
+    @test history.converged
+    @test history.nconverged in 3:4
+    @test norm(A * F.Q - F.Q * F.R) < 1e-10
+
+    # Then continue to find a couple more, at higher tolerance
+    F, history = partialschur!(A, arnoldi, nev = 5, start_from = history.nconverged + 1 , tol = 1e-8)
+    @test history.converged
+    @test history.nconverged in 5:6
+    @test norm(A * F.Q - F.Q * F.R) < 1e-6
 end

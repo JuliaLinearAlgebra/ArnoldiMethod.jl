@@ -5,17 +5,46 @@ using StaticArrays
 
 using Base: RefValue, OneTo
 
-export partialschur, LM, SR, LR, SI, LI, partialeigen
+export partialschur, partialschur!, LM, SR, LR, SI, LI, partialeigen, ArnoldiWorkspace
 
 """
-ArnoldiWorkspace(n, k) → ArnoldiWorkspace
+    ArnoldiWorkspace(n, k) → ArnoldiWorkspace
+    ArnoldiWorkspace(v1, k) → ArnoldiWorkspace
+    ArnoldiWorkspace(V, H; V_tmp, Q) → ArnoldiWorkspace
 
 Holds the large arrays for the Arnoldi relation: Vₖ₊₁ and Hₖ are matrices that
 satisfy A * Vₖ = Vₖ₊₁ * Hₖ, where Vₖ₊₁ is orthonormal of size n × (k+1) and Hₖ upper 
 Hessenberg of size (k+1) × k. The matrices V_tmp and Q are used for restarts, and
 have similar size as Vₖ₊₁ and Hₖ (but Q is k × k, not k+1 × k).
+
+## Examples
+
+```julia
+# allocates workspace for 20-dimensional Krylov subspace
+arnoldi = ArnoldiWorkspace(100, 20)
+
+# allocate workspace for 20-dimensional Krylov subspace, with initial vector ones(100) copied into
+# the first column of V
+arnoldi = ArnoldiWorkspace(ones(100), 20)
+
+# manually allocate workspace with V, H
+V = Matrix{Float64}(undef, 100, 21)
+H = Matrix{Float64}(undef, 21, 20)
+arnoldi = ArnoldiWorkspace(V, H)
+
+# manually allocate all arrays, including temporaries
+V, tmp = Matrix{Float64}(undef, 100, 21), Matrix{Float64}(undef, 100, 21)
+H, Q = Matrix{Float64}(undef, 21, 20), Matrix{Float64}(undef, 20, 20)
+arnoldi = ArnoldiWorkspace(V, H, V_tmp = tmp, Q = Q)
+```
 """
-struct ArnoldiWorkspace{T,TV<:AbstractMatrix{T},TH<:AbstractMatrix{T}}
+struct ArnoldiWorkspace{
+    T,
+    TV<:AbstractMatrix{T},
+    TH<:AbstractMatrix{T},
+    TVtmp<:AbstractMatrix{T},
+    TQ<:AbstractMatrix{T},
+}
     # Orthonormal basis of the Krylov subspace.
     V::TV
 
@@ -23,10 +52,10 @@ struct ArnoldiWorkspace{T,TV<:AbstractMatrix{T},TH<:AbstractMatrix{T}}
     H::TH
 
     # Temporary matrix similar to V, used to restart.
-    V_tmp::TV
+    V_tmp::TVtmp
 
     # Unitary matrix size of (square) H to do a change of basis.
-    Q::TH
+    Q::TQ
 
     function ArnoldiWorkspace(::Type{T}, matrix_order::Int, krylov_dimension::Int) where {T}
         # Without an initial vector.
@@ -36,7 +65,7 @@ struct ArnoldiWorkspace{T,TV<:AbstractMatrix{T},TH<:AbstractMatrix{T}}
         V_tmp = similar(V)
         H = zeros(T, krylov_dimension + 1, krylov_dimension)
         Q = similar(H, krylov_dimension, krylov_dimension)
-        return new{T,typeof(V),typeof(H)}(V, H, V_tmp, Q)
+        return new{T,typeof(V),typeof(H),typeof(V_tmp),typeof(Q)}(V, H, V_tmp, Q)
     end
 
     function ArnoldiWorkspace(v1::AbstractVector{T}, krylov_dimension::Int) where {T}
@@ -46,7 +75,20 @@ struct ArnoldiWorkspace{T,TV<:AbstractMatrix{T},TH<:AbstractMatrix{T}}
         H = similar(V, krylov_dimension + 1, krylov_dimension)
         fill!(H, zero(eltype(H)))
         Q = similar(H, krylov_dimension, krylov_dimension)
-        return new{T,typeof(V),typeof(H)}(V, H, V_tmp, Q)
+        return new{T,typeof(V),typeof(H),typeof(V_tmp),typeof(Q)}(V, H, V_tmp, Q)
+    end
+
+    function ArnoldiWorkspace(
+        V::AbstractMatrix{T},
+        H::AbstractMatrix{T};
+        V_tmp::AbstractMatrix{T} = similar(V),
+        Q::AbstractMatrix{T} = similar(H, size(H, 2), size(H, 2)),
+    ) where {T}
+        size(V, 2) == size(H, 1) ||
+            throw(ArgumentError("V should have the same number of columns as H has rows."))
+        size(H, 1) == size(H, 2) + 1 ||
+            throw(ArgumentError("H should have one more row than it has columns."))
+        return new{T,typeof(V),typeof(H),typeof(V_tmp),typeof(Q)}(V, H, V_tmp, Q)
     end
 end
 
