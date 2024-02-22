@@ -47,6 +47,9 @@ The target `which` can be any of:
 | `:LI` or `LI()` | Largest imaginary part: `imag(λ)` is largest   |
 | `:SI` or `SI()` | Smallest imaginary part: `imag(λ)` is smallest |
 
+Note that as of ArnoldiMethod v0.4, you have to import `using ArnoldiMethod: LM` explicitly if you
+do not want to use symbols.
+
 !!! note
 
     The targets `:LI` and `:SI` only make sense in complex arithmetic. In real

@@ -5,7 +5,7 @@ using StaticArrays
 
 using Base: RefValue, OneTo
 
-export partialschur, partialschur!, LM, SR, LR, SI, LI, partialeigen, ArnoldiWorkspace
+export partialschur, partialschur!, partialeigen, ArnoldiWorkspace
 
 """
     ArnoldiWorkspace(n, k) → ArnoldiWorkspace
