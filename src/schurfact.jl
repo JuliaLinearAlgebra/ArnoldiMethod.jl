@@ -326,8 +326,7 @@ upper triangular (i.e. zeros out the bottom left entry).
 """
 function upper_triangular_2x2(H₁₁::T, H₁₂::T, H₂₁::T, H₂₂::T) where {T<:Real}
     # Early exit in trivial cases.
-    (iszero(H₂₁) || (iszero(H₁₁ - H₂₂) && sign(H₁₂) != sign(H₂₁))) &&
-        return false, one(T), zero(T)
+    iszero(H₂₁) && return true, one(T), zero(T)
     iszero(H₁₂) && return true, zero(T), one(T)
 
     # The characteristic polynomial is `λ² - tr(H)λ + det(H) = 0`

@@ -7,6 +7,7 @@ using ArnoldiMethod:
     local_schurfact!,
     is_offdiagonal_small,
     NotWanted,
+    Rotation2,
     use_single_shift,
     upper_triangular_2x2
 
@@ -171,4 +172,13 @@ end
     is_real, λ = use_single_shift(A'...)
     @test is_real
     @test λ ≈ 1.5
+end
+
+@testset "Early exit for upper_triangular_2x2" begin
+    for H in [[1 1; 0 1], [1 0; 1 1]]
+        is_real, c, s = upper_triangular_2x2(H'...)
+        @test is_real
+        G = Matrix(Rotation2(c, s, 1), 2)
+        @test iszero((G*H*G')[2, 1])
+    end
 end
